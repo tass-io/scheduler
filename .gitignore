@@ -15,14 +15,8 @@ main
 # Dependency directories (remove the comment below to include it)
 vendor/
 
-# Config file
-config.yaml
-
-# JWT key
-key/
-
 .idea
-sjtuSurvey
+.vscode
 .DS_Store
 
 # Protobuf
