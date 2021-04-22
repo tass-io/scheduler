@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/tass-io/scheduler/pkg/http/controller"
 )
 
 func RegisterRoute(r *gin.Engine) {
@@ -21,7 +22,7 @@ func RegisterRoute(r *gin.Engine) {
 	{
 		workflowRoute := v1.Group("/workflow")
 		{
-			workflowRoute.POST("/", nil)
+			workflowRoute.POST("/", controller.Invoke)
 		}
 	}
 }
