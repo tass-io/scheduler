@@ -1,14 +1,27 @@
 package local
 
-import "os"
+import (
+	"encoding/json"
+	"os"
+
+	"go.uber.org/zap"
+)
 
 type functionRequest struct {
 	Id         string
 	Parameters string
 }
 
-func NewFunctionRequest(parameters map[string]interface{}) *functionRequest {
-	return &functionRequest{}
+func NewFunctionRequest(id string, parameters map[string]interface{}) *functionRequest {
+	parameterStr, err := json.Marshal(parameters)
+	if err != nil {
+		zap.S().Errorw("functionRequest marshal error", "err", err)
+		return nil
+	}
+	return &functionRequest{
+		Id:         id,
+		Parameters: string(parameterStr),
+	}
 }
 
 type functionResponse struct {
@@ -16,25 +29,25 @@ type functionResponse struct {
 	Result map[string]interface{}
 }
 
-type consumer struct {
+type producer struct {
 	f              *os.File
 	requestChannel chan functionRequest
 }
 
-type producer struct {
+type consumer struct {
 	f               *os.File
 	responseChannel chan functionResponse
 }
 
-func NewConsumer(f *os.File) *consumer {
-	return &consumer{
+func NewProducer(f *os.File) *producer {
+	return &producer{
 		f:              f,
 		requestChannel: make(chan functionRequest, 10),
 	}
 }
 
-func (c *consumer) GetChannel() chan functionRequest {
-	return c.requestChannel
+func (c *consumer) GetChannel() chan functionResponse {
+	return c.responseChannel
 }
 
 // consumer Start will get function response and send it to the channel
@@ -42,15 +55,15 @@ func (c *consumer) Start() {
 
 }
 
-func NewProducer(f *os.File) *producer {
-	return &producer{
+func NewConsumer(f *os.File) *consumer {
+	return &consumer{
 		f:               f,
 		responseChannel: make(chan functionResponse, 10),
 	}
 }
 
-func (p *producer) GetChannel() chan functionResponse {
-	return p.responseChannel
+func (p *producer) GetChannel() chan functionRequest {
+	return p.requestChannel
 }
 
 // producer will listen channel and get request, write to pipe
