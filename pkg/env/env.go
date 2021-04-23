@@ -6,13 +6,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-const (
-	WORKFLOW_PATH = "WORKFLOW_PATH"
-)
+const ()
 
-func init() {
-	initEnv(WORKFLOW_PATH, "/etc/tass/scheduler")
-}
+func init() {}
 
 func initEnv(key string, defaultVal string) {
 	val, exist := os.LookupEnv(key)

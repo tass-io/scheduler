@@ -2,9 +2,14 @@ package local
 
 import (
 	"os"
+	"os/exec"
 	"sync"
+	"syscall"
+
+	"github.com/rs/xid"
 )
 
+// Instance Status will be updated by FunctionScheduler, first it will patch to apiserver, and then change local status, finally it will send SIGTERM to process
 type Status int32
 
 const (
@@ -58,11 +63,44 @@ func (i *instance) Start() (err error) {
 }
 
 // start function process and use pipe create connection
+// todo customize the command
 func (i *instance) startProcess(request *os.File, response *os.File) (err error) {
+	cmd := exec.Command("/proc/self/exe", "init")
+	// It is different from docker, we do not create mount namespace and network namespace
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWIPC,
+	}
+	cmd.ExtraFiles = []*os.File{request, response}
+	cmd.Start()
 	return
 }
 
-// Invoke will generate a uuid for functionRequest and will block until the function return the result
+// Invoke will generate a functionRequest and will block until the function return the result
 func (i *instance) Invoke(parameters map[string]interface{}) (result map[string]interface{}, err error) {
+	id := xid.New().String()
+	req := NewFunctionRequest(id, parameters)
+	i.producer.GetChannel() <- *req
+	return
+}
+
+func (i *instance) getWaitNum() int {
+	i.Lock()
+	defer i.Unlock()
+	return len(i.responseMapping)
+}
+
+// choose a target instance by specific policy
+func ChooseTargetInstance(instances []*instance) (target *instance) {
+	max := 999999
+	for _, instance := range instances {
+		if instance.Status != Running {
+			continue
+		}
+		waitNum := instance.getWaitNum()
+		if waitNum < max {
+			max = waitNum
+			target = instance
+		}
+	}
 	return
 }
