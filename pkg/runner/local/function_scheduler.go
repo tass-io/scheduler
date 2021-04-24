@@ -8,6 +8,13 @@ import (
 	"github.com/tass-io/scheduler/pkg/tools/errorutils"
 )
 
+var (
+	ResourceLimitError = &errorutils.ResourceLimitError{}
+	TargetInstanceType InstanceType = ProcessInstance
+)
+
+const  SCORE_MAX = 9999
+
 type FunctionScheduler struct {
 	sync.Locker
 	runner.Runner
@@ -16,7 +23,14 @@ type FunctionScheduler struct {
 
 type set struct {
 	sync.Locker
-	instances []*instance
+	instances []instance
+}
+
+func newSet() *set {
+	return &set{
+		Locker:    &sync.Mutex{},
+		instances: []instance{},
+	}
 }
 
 func NewFunctionScheduler() *FunctionScheduler {
@@ -38,31 +52,62 @@ func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Sp
 	target, existed := fs.instances[span.FunctionName]
 	if !existed {
 		// cold start, create target and create process
-		target = &set{
-			Locker:    &sync.Mutex{},
-			instances: []*instance{},
-		}
+		target = newSet()
 	}
 	// take care of the lock order, the set lock is before fs unlock
-	target.Lock()
-	defer target.Unlock()
 	fs.instances[span.FunctionName] = target
+	target.Lock()
 	fs.Unlock()
 	if len(target.instances) > 0 {
 		// warm start, try to find a lowest latency process to work
 		process := ChooseTargetInstance(target.instances)
+		target.Unlock()
 		return process.Invoke(parameters)
 	} else {
 		if fs.canCreate() {
 			// cold start, create a new process to handle request
-			newInstance := NewInstance(span.FunctionName)
-			newInstance.Start()
+			newInstance := NewInstance(TargetInstanceType, span.FunctionName)
+			err = newInstance.Start()
+			if err != nil {
+				return nil, err
+			}
 			target.instances = append(target.instances, newInstance)
-			newInstance.Invoke(parameters)
+			target.Unlock()
+			result, err = newInstance.Invoke(parameters)
 		} else {
 			// resource limit, return error
-			return nil, &errorutils.ResourceLimitError{}
+			return nil, ResourceLimitError
 		}
 	}
 	return
+}
+
+func ChooseTargetInstance(instances []instance) (target instance) {
+	max := SCORE_MAX
+	for _, i := range instances {
+		score := i.Score()
+		if max > i.Score() {
+			max = score
+			target = i
+		}
+	}
+	return
+}
+
+// add test inject point here
+func NewInstance(typ InstanceType, functionName string) instance {
+	switch typ {
+	case ProcessInstance:
+		{
+			return NewProcessInstance(functionName)
+		}
+	case MockInstance:
+		{
+			return nil
+		}
+	default:
+		{
+			return nil
+		}
+	}
 }
