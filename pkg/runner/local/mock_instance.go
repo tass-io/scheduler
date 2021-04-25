@@ -19,3 +19,10 @@ func (m *mockInstance) Release() {
 func (m *mockInstance) Start() error {
 	return nil
 }
+
+
+func NewMockInstance(functionName string) *mockInstance{
+	return &mockInstance{
+
+	}
+}

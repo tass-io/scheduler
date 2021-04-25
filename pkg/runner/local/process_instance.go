@@ -24,7 +24,6 @@ type processInstance struct {
 	cmd             *exec.Cmd
 }
 
-
 func (i *processInstance) Score() int {
 	if i.Status != Running {
 		return SCORE_MAX
@@ -145,18 +144,4 @@ func (i *processInstance) getWaitNum() int {
 	return len(i.responseMapping)
 }
 
-// choose a target processInstance by specific policy
-func ChooseTargetProcessInstance(processInstances []*processInstance) (target *processInstance) {
-	max := 999999
-	for _, processInstance := range processInstances {
-		if processInstance.Status != Running {
-			continue
-		}
-		waitNum := processInstance.getWaitNum()
-		if waitNum < max {
-			max = waitNum
-			target = processInstance
-		}
-	}
-	return
-}
+
