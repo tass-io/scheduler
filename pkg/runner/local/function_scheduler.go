@@ -1,24 +1,25 @@
 package local
 
 import (
-	"sync"
-
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/errorutils"
+	"sync"
+	"time"
 )
 
 var (
-	ResourceLimitError = &errorutils.ResourceLimitError{}
+	ResourceLimitError              = &errorutils.ResourceLimitError{}
 	TargetInstanceType InstanceType = ProcessInstance
 )
 
-const  SCORE_MAX = 9999
+const SCORE_MAX = 9999
 
 type FunctionScheduler struct {
 	sync.Locker
 	runner.Runner
 	instances map[string]*set
+	lsds *runner.LSDS
 }
 
 type set struct {
@@ -36,6 +37,19 @@ func newSet() *set {
 func NewFunctionScheduler() *FunctionScheduler {
 	return &FunctionScheduler{
 		instances: make(map[string]*set, 10),
+	}
+}
+
+func (fs *FunctionScheduler) Sync() {
+	for {
+		syncMap := make(map[string]int, len(fs.instances))
+		fs.Lock()
+		for functionName, ins := range fs.instances {
+			syncMap[functionName] = len(ins.instances)
+		}
+		fs.Unlock()
+		fs.lsds.Sync(syncMap)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -103,7 +117,7 @@ func NewInstance(typ InstanceType, functionName string) instance {
 		}
 	case MockInstance:
 		{
-			return nil
+			return NewMockInstance(functionName)
 		}
 	default:
 		{
