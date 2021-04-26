@@ -4,26 +4,27 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
-	api "github.com/tass-io/tass-operator/api/v1alpha1"
+	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
-	"io/ioutil"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
-	"net/http"
-	"strings"
-	"sync"
-	"time"
 )
 
 var NOT_VALID_TARGET_ERR error = errors.New("no valid target")
 
-type Policy func(functionName string, selfName string, runtime *api.WorkflowRuntime) string
+type Policy func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string
 
 var (
 	WorkflowRuntimeResource = schema.GroupVersionResource{
@@ -43,10 +44,10 @@ type LSDS struct {
 	workflowName    string
 	selfName        string
 	policies        map[string]Policy
-	processRuntimes api.ProcessRuntimes
+	processRuntimes serverlessv1alpha1.ProcessRuntimes
 }
 
-var SimplePolicy Policy = func(functionName string, selfName string, runtime *api.WorkflowRuntime) string {
+var SimplePolicy Policy = func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string {
 	var target string
 	max := 0
 	for i, instance := range runtime.Status.Instances {
@@ -75,7 +76,7 @@ func NewLSDS(ctx context.Context) *LSDS {
 		policies: map[string]Policy{
 			"simple": SimplePolicy,
 		},
-		processRuntimes: api.ProcessRuntimes{},
+		processRuntimes: serverlessv1alpha1.ProcessRuntimes{},
 		workflowName:    k8sutils.GetWorkflowName(),
 		selfName:        k8sutils.GetSelfName(),
 	}
@@ -83,12 +84,12 @@ func NewLSDS(ctx context.Context) *LSDS {
 	return lsds
 }
 
-func (l *LSDS) getWorkflowRuntimeByName(name string) (*api.WorkflowRuntime, error) {
+func (l *LSDS) getWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime, error) {
 	obj, err := l.informer.Lister().Get(name)
 	if err != nil {
 		return nil, err
 	}
-	wfrt, ok := obj.(*api.WorkflowRuntime)
+	wfrt, ok := obj.(*serverlessv1alpha1.WorkflowRuntime)
 	if !ok {
 		panic(obj)
 	}
@@ -110,9 +111,9 @@ func (l *LSDS) chooseTarget(functionName string) (ip string) {
 func (l *LSDS) Sync(info map[string]int) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
-	processes := api.ProcessRuntimes{}
+	processes := serverlessv1alpha1.ProcessRuntimes{}
 	for key, num := range info {
-		processes[key] = api.ProcessRuntime{
+		processes[key] = serverlessv1alpha1.ProcessRuntime{
 			Number: num,
 		}
 	}
@@ -127,11 +128,11 @@ func (l *LSDS) Sync(info map[string]int) {
 		v1.PatchOptions{})
 }
 
-func (l *LSDS) GeneratePatchWorkflowRuntime(processes api.ProcessRuntimes) []byte {
-	pwfrt := api.WorkflowRuntime{
-		Status: api.WorkflowRuntimeStatus{
-			Instances: api.Instances{
-				l.workflowName: api.Instance{
+func (l *LSDS) GeneratePatchWorkflowRuntime(processes serverlessv1alpha1.ProcessRuntimes) []byte {
+	pwfrt := serverlessv1alpha1.WorkflowRuntime{
+		Status: serverlessv1alpha1.WorkflowRuntimeStatus{
+			Instances: serverlessv1alpha1.Instances{
+				l.workflowName: serverlessv1alpha1.Instance{
 					ProcessRuntimes: processes,
 				},
 			},
@@ -203,8 +204,7 @@ func (l *LSDS) startListen() error {
 }
 
 func WorkflowRequest(parameters map[string]interface{}, target string, sp span.Span) (dto.InvokeResponse, error) {
-	client := &http.Client{
-	}
+	client := &http.Client{}
 	invokeRequest := dto.InvokeRequest{
 		WorkflowName: sp.WorkflowName,
 		StepName:     sp.StepName,

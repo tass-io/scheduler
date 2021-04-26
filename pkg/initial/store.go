@@ -1,10 +1,11 @@
-package init
-import (
-"context"
-"errors"
-"io/ioutil"
+package initial
 
-"github.com/go-redis/redis/v8"
+import (
+	"context"
+	"errors"
+	"io/ioutil"
+
+	"github.com/go-redis/redis/v8"
 )
 
 var (
