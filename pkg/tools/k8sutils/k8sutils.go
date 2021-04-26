@@ -1,11 +1,12 @@
 package k8sutils
 
 import (
+	"os"
+	"strings"
+
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"os"
-	"strings"
 )
 
 var (
