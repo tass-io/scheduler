@@ -68,7 +68,7 @@ var SimplePolicy Policy = func(functionName string, selfName string, runtime *ap
 
 // client is a parameter because we will use mockclient to test
 func NewLSDS(ctx context.Context) *LSDS {
-	return &LSDS{
+	lsds := &LSDS{
 		ctx:    ctx,
 		stopCh: make(chan struct{}),
 		lock:   &sync.Mutex{},
@@ -79,6 +79,8 @@ func NewLSDS(ctx context.Context) *LSDS {
 		workflowName:    k8sutils.GetWorkflowName(),
 		selfName:        k8sutils.GetSelfName(),
 	}
+	lsds.start()
+	return lsds
 }
 
 func (l *LSDS) getWorkflowRuntimeByName(name string) (*api.WorkflowRuntime, error) {
@@ -140,7 +142,7 @@ func (l *LSDS) GeneratePatchWorkflowRuntime(processes api.ProcessRuntimes) []byt
 }
 
 // LDS Start to watch other Local Scheduler Info
-func (l *LSDS) Start() {
+func (l *LSDS) start() {
 	err := l.startListen()
 	if err != nil {
 		panic(err)
