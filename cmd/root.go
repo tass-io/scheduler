@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/tass-io/scheduler/pkg/init"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 )
 
@@ -18,4 +19,5 @@ func Execute() error {
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(init.InitCmd)
 }
