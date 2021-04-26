@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/pkg/span"
+	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	api "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 	"io/ioutil"
@@ -13,13 +14,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/informers"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
+	"time"
 )
 
 var NOT_VALID_TARGET_ERR error = errors.New("no valid target")
@@ -37,12 +36,12 @@ var (
 
 type LSDS struct {
 	Runner
-	client          dynamic.Interface
+	informer        informers.GenericInformer
 	ctx             context.Context
+	stopCh          chan struct{}
 	lock            sync.Locker
 	workflowName    string
 	selfName        string
-	wfrt            *api.WorkflowRuntime
 	policies        map[string]Policy
 	processRuntimes api.ProcessRuntimes
 }
@@ -69,36 +68,40 @@ var SimplePolicy Policy = func(functionName string, selfName string, runtime *ap
 
 // client is a parameter because we will use mockclient to test
 func NewLSDS(ctx context.Context) *LSDS {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		panic(err)
-	}
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		panic(err)
-	}
-	hostName, _ := os.Hostname()
-	sli := strings.Split(hostName, "-")
-	if len(sli) < 3 {
-		panic(sli)
-	}
 	return &LSDS{
-		client: dynamicClient,
 		ctx:    ctx,
+		stopCh: make(chan struct{}),
 		lock:   &sync.Mutex{},
 		policies: map[string]Policy{
 			"simple": SimplePolicy,
 		},
 		processRuntimes: api.ProcessRuntimes{},
-		workflowName:    sli[0] + "-" + sli[1],
-		selfName:        strings.Join(sli[2:], "-"),
+		workflowName:    k8sutils.GetWorkflowName(),
+		selfName:        k8sutils.GetSelfName(),
 	}
+}
+
+func (l *LSDS) getWorkflowRuntimeByName(name string) (*api.WorkflowRuntime, error) {
+	obj, err := l.informer.Lister().Get(name)
+	if err != nil {
+		return nil, err
+	}
+	wfrt, ok := obj.(*api.WorkflowRuntime)
+	if !ok {
+		panic(obj)
+	}
+	return wfrt, nil
 }
 
 func (l *LSDS) chooseTarget(functionName string) (ip string) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
-	ip = l.policies[TargetPolicy](functionName, l.selfName, l.wfrt)
+	wfrt, err := l.getWorkflowRuntimeByName(l.workflowName)
+	if err != nil {
+		// todo add retry
+		zap.S().Errorw("lsds get workflowruntime error", "err", err)
+	}
+	ip = l.policies[TargetPolicy](functionName, l.selfName, wfrt)
 	return
 }
 
@@ -114,8 +117,7 @@ func (l *LSDS) Sync(info map[string]int) {
 	l.processRuntimes = processes
 	pathByte := l.GeneratePatchWorkflowRuntime(l.processRuntimes)
 	// use patch to update
-	l.GeneratePatchWorkflowRuntime(l.processRuntimes)
-	l.client.Resource(WorkflowRuntimeResource).Patch(
+	k8sutils.GetPatchClientIns().Resource(WorkflowRuntimeResource).Patch(
 		context.Background(),
 		l.workflowName,
 		types.StrategicMergePatchType,
@@ -146,41 +148,55 @@ func (l *LSDS) Start() {
 }
 
 func (l *LSDS) startListen() error {
-	watcher, err := l.client.Resource(WorkflowRuntimeResource).Watch(l.ctx,
-		v1.ListOptions{
-			LabelSelector: labels.Set(
-				map[string]string{
-					"type": "workflowRuntime",
-					"name": l.workflowName,
-				}).String(),
-			Watch: true,
-		})
+	k8sclient := k8sutils.GetInformerClientIns()
+	factory := informers.NewSharedInformerFactoryWithOptions(k8sclient, 1*time.Second, informers.WithTweakListOptions(func(options *v1.ListOptions) {
+		options.LabelSelector = labels.Set(
+			map[string]string{
+				"type": "workflow",
+				"name": k8sutils.GetWorkflowName(),
+			}).String()
+	}), informers.WithNamespace(k8sutils.GetWorkflowName()))
+	informer, err := factory.ForResource(WorkflowRuntimeResource)
 	if err != nil {
-		zap.S().Errorw("LSDS watch WorkflowRuntime error", "err", err)
-		return err
+		panic(err)
 	}
-	for e := range watcher.ResultChan() {
-		switch e.Type {
-		case watch.Modified, watch.Added:
-			{
-				wfrt, ok := e.Object.(*api.WorkflowRuntime)
-				if !ok {
-					zap.S().Errorw("lsds watch struct convert err", "Object", e.Object)
-				}
-				l.lock.Lock()
-				l.wfrt = wfrt
-				l.lock.Unlock()
-			}
-		case watch.Deleted:
-			{
-				zap.S().Fatal("system error why a WorkflowRuntime deleted")
-			}
-		default:
-			{
-				zap.S().Infow("strange event at lsds", "event", e)
-			}
-		}
-	}
+	l.informer = informer
+	go informer.Informer().Run(l.stopCh)
+	//watcher, err := cli.Resource(WorkflowRuntimeResource).Watch(l.ctx,
+	//	v1.ListOptions{
+	//		LabelSelector: labels.Set(
+	//			map[string]string{
+	//				"type": "workflowRuntime",
+	//				"name": l.workflowName,
+	//			}).String(),
+	//		Watch: true,
+	//	})
+	//if err != nil {
+	//	zap.S().Errorw("LSDS watch WorkflowRuntime error", "err", err)
+	//	return err
+	//}
+	//for e := range watcher.ResultChan() {
+	//	switch e.Type {
+	//	case watch.Modified, watch.Added:
+	//		{
+	//			wfrt, ok := e.Object.(*api.WorkflowRuntime)
+	//			if !ok {
+	//				zap.S().Errorw("lsds watch struct convert err", "Object", e.Object)
+	//			}
+	//			l.lock.Lock()
+	//			l.wfrt = wfrt
+	//			l.lock.Unlock()
+	//		}
+	//	case watch.Deleted:
+	//		{
+	//			zap.S().Fatal("system error why a WorkflowRuntime deleted")
+	//		}
+	//	default:
+	//		{
+	//			zap.S().Infow("strange event at lsds", "event", e)
+	//		}
+	//	}
+	//}
 	return nil
 }
 
@@ -197,7 +213,7 @@ func WorkflowRequest(parameters map[string]interface{}, target string, sp span.S
 		zap.S().Errorw("workflow request body error", "err", err)
 		return dto.InvokeResponse{}, err
 	}
-	req, err := http.NewRequest("POST", target + ":8080/workflow", strings.NewReader(string(reqByte)))
+	req, err := http.NewRequest("POST", target+":8080/workflow", strings.NewReader(string(reqByte)))
 	if err != nil {
 		zap.S().Errorw("workflow request request error", "err", err)
 		return dto.InvokeResponse{}, err
