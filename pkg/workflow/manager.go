@@ -12,6 +12,10 @@ import (
 	"time"
 )
 
+func init()  {
+	manager = NewManager()
+}
+
 var (
 	WorkflowResource = schema.GroupVersionResource{
 		Group:    "serverless.tass.io",
@@ -21,10 +25,6 @@ var (
 	manager *Manager
 )
 
-func ManagerInit(runner runner.Runner) {
-	manager = NewManager(runner)
-	manager.start()
-}
 
 type Manager struct {
 	runner   runner.Runner
@@ -37,11 +37,13 @@ func GetManagerIns() *Manager {
 }
 
 // NewManager will use path to init workflow from file
-func NewManager(runner runner.Runner) *Manager {
-	return &Manager{
-		runner: runner,
+func NewManager() *Manager {
+	m :=  &Manager{
+		runner: runner.NewRunner(),
 		stopCh: make(chan struct{}),
 	}
+	m.start()
+	return m
 }
 
 // Start will watch Workflow related CRD

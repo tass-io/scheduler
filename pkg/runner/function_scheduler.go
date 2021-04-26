@@ -1,7 +1,7 @@
-package local
+package runner
 
 import (
-	"github.com/tass-io/scheduler/pkg/runner"
+	"context"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/errorutils"
 	"sync"
@@ -17,9 +17,9 @@ const SCORE_MAX = 9999
 
 type FunctionScheduler struct {
 	sync.Locker
-	runner.Runner
+	Runner
 	instances map[string]*set
-	lsds *runner.LSDS
+	lsds      *LSDS
 }
 
 type set struct {
@@ -35,8 +35,10 @@ func newSet() *set {
 }
 
 func NewFunctionScheduler() *FunctionScheduler {
+	// todo context architecture
 	return &FunctionScheduler{
 		instances: make(map[string]*set, 10),
+		Runner:    NewLSDS(context.Background()),
 	}
 }
 
@@ -80,7 +82,7 @@ func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Sp
 	} else {
 		if fs.canCreate() {
 			// cold start, create a new process to handle request
-			newInstance := NewInstance(TargetInstanceType, span.FunctionName)
+			newInstance := NewInstance(span.FunctionName)
 			err = newInstance.Start()
 			if err != nil {
 				return nil, err
@@ -109,19 +111,6 @@ func ChooseTargetInstance(instances []instance) (target instance) {
 }
 
 // add test inject point here
-func NewInstance(typ InstanceType, functionName string) instance {
-	switch typ {
-	case ProcessInstance:
-		{
-			return NewProcessInstance(functionName)
-		}
-	case MockInstance:
-		{
-			return NewMockInstance(functionName)
-		}
-	default:
-		{
-			return nil
-		}
-	}
+var NewInstance = func(functionName string) instance {
+	return NewProcessInstance(functionName)
 }

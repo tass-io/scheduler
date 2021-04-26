@@ -1,4 +1,7 @@
-package local
+package runner
+
+// processInstance Status will be updated by FunctionScheduler, first it will patch to apiserver, and then change local status, finally it will send SIGTERM to process
+type Status int32
 
 const (
 	Init        Status = 0

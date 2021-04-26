@@ -1,4 +1,4 @@
-package local
+package runner
 
 import (
 	"go.uber.org/zap"
@@ -10,8 +10,6 @@ import (
 	"github.com/rs/xid"
 )
 
-// processInstance Status will be updated by FunctionScheduler, first it will patch to apiserver, and then change local status, finally it will send SIGTERM to process
-type Status int32
 
 
 type processInstance struct {
