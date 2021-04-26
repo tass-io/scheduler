@@ -16,15 +16,15 @@ import (
 // this package will handle function process init and exec specific function
 var (
 	funcName string
+	InitCmd  = &cobra.Command{
+		Use:   "init",
+		Short: "init a function process",
+		Long:  "init a function process",
+		Run: func(cmd *cobra.Command, args []string) {
+			functionInit(funcName)
+		},
+	}
 )
-var InitCmd = &cobra.Command{
-	Use: "init",
-	Short: "init a function process",
-	Long: "init a function process",
-	Run: func(cmd *cobra.Command, args []string) {
-		functionInit(funcName)
-	},
-}
 
 // functionInit will move function code to it's own directory
 // redirect stdout and stderr to file
@@ -34,10 +34,11 @@ func functionInit(funcName string) {
 	if err != nil {
 		panic(err)
 	}
-	codePrepare(codeBase64)
+	codePrepareAndExec(codeBase64)
+
 }
 
-func codePrepare(code string) {
+func codePrepareAndExec(code string) {
 	pid := os.Getpid()
 	directoryPath := fmt.Sprintf("/tmp/tass/%d", pid)
 	codePath := directoryPath + "/code"
