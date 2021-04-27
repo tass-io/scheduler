@@ -1,19 +1,19 @@
 package workflow
 
 import (
+	"context"
 	"time"
 
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 )
 
-func init() {
+func ManagerInit() {
 	manager = NewManager()
 }
 
@@ -21,15 +21,16 @@ var (
 	WorkflowResource = schema.GroupVersionResource{
 		Group:    "serverless.tass.io",
 		Version:  "v1alpha1",
-		Resource: "Workflow",
+		Resource: "workflows",
 	}
 	manager *Manager
 )
 
 type Manager struct {
+	ctx      context.Context
 	runner   runner.Runner
 	stopCh   chan struct{}
-	informer informers.GenericInformer
+	informer cache.SharedInformer
 }
 
 func GetManagerIns() *Manager {
@@ -39,6 +40,7 @@ func GetManagerIns() *Manager {
 // NewManager will use path to init workflow from file
 func NewManager() *Manager {
 	m := &Manager{
+		ctx:    context.Background(),
 		runner: runner.NewRunner(),
 		stopCh: make(chan struct{}),
 	}
@@ -55,38 +57,37 @@ func (m *Manager) start() {
 }
 
 func (m *Manager) startListen() error {
-	k8sclient := k8sutils.GetInformerClientIns()
-	factory := informers.NewSharedInformerFactoryWithOptions(k8sclient, 1*time.Second, informers.WithTweakListOptions(func(options *v1.ListOptions) {
-		options.LabelSelector = labels.Set(
-			map[string]string{
-				"type": "workflow",
-				"name": k8sutils.GetWorkflowName(),
-			}).String()
-	}), informers.WithNamespace(k8sutils.GetWorkflowName()))
-	informer, err := factory.ForResource(WorkflowResource)
-	if err != nil {
-		panic(err)
-	}
+	zap.S().Debug("in the manager start listen")
+	listAndWatch := k8sutils.CreateUnstructuredListWatch(m.ctx, k8sutils.GetSelfNamespace(), WorkflowResource)
+	informer := cache.NewSharedInformer(
+		listAndWatch,
+		&serverlessv1alpha1.WorkflowRuntime{},
+		1*time.Second,
+	)
 	m.informer = informer
-	go informer.Informer().Run(m.stopCh)
+	go informer.Run(make(<-chan struct{}))
 	return nil
 }
 
-func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, error) {
-	obj, err := m.informer.Lister().Get(name)
+func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) {
+	key := k8sutils.GetSelfNamespace() + "/" + name
+	obj, existed, err := m.informer.GetStore().GetByKey(key)
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	if !existed {
+		return nil, false, nil
 	}
 	wf, ok := obj.(*serverlessv1alpha1.Workflow)
 	if !ok {
 		panic(obj)
 	}
-	return wf, nil
+	return wf, true, nil
 }
 
 // handleWorkflow is the core function at manager, it will execute Workflow defined logic, call runner.Run and return the final result
 func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span) (map[string]interface{}, error) {
-	_, _ = m.getWorkflowByName(sp.WorkflowName)
+	_, _, _ = m.getWorkflowByName(sp.WorkflowName)
 	return nil, nil
 }
 

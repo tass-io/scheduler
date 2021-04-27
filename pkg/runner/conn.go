@@ -12,15 +12,15 @@ import (
 
 /*
 
-				   Instance model
-				    |          ^
+                   Instance model
+                    |          ^
 functionRequest     |          |   functionResponse
-				    v          |
-			     producer   consumer
-			        |           ^
-	bytes	        |           |     bytes
-					|           ----------------------|
-					|----------------------------> process
+                    v          |
+                 producer   consumer
+                    |           ^
+    bytes	        |           |     bytes
+                    |           ----------------------|
+                    |----------------------------> process
 
 */
 
@@ -28,6 +28,7 @@ var (
 	// split byte just for functionRequest package delimiter
 	splitByte = []byte("littledrizzle")
 )
+
 // functionRequest will be put into the producer and send it to request pipe
 type functionRequest struct {
 	Id         string `json:"id"`
@@ -105,7 +106,6 @@ func (c *consumer) Terminate() {
 func (p *producer) GetChannel() chan functionRequest {
 	return p.requestChannel
 }
-
 
 func NewProducer(f *os.File) *producer {
 	return &producer{

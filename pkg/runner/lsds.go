@@ -10,16 +10,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 )
 
 var NOT_VALID_TARGET_ERR error = errors.New("no valid target")
@@ -30,14 +30,14 @@ var (
 	WorkflowRuntimeResource = schema.GroupVersionResource{
 		Group:    "serverless.tass.io",
 		Version:  "v1alpha1",
-		Resource: "WorkflowRuntime",
+		Resource: "workflowruntimes",
 	}
-	TargetPolicy = "simple"
+	TargetPolicy = viper.GetString("policy")
 )
 
 type LSDS struct {
 	Runner
-	informer        informers.GenericInformer
+	informer        cache.SharedInformer
 	ctx             context.Context
 	stopCh          chan struct{}
 	lock            sync.Locker
@@ -84,31 +84,41 @@ func NewLSDS(ctx context.Context) *LSDS {
 	return lsds
 }
 
-func (l *LSDS) getWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime, error) {
-	obj, err := l.informer.Lister().Get(name)
+func (l *LSDS) getWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime, bool, error) {
+
+	key := k8sutils.GetSelfName() + "/" + name
+	obj, existed, err := l.informer.GetStore().GetByKey(key)
 	if err != nil {
-		return nil, err
+		return nil, false, err
+	}
+	if !existed {
+		return nil, false, nil
 	}
 	wfrt, ok := obj.(*serverlessv1alpha1.WorkflowRuntime)
 	if !ok {
 		panic(obj)
 	}
-	return wfrt, nil
+	return wfrt, true, nil
 }
 
 func (l *LSDS) chooseTarget(functionName string) (ip string) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
-	wfrt, err := l.getWorkflowRuntimeByName(l.workflowName)
+	wfrt, existed, err := l.getWorkflowRuntimeByName(l.workflowName)
 	if err != nil {
 		// todo add retry
 		zap.S().Errorw("lsds get workflowruntime error", "err", err)
+	}
+	if !existed {
+		zap.S().Warnw("workflowruntime not found", "functionName", functionName, "workflowName", l.workflowName)
+		return ""
 	}
 	ip = l.policies[TargetPolicy](functionName, l.selfName, wfrt)
 	return
 }
 
 func (l *LSDS) Sync(info map[string]int) {
+	zap.S().Debug("in the sync")
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	processes := serverlessv1alpha1.ProcessRuntimes{}
@@ -151,20 +161,22 @@ func (l *LSDS) start() {
 }
 
 func (l *LSDS) startListen() error {
-	k8sclient := k8sutils.GetInformerClientIns()
-	factory := informers.NewSharedInformerFactoryWithOptions(k8sclient, 1*time.Second, informers.WithTweakListOptions(func(options *v1.ListOptions) {
-		options.LabelSelector = labels.Set(
-			map[string]string{
-				"type": "workflow",
-				"name": k8sutils.GetWorkflowName(),
-			}).String()
-	}), informers.WithNamespace(k8sutils.GetWorkflowName()))
-	informer, err := factory.ForResource(WorkflowRuntimeResource)
-	if err != nil {
-		panic(err)
-	}
+	// factory := informers.NewSharedInformerFactoryWithOptions(k8sclient, 1*time.Second, informers.WithTweakListOptions(func(options *v1.ListOptions) {
+	// 	options.LabelSelector = labels.Set(
+	// 		map[string]string{
+	// 			"type": "workflow",
+	// 			"name": k8sutils.GetWorkflowName(),
+	// 		}).String()
+	// }), informers.WithNamespace(k8sutils.GetWorkflowName()))
+	listAndWatch := k8sutils.CreateUnstructuredListWatch(l.ctx, k8sutils.GetSelfNamespace(), WorkflowRuntimeResource)
+	informer := cache.NewSharedInformer(
+		listAndWatch,
+		&serverlessv1alpha1.WorkflowRuntime{},
+		1*time.Second,
+	)
 	l.informer = informer
-	go informer.Informer().Run(l.stopCh)
+	zap.S().Debug("in the lsds start listen")
+	go informer.Run(make(<-chan struct{}))
 	//watcher, err := cli.Resource(WorkflowRuntimeResource).Watch(l.ctx,
 	//	v1.ListOptions{
 	//		LabelSelector: labels.Set(
