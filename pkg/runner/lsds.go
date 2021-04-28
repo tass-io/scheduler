@@ -24,6 +24,7 @@ import (
 
 var NOT_VALID_TARGET_ERR error = errors.New("no valid target")
 
+// Policy will return the ip we choose to send request.
 type Policy func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string
 
 var (
@@ -35,6 +36,8 @@ var (
 	TargetPolicy = viper.GetString("policy")
 )
 
+// LSDS is the short of Local Scheduler Discovery Service, which maintains own information and sync to apiserver
+// and get other Local Scheduler info for remote request
 type LSDS struct {
 	Runner
 	informer        cache.SharedInformer
@@ -62,7 +65,7 @@ var SimplePolicy Policy = func(functionName string, selfName string, runtime *se
 		}
 	}
 	if target != "" {
-		return runtime.Status.Instances[target].Spec.PodIP
+		return runtime.Status.Instances[target].Status.PodIP
 	}
 	return ""
 }
@@ -117,6 +120,7 @@ func (l *LSDS) chooseTarget(functionName string) (ip string) {
 	return
 }
 
+// Sync Will be call to update ProcessRuntime and patch to apiserver
 func (l *LSDS) Sync(info map[string]int) {
 	zap.S().Debug("in the sync")
 	l.lock.Lock()
@@ -138,6 +142,7 @@ func (l *LSDS) Sync(info map[string]int) {
 		v1.PatchOptions{})
 }
 
+// Help Function for Sync patch
 func (l *LSDS) GeneratePatchWorkflowRuntime(processes serverlessv1alpha1.ProcessRuntimes) []byte {
 	pwfrt := serverlessv1alpha1.WorkflowRuntime{
 		Status: serverlessv1alpha1.WorkflowRuntimeStatus{
@@ -174,6 +179,7 @@ func (l *LSDS) startListen() error {
 		&serverlessv1alpha1.WorkflowRuntime{},
 		1*time.Second,
 	)
+
 	l.informer = informer
 	zap.S().Debug("in the lsds start listen")
 	go informer.Run(make(<-chan struct{}))
@@ -219,7 +225,7 @@ func WorkflowRequest(parameters map[string]interface{}, target string, sp span.S
 	client := &http.Client{}
 	invokeRequest := dto.InvokeRequest{
 		WorkflowName: sp.WorkflowName,
-		StepName:     sp.StepName,
+		FunctionName: sp.FunctionName,
 		Parameters:   parameters,
 	}
 	reqByte, err := json.Marshal(invokeRequest)

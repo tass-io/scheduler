@@ -14,7 +14,7 @@ func Invoke(c *gin.Context) {
 			Message: err.Error(),
 		})
 	}
-	result, err := workflow.GetManagerIns().Invoke(request.Parameters, request.WorkflowName, request.StepName)
+	result, err := workflow.GetManagerIns().Invoke(request.Parameters, request.WorkflowName, request.FunctionName)
 	if err != nil {
 		c.JSON(500, dto.InvokeResponse{
 			Success: false,
