@@ -1,9 +1,8 @@
 package runner
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
-	"io"
 	"os"
 	"strings"
 
@@ -26,6 +25,7 @@ functionRequest     |          |   functionResponse
 
 var (
 	// split byte just for functionRequest package delimiter
+	// `{"a": "b"}littledrizzle{"a": "c"}` maybe in the pipe, so to split two request, we need a delimiter
 	splitByte = []byte("littledrizzle")
 )
 
@@ -77,19 +77,31 @@ func NewConsumer(f *os.File) *consumer {
 // consumer Start will get function response and send it to the channel
 func (c *consumer) Start() {
 	go func() {
-		var buff bytes.Buffer
+		data := make([]byte, 4<<20)
+		reader := bufio.NewReader(c.f)
+		tail := ""
 		for {
-			_, err := io.Copy(&buff, c.f)
+			// todo fixed error read
+			_, err := reader.Read(data)
 			if err != nil {
 				zap.S().Errorw("consumer error", "err", err)
 			}
-			s := buff.String()
+			s := string(data)
+			s = tail + s
+			tail = ""
 			pkg := strings.Split(s, string(splitByte))
+			if len(pkg) == 0 {
+				// take care of `{"s":"b"}`
+				pkg = append(pkg, s)
+			}
 			for _, item := range pkg {
 				resp := &functionResponse{}
 				err = json.Unmarshal([]byte(item), resp)
 				if err != nil {
-					zap.S().Errorw("consumer unmarshal error", "err", err, "item", item)
+					zap.S().Infow("consumer unmarshal error", "err", err, "item", item)
+					// take care of `{"s":"b"}littledrizzle{"n":`
+					// the item must be the last one
+					tail = item
 					continue
 				}
 				c.responseChannel <- *resp
