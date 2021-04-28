@@ -2,7 +2,7 @@ package dto
 
 type InvokeRequest struct {
 	WorkflowName string                 `json:"workflowName"`
-	StepName     string                 `json:"stepName"`
+	FunctionName string                 `json:"functionName"`
 	Parameters   map[string]interface{} `json:"parameters"`
 }
 

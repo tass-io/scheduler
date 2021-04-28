@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/tass-io/scheduler/pkg/runner"
@@ -23,7 +24,8 @@ var (
 		Version:  "v1alpha1",
 		Resource: "workflows",
 	}
-	manager *Manager
+	manager         *Manager
+	NOT_FOUND_ERROR = errors.New("workflow not found")
 )
 
 type Manager struct {
@@ -87,15 +89,27 @@ func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, 
 
 // handleWorkflow is the core function at manager, it will execute Workflow defined logic, call runner.Run and return the final result
 func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span) (map[string]interface{}, error) {
-	_, _, _ = m.getWorkflowByName(sp.WorkflowName)
-	return nil, nil
+	workflow, existed, err := m.getWorkflowByName(sp.WorkflowName)
+	if err != nil {
+		return nil, err
+	}
+	if sp.FunctionName != "" {
+		sp.FunctionName, err = findStart(workflow)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if !existed {
+		zap.S().Errorw("workflow not found", "workflowname", sp.WorkflowName)
+		return nil, NOT_FOUND_ERROR
+	}
+	return m.executeSpec(parameters, workflow, sp)
 }
 
-func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string, stepName string) (result map[string]interface{}, err error) {
+func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string, functionName string) (result map[string]interface{}, err error) {
 	sp := span.Span{
 		WorkflowName: workflowName,
-		StepName:     stepName,
-		FunctionName: "",
+		FunctionName: functionName,
 	}
 	return m.handleWorkflow(parameters, sp)
 }

@@ -27,6 +27,9 @@ var (
 	dynamicClient dynamic.Interface
 	scheme        *runtime.Scheme
 )
+var WithInjectData = func(objects []runtime.Object) {
+
+}
 
 func Prepare() {
 	if local := viper.GetBool("local"); local {
@@ -37,6 +40,7 @@ func Prepare() {
 		workflows := generateWorkflowObjectsByFile(workflowFilePath)
 		objects := append(workflowruntimes, workflows...)
 		zap.S().Infow("get objects", "objects", objects)
+
 		scheme = runtime.NewScheme()
 		if err := serverlessv1alpha1.AddToScheme(scheme); err != nil {
 			panic(err)
