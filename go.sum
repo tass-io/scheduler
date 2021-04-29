@@ -477,8 +477,8 @@ github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5Cc
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
-github.com/tass-io/tass-operator v0.0.0-20210428040401-53d8ce1c73fb h1:c8WklbXc6p89vcH1sMAyFUTzGxbeT1GzUXc1MCeLqCw=
-github.com/tass-io/tass-operator v0.0.0-20210428040401-53d8ce1c73fb/go.mod h1:wYGQOAc2ld5NjBhOuhG3GDcLnVgOnc5wVq2Xsmq8uIQ=
+github.com/tass-io/tass-operator v0.0.0-20210429060809-5d75adf5abbc h1:9o/tqMBmyC5bGAmeuTwKecT54I7yjpish8xgeyt+YSw=
+github.com/tass-io/tass-operator v0.0.0-20210429060809-5d75adf5abbc/go.mod h1:wYGQOAc2ld5NjBhOuhG3GDcLnVgOnc5wVq2Xsmq8uIQ=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=

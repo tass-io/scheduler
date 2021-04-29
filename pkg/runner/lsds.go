@@ -17,6 +17,8 @@ import (
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -97,10 +99,9 @@ func (l *LSDS) getWorkflowRuntimeByName(name string) (*serverlessv1alpha1.Workfl
 	if !existed {
 		return nil, false, nil
 	}
-	wfrt, ok := obj.(*serverlessv1alpha1.WorkflowRuntime)
-	if !ok {
-		panic(obj)
-	}
+	ust := obj.(*unstructured.Unstructured)
+	wfrt := &serverlessv1alpha1.WorkflowRuntime{}
+	runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
 	return wfrt, true, nil
 }
 
