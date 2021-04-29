@@ -10,6 +10,8 @@ import (
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
@@ -72,6 +74,7 @@ func (m *Manager) startListen() error {
 }
 
 func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) {
+	zap.S().Debugw("manager hold workflow", "workflow", m.informer.GetStore().ListKeys())
 	key := k8sutils.GetSelfNamespace() + "/" + name
 	obj, existed, err := m.informer.GetStore().GetByKey(key)
 	if err != nil {
@@ -80,10 +83,9 @@ func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, 
 	if !existed {
 		return nil, false, nil
 	}
-	wf, ok := obj.(*serverlessv1alpha1.Workflow)
-	if !ok {
-		panic(obj)
-	}
+	ust := obj.(*unstructured.Unstructured)
+	wf := &serverlessv1alpha1.Workflow{}
+	runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wf)
 	return wf, true, nil
 }
 
@@ -93,15 +95,15 @@ func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span
 	if err != nil {
 		return nil, err
 	}
-	if sp.FunctionName != "" {
+	if !existed {
+		zap.S().Errorw("workflow not found", "workflowname", sp.WorkflowName)
+		return nil, NOT_FOUND_ERROR
+	}
+	if sp.FunctionName == "" {
 		sp.FunctionName, err = findStart(workflow)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if !existed {
-		zap.S().Errorw("workflow not found", "workflowname", sp.WorkflowName)
-		return nil, NOT_FOUND_ERROR
 	}
 	return m.executeSpec(parameters, workflow, sp)
 }

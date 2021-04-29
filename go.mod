@@ -19,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.7.1
-	github.com/tass-io/tass-operator v0.0.0-20210428040401-53d8ce1c73fb
+	github.com/tass-io/tass-operator v0.0.0-20210429060809-5d75adf5abbc
 	github.com/ugorji/go v1.2.5 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0

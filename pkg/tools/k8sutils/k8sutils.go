@@ -27,7 +27,7 @@ var (
 	dynamicClient dynamic.Interface
 	scheme        *runtime.Scheme
 )
-var WithInjectData = func(objects []runtime.Object) {
+var WithInjectData = func(objects *[]runtime.Object) {
 
 }
 
@@ -39,8 +39,8 @@ func Prepare() {
 		workflowFilePath := viper.GetString("workflowPath")
 		workflows := generateWorkflowObjectsByFile(workflowFilePath)
 		objects := append(workflowruntimes, workflows...)
+		WithInjectData(&objects)
 		zap.S().Infow("get objects", "objects", objects)
-
 		scheme = runtime.NewScheme()
 		if err := serverlessv1alpha1.AddToScheme(scheme); err != nil {
 			panic(err)
