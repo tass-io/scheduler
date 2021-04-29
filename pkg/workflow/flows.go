@@ -7,6 +7,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/common"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
+	"go.uber.org/zap"
 )
 
 var (
@@ -44,55 +45,54 @@ func (p *Promise) GetResult() (map[string]interface{}, error) {
 }
 
 func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp span.Span) (map[string]interface{}, error) {
+	zap.S().Debugw("executeSpec start", "parameters", wf)
 	para, err := common.CopyMap(parameters)
 	if err != nil {
 		return nil, err
 	}
 	target, err := findFlowByName(wf, sp.FunctionName)
 	if err != nil {
+		zap.S().Debugw("executeSpec findFlowByName error", "err", err, "span", sp)
 		return nil, err
 	}
-	for {
-		para, err := m.executeRunFunction(para, wf, target)
-		if err != nil {
-			return nil, err
-		}
-
-		if isEnd(&wf.Spec.Spec[target]) {
-			break
-		}
-		nexts, err := findNext(para, wf, target) // has serveral next functions
-		if err != nil {
-			return nil, err
-		}
-		promises := []*Promise{}
-		for _, next := range nexts {
-			// think about all next is like a new workflow
-			newSp := span.Span{
-				WorkflowName: sp.WorkflowName,
-				FunctionName: wf.Spec.Spec[next].Function,
-			}
-			p := NewPromise(m.executeSpec, newSp.FunctionName)
-			p.Run(para, wf, newSp)
-			promises = append(promises, p)
-		}
-
-		finalResult := make(map[string]interface{}, len(promises))
-
-		for _, p := range promises {
-			resp, err := p.GetResult()
-			if err != nil {
-				return nil, err
-			}
-			if len(promises) > 1 {
-				finalResult[p.name] = resp
-			} else {
-				finalResult = resp
-			}
-		}
-		return finalResult, nil
+	result, err := m.executeRunFunction(para, wf, target)
+	if err != nil {
+		return nil, err
 	}
-	return para, nil
+
+	if isEnd(&wf.Spec.Spec[target]) {
+		return result, nil
+	}
+	nexts, err := findNext(result, wf, target) // has serveral next functions
+	if err != nil {
+		return nil, err
+	}
+	promises := []*Promise{}
+	for _, next := range nexts {
+		// think about all next is like a new workflow
+		newSp := span.Span{
+			WorkflowName: sp.WorkflowName,
+			FunctionName: wf.Spec.Spec[next].Function,
+		}
+		p := NewPromise(m.executeSpec, newSp.FunctionName)
+		p.Run(result, wf, newSp)
+		promises = append(promises, p)
+	}
+
+	finalResult := make(map[string]interface{}, len(promises))
+
+	for _, p := range promises {
+		resp, err := p.GetResult()
+		if err != nil {
+			return nil, err
+		}
+		if len(promises) > 1 {
+			finalResult[p.name] = resp
+		} else {
+			finalResult = resp
+		}
+	}
+	return finalResult, nil
 }
 
 // executeRunFunctionJust Run function no other logics
@@ -136,6 +136,7 @@ func findNext(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow
 			for _, name := range now.Outputs {
 				n, err := findFlowByName(wf, name)
 				if err != nil {
+					zap.S().Debugw("find next findFlowByName error", "err", err, "name", name)
 					return nil, err
 				}
 				nexts = append(nexts, n)
@@ -154,4 +155,5 @@ func findNext(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow
 }
 
 func executeCondition(condition *serverlessv1alpha1.Condition, parameters map[string]interface{}) {
+	
 }
