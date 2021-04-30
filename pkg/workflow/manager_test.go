@@ -46,6 +46,31 @@ func (r *SimpleFakeRunner) Run(parameters map[string]interface{}, sp span.Span) 
 		{
 			return map[string]interface{}{"d": "e"}, nil
 		}
+	case "condition_start":
+		{
+			parameters["condition_start"] = "condition_start"
+			return parameters, nil
+		}
+	case "condition_mid":
+		{
+			parameters["condition_mid"] = "condition_mid"
+			return parameters, nil
+		}
+	case "condition_flow":
+		{
+			parameters["condition_flow"] = "condition_flow"
+			return parameters, nil
+		}
+	case "condition_end":
+		{
+			parameters["condition_end"] = "condition_end"
+			return parameters, nil
+		}
+	case "condition_nested":
+		{
+			parameters["condition_nested"] = "condition_nested"
+			return parameters, nil
+		}
 	default:
 		{
 			return parameters, nil
@@ -56,14 +81,17 @@ func (r *SimpleFakeRunner) Run(parameters map[string]interface{}, sp span.Span) 
 func TestManager(t *testing.T) {
 	Convey("test workflow work with mock client", t, func() {
 		testcases := []struct {
+			caseName       string
+			skiped         bool
 			newRunner      func() runner.Runner
 			withInjectData func(objects *[]runtime.Object)
-			caseName       string
 			sp             span.Span
 			parameters     map[string]interface{}
 			expect         map[string]interface{}
 		}{
 			{
+				caseName: "simple single chain",
+				skiped:   false,
 				newRunner: func() runner.Runner {
 					return &SimpleFakeRunner{}
 				},
@@ -109,7 +137,6 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				caseName: "simple_single_chain",
 				sp: span.Span{
 					FunctionName: "",
 					WorkflowName: "simple",
@@ -118,6 +145,8 @@ func TestManager(t *testing.T) {
 				expect:     map[string]interface{}{"d": "e"},
 			},
 			{
+				caseName: "simple with parallel",
+				skiped:   false,
 				newRunner: func() runner.Runner {
 					return &SimpleFakeRunner{}
 				},
@@ -171,7 +200,6 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				caseName: "simple with parallel",
 				sp: span.Span{
 					FunctionName: "",
 					WorkflowName: "simple",
@@ -179,9 +207,202 @@ func TestManager(t *testing.T) {
 				parameters: map[string]interface{}{"a": "b"},
 				expect:     map[string]interface{}{"simple_branch_1": map[string]interface{}{"branch_1": "branch_1"}, "simple_branch_2": map[string]interface{}{"branch_2": "branch_2"}},
 			},
+			{
+				caseName: "simple with one condition",
+				skiped:   false,
+				newRunner: func() runner.Runner {
+					return &SimpleFakeRunner{}
+				},
+				withInjectData: func(objects *[]runtime.Object) {
+					workflow := &serverlessv1alpha1.Workflow{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: WorkflowAPIVersion,
+							Kind:       WorkflowKind,
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "condition",
+							Namespace: "default",
+						},
+						Spec: serverlessv1alpha1.WorkflowSpec{
+							Spec: []serverlessv1alpha1.Flow{
+								{
+									Name:       "condition_start",
+									Function:   "condition_start",
+									Outputs:    []string{"condition_mid"},
+									Conditions: []*serverlessv1alpha1.Condition{},
+									Statement:  serverlessv1alpha1.Direct,
+									Role:       serverlessv1alpha1.Start,
+								},
+								{
+									Name:     "condition_mid",
+									Function: "condition_mid",
+									Outputs:  []string{"condition_end"},
+									Conditions: []*serverlessv1alpha1.Condition{
+										{
+											Name:        "condition_1",
+											Type:        "string",
+											Operator:    "eq",
+											Target:      "fuck",
+											Comparision: "fuck",
+											Destination: serverlessv1alpha1.Destination{
+												IsTrue: serverlessv1alpha1.Next{
+													Flows: []string{"condition_flow"},
+												},
+												IsFalse: serverlessv1alpha1.Next{},
+											},
+										},
+									},
+									Statement: serverlessv1alpha1.Switch,
+									Role:      "",
+								},
+								{
+									Name:       "condition_flow",
+									Function:   "condition_flow",
+									Outputs:    []string{},
+									Conditions: []*serverlessv1alpha1.Condition{},
+									Statement:  serverlessv1alpha1.Direct,
+									Role:       serverlessv1alpha1.End,
+								},
+								{
+									Name:       "condition_end",
+									Function:   "condition_end",
+									Outputs:    []string{},
+									Conditions: []*serverlessv1alpha1.Condition{},
+									Statement:  serverlessv1alpha1.Direct,
+									Role:       serverlessv1alpha1.End,
+								},
+							},
+						},
+						Status: serverlessv1alpha1.WorkflowStatus{},
+					}
+					*objects = append(*objects, workflow)
+				},
+				sp: span.Span{
+					FunctionName: "",
+					WorkflowName: "condition",
+				},
+				parameters: map[string]interface{}{"a": "b"},
+				expect: map[string]interface{}{
+					"a":               "b",
+					"condition_start": "condition_start",
+					"condition_mid":   "condition_mid",
+					"condition_end":   "condition_end",
+					"condition_flow":  "condition_flow",
+				},
+			},
+			{
+				caseName: "simple with one nested condition",
+				skiped:   false,
+				newRunner: func() runner.Runner {
+					return &SimpleFakeRunner{}
+				},
+				withInjectData: func(objects *[]runtime.Object) {
+					workflow := &serverlessv1alpha1.Workflow{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: WorkflowAPIVersion,
+							Kind:       WorkflowKind,
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "condition",
+							Namespace: "default",
+						},
+						Spec: serverlessv1alpha1.WorkflowSpec{
+							Spec: []serverlessv1alpha1.Flow{
+								{
+									Name:       "condition_start",
+									Function:   "condition_start",
+									Outputs:    []string{"condition_mid"},
+									Conditions: []*serverlessv1alpha1.Condition{},
+									Statement:  serverlessv1alpha1.Direct,
+									Role:       serverlessv1alpha1.Start,
+								},
+								{
+									Name:     "condition_mid",
+									Function: "condition_mid",
+									Outputs:  []string{"condition_end"},
+									Conditions: []*serverlessv1alpha1.Condition{
+										{
+											Name:        "condition_1",
+											Type:        "string",
+											Operator:    "eq",
+											Target:      "fuck",
+											Comparision: "fuck",
+											Destination: serverlessv1alpha1.Destination{
+												IsTrue: serverlessv1alpha1.Next{
+													Conditions: []*serverlessv1alpha1.Condition{
+														{
+															Name:        "condition_nested",
+															Type:        "string",
+															Operator:    "eq",
+															Target:      "$.condition_start",
+															Comparision: "$.condition_start",
+															Destination: serverlessv1alpha1.Destination{
+																IsTrue: serverlessv1alpha1.Next{
+																	Flows:      []string{"condition_nested"},
+																	Conditions: []*serverlessv1alpha1.Condition{},
+																},
+															},
+														},
+													},
+													Flows: []string{"condition_flow"},
+												},
+												IsFalse: serverlessv1alpha1.Next{},
+											},
+										},
+									},
+									Statement: serverlessv1alpha1.Switch,
+									Role:      "",
+								},
+								{
+									Name:       "condition_flow",
+									Function:   "condition_flow",
+									Outputs:    []string{},
+									Conditions: []*serverlessv1alpha1.Condition{},
+									Statement:  serverlessv1alpha1.Direct,
+									Role:       serverlessv1alpha1.End,
+								},
+								{
+									Name:       "condition_nested",
+									Function:   "condition_nested",
+									Outputs:    []string{},
+									Conditions: []*serverlessv1alpha1.Condition{},
+									Statement:  serverlessv1alpha1.Direct,
+									Role:       serverlessv1alpha1.End,
+								},
+								{
+									Name:       "condition_end",
+									Function:   "condition_end",
+									Outputs:    []string{},
+									Conditions: []*serverlessv1alpha1.Condition{},
+									Statement:  serverlessv1alpha1.Direct,
+									Role:       serverlessv1alpha1.End,
+								},
+							},
+						},
+						Status: serverlessv1alpha1.WorkflowStatus{},
+					}
+					*objects = append(*objects, workflow)
+				},
+				sp: span.Span{
+					FunctionName: "",
+					WorkflowName: "condition",
+				},
+				parameters: map[string]interface{}{"a": "b"},
+				expect: map[string]interface{}{
+					"a":                "b",
+					"condition_start":  "condition_start",
+					"condition_mid":    "condition_mid",
+					"condition_end":    "condition_end",
+					"condition_flow":   "condition_flow",
+					"condition_nested": "condition_nested",
+				},
+			},
 		}
 
 		for _, testcase := range testcases {
+			if testcase.skiped {
+				continue
+			}
 			Convey(testcase.caseName, func() {
 				// mock Runner
 				runner.NewRunner = testcase.newRunner

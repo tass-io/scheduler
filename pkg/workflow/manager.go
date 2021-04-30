@@ -26,8 +26,8 @@ var (
 		Version:  "v1alpha1",
 		Resource: "workflows",
 	}
-	manager         *Manager
-	NOT_FOUND_ERROR = errors.New("workflow not found")
+	manager                  *Manager
+	WORKFLOW_NOT_FOUND_ERROR = errors.New("workflow not found")
 )
 
 type Manager struct {
@@ -97,7 +97,7 @@ func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span
 	}
 	if !existed {
 		zap.S().Errorw("workflow not found", "workflowname", sp.WorkflowName)
-		return nil, NOT_FOUND_ERROR
+		return nil, WORKFLOW_NOT_FOUND_ERROR
 	}
 	if sp.FunctionName == "" {
 		sp.FunctionName, err = findStart(workflow)
