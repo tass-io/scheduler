@@ -82,7 +82,7 @@ func TestManager(t *testing.T) {
 	Convey("test workflow work with mock client", t, func() {
 		testcases := []struct {
 			caseName       string
-			skiped         bool
+			skipped        bool
 			newRunner      func() runner.Runner
 			withInjectData func(objects *[]runtime.Object)
 			sp             span.Span
@@ -91,7 +91,7 @@ func TestManager(t *testing.T) {
 		}{
 			{
 				caseName: "simple single chain",
-				skiped:   false,
+				skipped:  false,
 				newRunner: func() runner.Runner {
 					return &SimpleFakeRunner{}
 				},
@@ -146,7 +146,7 @@ func TestManager(t *testing.T) {
 			},
 			{
 				caseName: "simple with parallel",
-				skiped:   false,
+				skipped:  false,
 				newRunner: func() runner.Runner {
 					return &SimpleFakeRunner{}
 				},
@@ -209,7 +209,7 @@ func TestManager(t *testing.T) {
 			},
 			{
 				caseName: "simple with one condition",
-				skiped:   false,
+				skipped:  false,
 				newRunner: func() runner.Runner {
 					return &SimpleFakeRunner{}
 				},
@@ -292,7 +292,7 @@ func TestManager(t *testing.T) {
 			},
 			{
 				caseName: "simple with one nested condition",
-				skiped:   false,
+				skipped:  false,
 				newRunner: func() runner.Runner {
 					return &SimpleFakeRunner{}
 				},
@@ -400,7 +400,7 @@ func TestManager(t *testing.T) {
 		}
 
 		for _, testcase := range testcases {
-			if testcase.skiped {
+			if testcase.skipped {
 				continue
 			}
 			Convey(testcase.caseName, func() {
