@@ -1,7 +1,6 @@
 package runner
 
 type mockInstance struct {
-
 }
 
 func (m *mockInstance) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
@@ -13,16 +12,12 @@ func (m *mockInstance) Score() int {
 }
 
 func (m *mockInstance) Release() {
-	return
 }
 
 func (m *mockInstance) Start() error {
 	return nil
 }
 
-
-func NewMockInstance(functionName string) *mockInstance{
-	return &mockInstance{
-
-	}
+func NewMockInstance(functionName string) *mockInstance {
+	return &mockInstance{}
 }
