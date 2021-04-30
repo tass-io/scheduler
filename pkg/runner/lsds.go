@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var NOT_VALID_TARGET_ERR error = errors.New("no valid target")
+var InvalidTargetError error = errors.New("no valid target")
 
 // Policy will return the ip we choose to send request.
 type Policy func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string
@@ -222,6 +222,7 @@ func (l *LSDS) startListen() error {
 	return nil
 }
 
+// send request to other LocalScheduler
 func WorkflowRequest(parameters map[string]interface{}, target string, sp span.Span) (dto.InvokeResponse, error) {
 	client := &http.Client{}
 	invokeRequest := dto.InvokeRequest{
@@ -260,7 +261,7 @@ func WorkflowRequest(parameters map[string]interface{}, target string, sp span.S
 func (l *LSDS) Run(parameters map[string]interface{}, span span.Span) (result map[string]interface{}, err error) {
 	target := l.chooseTarget(span.FunctionName)
 	if target == "" {
-		return nil, NOT_VALID_TARGET_ERR
+		return nil, InvalidTargetError
 	}
 	resp, err := WorkflowRequest(parameters, target, span)
 	if err != nil {

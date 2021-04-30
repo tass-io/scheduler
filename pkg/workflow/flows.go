@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	NO_START_FOUND_ERROR    = errors.New("no start found")
-	INVALID_STATEMENT_ERROR = errors.New("statement is invalid")
-	FLOW_NOT_FOUND_ERROR    = errors.New("flow not found")
+	NoStartFoundError    = errors.New("no start found")
+	InvalidStatementError = errors.New("statement is invalid")
+	FlowNotFoundError    = errors.New("flow not found")
 )
 
 // Promise just a abstract to like javascript Promise
@@ -134,7 +134,7 @@ func findStart(wf *serverlessv1alpha1.Workflow) (string, error) {
 			return flow.Function, nil
 		}
 	}
-	return "", NO_START_FOUND_ERROR
+	return "", NoStartFoundError
 }
 
 // end is a strong rule, ignore Outputs
@@ -148,7 +148,7 @@ func findFlowByName(wf *serverlessv1alpha1.Workflow, name string) (int, error) {
 			return i, nil
 		}
 	}
-	return -1, FLOW_NOT_FOUND_ERROR
+	return -1, FlowNotFoundError
 }
 
 // execute switch logic and return the next flows index
@@ -191,7 +191,7 @@ func (m *Manager) findNext(result *map[string]interface{}, wf *serverlessv1alpha
 		}
 	default:
 		{
-			return []int{-1}, INVALID_STATEMENT_ERROR
+			return []int{-1}, InvalidStatementError
 		}
 	}
 }

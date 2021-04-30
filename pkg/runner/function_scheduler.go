@@ -2,14 +2,15 @@ package runner
 
 import (
 	"context"
-	"github.com/tass-io/scheduler/pkg/span"
-	"github.com/tass-io/scheduler/pkg/tools/errorutils"
+	"errors"
 	"sync"
 	"time"
+
+	"github.com/tass-io/scheduler/pkg/span"
 )
 
 var (
-	ResourceLimitError              = &errorutils.ResourceLimitError{}
+	ResourceLimitError              = errors.New("resource limit")
 	TargetInstanceType InstanceType = ProcessInstance
 )
 
