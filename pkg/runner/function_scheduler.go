@@ -10,13 +10,13 @@ import (
 )
 
 var (
-	fsi                *FunctionScheduler
+	fs                 *FunctionScheduler
 	TargetInstanceType = ProcessInstance
 	ResourceLimitError = errors.New("resource limit")
 )
 
 func FunctionSchedulerInit() {
-	fsi = NewFunctionScheduler()
+	fs = NewFunctionScheduler()
 }
 
 const SCORE_MAX = 9999
