@@ -18,7 +18,7 @@ var (
 	FlowNotFoundError     = errors.New("flow not found")
 )
 
-// Promise just a abstract to like javascript Promise
+// Promise is an abstraction like javascript Promise
 type Promise struct {
 	wg   sync.WaitGroup
 	name string
@@ -37,8 +37,8 @@ func NewPromise(f func(map[string]interface{}, *serverlessv1alpha1.Workflow, spa
 func (p *Promise) Run(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp span.Span) {
 	p.wg.Add(1)
 	go func() {
+		defer p.wg.Done()
 		p.res, p.err = p.f(parameters, wf, sp)
-		p.wg.Done()
 	}()
 }
 
