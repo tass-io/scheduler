@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/common"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
@@ -12,9 +13,9 @@ import (
 )
 
 var (
-	NoStartFoundError    = errors.New("no start found")
+	NoStartFoundError     = errors.New("no start found")
 	InvalidStatementError = errors.New("statement is invalid")
-	FlowNotFoundError    = errors.New("flow not found")
+	FlowNotFoundError     = errors.New("flow not found")
 )
 
 // Promise just a abstract to like javascript Promise
@@ -118,11 +119,16 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 }
 
 // executeRunFunctionJust Run function without other logic
+// middleware will inject there.
 func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, index int) (map[string]interface{}, error) {
 
 	sp := span.Span{
 		WorkflowName: wf.Name,
 		FunctionName: wf.Spec.Spec[index].Function,
+	}
+	midResult := m.middleware(parameters, &sp)
+	if midResult != nil {
+		return midResult, nil
 	}
 	return m.runner.Run(parameters, sp)
 }
@@ -386,4 +392,27 @@ func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool
 			return false
 		}
 	}
+}
+
+func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) map[string]interface{} {
+	for _, source := range m.middlewareOrder {
+		if mid, existed := m.middlewares[source]; !existed {
+			zap.S().Warnw("middle execute not found", "middleware", source)
+			continue
+		} else {
+			result, decision := mid.Handle(body, sp)
+			switch decision {
+			case middleware.Next:
+				{
+					// ignore result
+					continue
+				}
+			case middleware.Abort:
+				{
+					return result
+				}
+			}
+		}
+	}
+	return nil
 }

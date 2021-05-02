@@ -30,6 +30,7 @@ var InvalidTargetError error = errors.New("no valid target")
 type Policy func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string
 
 var (
+	lsds                    *LSDS
 	WorkflowRuntimeResource = schema.GroupVersionResource{
 		Group:    "serverless.tass.io",
 		Version:  "v1alpha1",
@@ -37,6 +38,15 @@ var (
 	}
 	TargetPolicy = viper.GetString("policy")
 )
+
+func LDSinit() {
+	// todo context thinking
+	lsds = NewLSDS(context.Background())
+}
+
+func GetLSDSIns() *LSDS {
+	return lsds
+}
 
 // LSDS is the short of Local Scheduler Discovery Service, which maintains own information and sync to apiserver
 // and get other Local Scheduler info for remote request

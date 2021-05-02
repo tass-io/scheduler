@@ -5,6 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/tass-io/scheduler/pkg/event"
+	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
@@ -26,27 +28,40 @@ var (
 		Version:  "v1alpha1",
 		Resource: "workflows",
 	}
-	manager                  *Manager
-	WORKFLOW_NOT_FOUND_ERROR = errors.New("workflow not found")
+	manager               *Manager
+	WorkflowNotFoundError = errors.New("workflow not found")
 )
 
 type Manager struct {
-	ctx      context.Context
-	runner   runner.Runner
-	stopCh   chan struct{}
-	informer cache.SharedInformer
+	ctx             context.Context
+	runner          runner.Runner
+	stopCh          chan struct{}
+	informer        cache.SharedInformer
+	events          map[event.Source]event.Handler
+	middlewareOrder []middleware.Source
+	middlewares     map[middleware.Source]middleware.Handler
 }
 
 func GetManagerIns() *Manager {
 	return manager
 }
 
+// help function for event upstream, most of times will use like `GetManagerIns().GetEventHandlerBySource(source)`
+func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
+	return m.events[source]
+}
+
 // NewManager will use path to init workflow from file
 func NewManager() *Manager {
+	runner.LDSinit()
+	runner.FunctionSchedulerInit()
 	m := &Manager{
-		ctx:    context.Background(),
-		runner: runner.NewRunner(),
-		stopCh: make(chan struct{}),
+		ctx:         context.Background(),
+		runner:      runner.NewRunner(),
+		stopCh:      make(chan struct{}),
+		events:      event.Register(),
+		middlewareOrder: middleware.Order(),
+		middlewares: middleware.Register(),
 	}
 	m.start()
 	return m
@@ -55,6 +70,10 @@ func NewManager() *Manager {
 // Start will watch Workflow related CRD
 func (m *Manager) start() {
 	err := m.startListen()
+	if err != nil {
+		panic(err)
+	}
+	err = m.startEvents()
 	if err != nil {
 		panic(err)
 	}
@@ -70,6 +89,20 @@ func (m *Manager) startListen() error {
 	)
 	m.informer = informer
 	go informer.Run(make(<-chan struct{}))
+	return nil
+}
+
+func (m *Manager) startEvents() error {
+	errstr := ""
+	for _, h := range m.events {
+		err := h.Start()
+		if err != nil {
+			errstr += ";" + err.Error()
+		}
+	}
+	if errstr != "" {
+		return errors.New(errstr)
+	}
 	return nil
 }
 
@@ -97,7 +130,7 @@ func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span
 	}
 	if !existed {
 		zap.S().Errorw("workflow not found", "workflowname", sp.WorkflowName)
-		return nil, WORKFLOW_NOT_FOUND_ERROR
+		return nil, WorkflowNotFoundError
 	}
 	if sp.FunctionName == "" {
 		sp.FunctionName, err = findStart(workflow)
