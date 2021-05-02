@@ -1,18 +1,23 @@
 package runner
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"time"
 
 	"github.com/tass-io/scheduler/pkg/span"
+	"github.com/tass-io/scheduler/pkg/tools/errorutils"
 )
 
 var (
-	ResourceLimitError              = errors.New("resource limit")
-	TargetInstanceType InstanceType = ProcessInstance
+	fsi                *FunctionScheduler
+	TargetInstanceType = ProcessInstance
+	ResourceLimitError = errors.New("resource limit")
 )
+
+func FunctionSchedulerInit() {
+	fsi = NewFunctionScheduler()
+}
 
 const SCORE_MAX = 9999
 
@@ -20,7 +25,6 @@ type FunctionScheduler struct {
 	sync.Locker
 	Runner
 	instances map[string]*set
-	lsds      *LSDS
 }
 
 type set struct {
@@ -39,7 +43,6 @@ func NewFunctionScheduler() *FunctionScheduler {
 	// todo context architecture
 	return &FunctionScheduler{
 		instances: make(map[string]*set, 10),
-		Runner:    NewLSDS(context.Background()),
 	}
 }
 
@@ -51,7 +54,7 @@ func (fs *FunctionScheduler) Sync() {
 			syncMap[functionName] = len(ins.instances)
 		}
 		fs.Unlock()
-		fs.lsds.Sync(syncMap)
+		GetLSDSIns().Sync(syncMap)
 		time.Sleep(100 * time.Millisecond)
 	}
 }
@@ -63,7 +66,8 @@ func (fs *FunctionScheduler) canCreate() bool {
 	return true
 }
 
-// FunctionScheduler.Run will find/create a process to handle the function
+// FunctionScheduler.Run will choose a target instance to run
+// now with middleware and events, fs run will be simplified
 func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Span) (result map[string]interface{}, err error) {
 	fs.Lock()
 	target, existed := fs.instances[span.FunctionName]
@@ -81,24 +85,25 @@ func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Sp
 		target.Unlock()
 		return process.Invoke(parameters)
 	} else {
-		if fs.canCreate() {
-			// cold start, create a new process to handle request
-			newInstance := NewInstance(span.FunctionName)
-			err = newInstance.Start()
-			if err != nil {
-				return nil, err
-			}
-			target.instances = append(target.instances, newInstance)
-			target.Unlock()
-			result, err = newInstance.Invoke(parameters)
-		} else {
-			// resource limit, return error
-			return nil, ResourceLimitError
-		}
+		return nil, errorutils.NewNoInstanceError(span.FunctionName)
+		// if fs.canCreate() {
+		// 	// cold start, create a new process to handle request
+		// 	newInstance := NewInstance(span.FunctionName)
+		// 	err = newInstance.Start()
+		// 	if err != nil {
+		// 		return nil, err
+		// 	}
+		// 	target.instances = append(target.instances, newInstance)
+		// 	target.Unlock()
+		// 	result, err = newInstance.Invoke(parameters)
+		// } else {
+		// 	// resource limit, return error
+		// 	return nil, ResourceLimitError
+		// }
 	}
-	return
 }
 
+// todo add policy architecture
 func ChooseTargetInstance(instances []instance) (target instance) {
 	max := SCORE_MAX
 	for _, i := range instances {
