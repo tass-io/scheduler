@@ -17,3 +17,9 @@ var Register = func() map[Source]Handler {
 		GetScheduleHandlerIns().GetSource(): GetScheduleHandlerIns(),
 	}
 }
+
+var Orders = func() []Source {
+	return []Source{
+		GetScheduleHandlerIns().GetSource(),
+	}
+}
