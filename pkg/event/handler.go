@@ -3,7 +3,7 @@ package event
 // Source show the ScheduleEvent's source, ScheduleHandler has a priority table to
 type Source string
 
-// envent Handler for async handle like cold start
+// event Handler for async handle like cold start
 type Handler interface {
 	AddEvent(interface{})
 	GetSource() Source
