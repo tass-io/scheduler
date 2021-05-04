@@ -24,7 +24,7 @@ func Register() map[Source]Handler {
 	}
 }
 
-func Order() []Source {
+var Order = func() []Source {
 	return []Source{
 		GetLSDSMiddleware().GetSource(),
 	}
