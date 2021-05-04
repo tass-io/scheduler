@@ -118,7 +118,7 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 	return m.parallelFlowsWithSpan(result, wf, nexts, sp)
 }
 
-// executeRunFunctionJust Run function without other logic
+// executeRunFunction Run function without other logic
 // middleware will inject there.
 func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, index int) (map[string]interface{}, error) {
 
