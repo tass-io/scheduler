@@ -1,13 +1,11 @@
 package runner
 
 import (
+	"github.com/rs/xid"
 	"go.uber.org/zap"
 	"os"
 	"os/exec"
 	"sync"
-	"syscall"
-
-	"github.com/rs/xid"
 )
 
 
@@ -43,15 +41,6 @@ func newPipe() (*os.File, *os.File, error) {
 		return nil, nil, err
 	}
 	return read, write, nil
-}
-
-// Terminate will change i.Status first and terminate producer and consumer then send SIGTERM to process
-func (i *processInstance) Terminate() {
-	i.lock.Lock()
-	i.Status = Terminating // the status will prevent processInstance from request
-	i.producer.Terminate()
-	i.consumer.Terminate()
-	i.lock.Unlock()
 }
 
 // processInstance start will init and start producer/consumer, and start the real work process
@@ -92,9 +81,9 @@ func (i *processInstance) startListen() {
 func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
 	cmd := exec.Command("/proc/self/exe", "init", "-n", functionName)
 	// It is different from docker, we do not create mount namespace and network namespace
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWIPC,
-	}
+	//cmd.SysProcAttr = &syscall.SysProcAttr{
+	//	Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWIPC,
+	//}
 	cmd.ExtraFiles = []*os.File{request, response}
 	err = cmd.Start()
 	// todo how to check whether a process is init over
