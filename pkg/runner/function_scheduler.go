@@ -1,7 +1,7 @@
 package runner
 
 import (
-	"errors"
+	"go.uber.org/zap"
 	"sync"
 	"time"
 
@@ -10,17 +10,23 @@ import (
 )
 
 var (
-	fs                 *FunctionScheduler
-	TargetInstanceType = ProcessInstance
-	ResourceLimitError = errors.New("resource limit")
+	fs *FunctionScheduler
 )
+
+func GetFunctionScheduler() *FunctionScheduler {
+	return fs
+}
 
 func FunctionSchedulerInit() {
 	fs = NewFunctionScheduler()
+	go fs.Sync()
 }
 
 const SCORE_MAX = 9999
 
+type InstanceStatus map[string]int
+
+// FunctionScheduler implements Runner and Scheduler
 type FunctionScheduler struct {
 	sync.Locker
 	Runner
@@ -42,10 +48,47 @@ func newSet() *set {
 func NewFunctionScheduler() *FunctionScheduler {
 	// todo context architecture
 	return &FunctionScheduler{
+		Locker: &sync.Mutex{},
 		instances: make(map[string]*set, 10),
 	}
 }
 
+func (fs *FunctionScheduler) Refresh(functionName string, target int) {
+	ins, existed := fs.instances[functionName]
+	if !existed {
+		zap.S().Warnw("function scheduler refresh warning for function set not found", "function", functionName)
+		return
+	}
+	ins.Lock()
+	defer ins.Unlock()
+	l := len(ins.instances)
+	if l > target {
+		// scale down
+		// todo policy
+		cut := ins.instances[:l-target]
+		rest := ins.instances[l-target:]
+		for _, i := range cut {
+			i.Release()
+		}
+		ins.instances = rest
+	} else if l < target {
+		// scale up
+		for i := 0; i < target-l; i++ {
+			if fs.canCreate() {
+				newIns := NewInstance(functionName)
+				zap.S().Infow("function scheduler creates instance", "instance", newIns)
+				err := newIns.Start()
+				if err != nil {
+					zap.S().Warnw("function scheduler start instance error", "err", err)
+					continue
+				}
+				ins.instances = append(ins.instances, newIns)
+			}
+		}
+	}
+}
+
+// Sync Function Scheduler info to api server via LSDS
 func (fs *FunctionScheduler) Sync() {
 	for {
 		syncMap := make(map[string]int, len(fs.instances))
@@ -119,4 +162,16 @@ func ChooseTargetInstance(instances []instance) (target instance) {
 // add test inject point here
 var NewInstance = func(functionName string) instance {
 	return NewProcessInstance(functionName)
+}
+
+func (fs *FunctionScheduler) Stats() InstanceStatus {
+	fs.Lock()
+	defer fs.Unlock()
+	stats := InstanceStatus{}
+	for functionName, s := range fs.instances {
+		s.Lock()
+		stats[functionName] = len(s.instances)
+		s.Unlock()
+	}
+	return stats
 }

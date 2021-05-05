@@ -11,13 +11,6 @@ const (
 	Terminated  Status = 3
 )
 
-type InstanceType string
-
-const (
-	ProcessInstance InstanceType = "ProcessInstance"
-	MockInstance    InstanceType = "MockInstance"
-)
-
 type instance interface {
 	Invoke(parameters map[string]interface{}) (map[string]interface{}, error)
 	Score() int
