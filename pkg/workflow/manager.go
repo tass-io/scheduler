@@ -59,9 +59,9 @@ func NewManager() *Manager {
 		ctx:         context.Background(),
 		runner:      runner.NewRunner(),
 		stopCh:      make(chan struct{}),
-		events:      event.Register(),
-		middlewareOrder: middleware.Order(),
-		middlewares: middleware.Register(),
+		events:      event.Events(),
+		middlewareOrder: nil,
+		middlewares: middleware.Middlewares(),
 	}
 	m.start()
 	return m

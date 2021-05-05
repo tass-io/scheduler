@@ -395,6 +395,9 @@ func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool
 }
 
 func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) map[string]interface{} {
+	if m.middlewareOrder == nil {
+		m.middlewareOrder = middleware.Orders()
+	}
 	for _, source := range m.middlewareOrder {
 		if mid, existed := m.middlewares[source]; !existed {
 			zap.S().Warnw("middle execute not found", "middleware", source)
