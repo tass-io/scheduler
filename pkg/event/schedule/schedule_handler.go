@@ -13,8 +13,9 @@ import (
 type Trend string
 
 const (
-	Increase       Trend  = "Increase"
-	Decrease       Trend  = "Decrease"
+	None           Trend        = "None" // None for init
+	Increase       Trend        = "Increase"
+	Decrease       Trend        = "Decrease"
 	ScheduleSource event.Source = "source"
 )
 
@@ -34,6 +35,15 @@ type ScheduleEvent struct {
 	Source       event.Source
 }
 
+func newNoneScheduleEvent(functionName string) *ScheduleEvent {
+	return &ScheduleEvent{
+		FunctionName: functionName,
+		Target:       0,
+		Trend:        None,
+		Source:       ScheduleSource,
+	}
+}
+
 func (event *ScheduleEvent) Merge(target *ScheduleEvent) {
 	switch event.Trend {
 	case Increase:
@@ -48,25 +58,23 @@ func (event *ScheduleEvent) Merge(target *ScheduleEvent) {
 				event.Target = target.Target
 			}
 		}
+	case None: {
+		_ = common.DeepCopy(event, target)
+	}
 	}
 }
 
 // scoreBoard will store different Source suggestion for the function
 type scoreBoard struct {
 	lock       sync.Locker
-	bestWishes ScheduleEvent
+	bestWishes *ScheduleEvent
 	scores     map[event.Source]ScheduleEvent
 }
 
 func newScoreBoard(functionName string) scoreBoard {
 	return scoreBoard{
 		lock: &sync.Mutex{},
-		bestWishes: ScheduleEvent{
-			FunctionName: functionName,
-			Target:       0,
-			Trend:        Increase,
-			Source:       ScheduleSource,
-		},
+		bestWishes: newNoneScheduleEvent(functionName),
 		scores: make(map[event.Source]ScheduleEvent, 10),
 	}
 }
@@ -77,7 +85,7 @@ func (board *scoreBoard) Decide(orders []event.Source) *ScheduleEvent {
 	defer board.lock.Unlock()
 	zap.S().Debugw("board before decide", "wishes", board.bestWishes)
 	origin := &ScheduleEvent{}
-	err := common.DeepCopy(origin, &board.bestWishes)
+	err := common.DeepCopy(origin, board.bestWishes)
 	if err != nil {
 		zap.S().Errorw("scoreboard decide error", "error", err)
 		return nil
@@ -91,7 +99,8 @@ func (board *scoreBoard) Decide(orders []event.Source) *ScheduleEvent {
 		zap.S().Debugw("scoreboard handle source with event", "source", order, "event", event)
 		origin.Merge(&event)
 	}
-	board.bestWishes = *origin
+	*board.bestWishes = *origin
+	zap.S().Debugw("board after decide", "wishes", board.bestWishes)
 	return origin
 }
 
@@ -120,7 +129,7 @@ func newScheduleHandler() *ScheduleHandler {
 	}
 }
 
-func GetScheduleHandlerIns() event.Handler {
+var GetScheduleHandlerIns = func() event.Handler {
 	return sh
 }
 
@@ -129,9 +138,7 @@ func (sh *ScheduleHandler) AddEvent(e interface{}) {
 	if !ok {
 		zap.S().Errorw("schedule handler add event convert error", "event", e)
 	}
-	go func(se ScheduleEvent) {
-		sh.upstream <- se
-	}(se)
+	sh.upstream <- se
 }
 
 func (sh *ScheduleHandler) GetSource() event.Source {
