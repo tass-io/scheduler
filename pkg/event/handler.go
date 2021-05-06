@@ -3,7 +3,9 @@ package event
 import "sort"
 
 var (
+	// handlers will record all Handlers has registered
 	handlers    = make(map[Source]Handler)
+	// orderOrigin will record all Handlers in different level
 	orderOrigin = make(map[int][]Handler)
 )
 
