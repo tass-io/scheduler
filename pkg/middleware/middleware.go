@@ -24,7 +24,7 @@ const (
 // Handler for synchronous handle like update span info
 // todo define pointcut
 type Handler interface {
-	Handle(map[string]interface{}, *span.Span) (map[string]interface{}, Decision)
+	Handle(map[string]interface{}, *span.Span) (map[string]interface{}, Decision, error)
 	GetSource() Source
 }
 

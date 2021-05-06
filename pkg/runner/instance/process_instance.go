@@ -1,7 +1,8 @@
-package runner
+package instance
 
 import (
 	"github.com/rs/xid"
+	"github.com/tass-io/scheduler/pkg/runner"
 	"go.uber.org/zap"
 	"os"
 	"os/exec"
@@ -22,7 +23,7 @@ type processInstance struct {
 
 func (i *processInstance) Score() int {
 	if i.Status != Running {
-		return SCORE_MAX
+		return runner.SCORE_MAX
 	}
 	return len(i.responseMapping)
 }

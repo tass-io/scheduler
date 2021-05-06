@@ -1,6 +1,7 @@
 package workflow
 
 import (
+	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"testing"
 	"time"
 
@@ -76,6 +77,10 @@ func (r *SimpleFakeRunner) Run(parameters map[string]interface{}, sp span.Span) 
 			return parameters, nil
 		}
 	}
+}
+
+func (r *SimpleFakeRunner) Stats() runner.InstanceStatus {
+	return nil
 }
 
 func TestManager(t *testing.T) {
@@ -405,7 +410,7 @@ func TestManager(t *testing.T) {
 			}
 			Convey(testcase.caseName, func() {
 				// mock Runner
-				runner.NewRunner = testcase.newRunner
+				helper.NewRunner = testcase.newRunner
 				// mock data
 				k8sutils.WithInjectData = testcase.withInjectData
 

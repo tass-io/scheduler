@@ -1,4 +1,4 @@
-package runner
+package instance
 
 type mockInstance struct {
 }
