@@ -12,7 +12,7 @@ const (
 var lsdsmiddle *LSDSMiddleware
 
 func init() {
-	lsdsmiddle = NewLSDSMiddleware()
+	lsdsmiddle = newLSDSMiddleware()
 	middleware.Register(LSDSMiddlewareSource, lsdsmiddle, 1)
 }
 
@@ -20,7 +20,7 @@ func init() {
 type LSDSMiddleware struct {
 }
 
-func NewLSDSMiddleware() *LSDSMiddleware {
+func newLSDSMiddleware() *LSDSMiddleware {
 	return &LSDSMiddleware{}
 }
 
