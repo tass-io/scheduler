@@ -23,12 +23,7 @@ var (
 )
 
 func init() {
-	sh = &ScheduleHandler{
-		lock:       &sync.Mutex{},
-		orders:     nil,
-		upstream:   make(chan ScheduleEvent, 1000),
-		scoreboard: make(map[string]scoreBoard, 10),
-	}
+	sh = newScheduleHandler()
 	event.Register(ScheduleSource, sh, 1)
 }
 
@@ -114,6 +109,15 @@ type ScheduleHandler struct {
 	upstream   chan ScheduleEvent
 	orders     []event.Source
 	scoreboard map[string]scoreBoard
+}
+
+func newScheduleHandler() *ScheduleHandler {
+	return &ScheduleHandler{
+		lock:       &sync.Mutex{},
+		orders:     nil,
+		upstream:   make(chan ScheduleEvent, 1000),
+		scoreboard: make(map[string]scoreBoard, 10),
+	}
 }
 
 func GetScheduleHandlerIns() event.Handler {
