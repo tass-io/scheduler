@@ -1,6 +1,9 @@
-package runner
+package function_scheduler
 
 import (
+	"github.com/tass-io/scheduler/pkg/runner"
+	"github.com/tass-io/scheduler/pkg/runner/instance"
+	"github.com/tass-io/scheduler/pkg/runner/lsds"
 	"go.uber.org/zap"
 	"sync"
 	"time"
@@ -10,10 +13,12 @@ import (
 )
 
 var (
+	once = &sync.Once{}
 	fs *FunctionScheduler
 )
 
 func GetFunctionScheduler() *FunctionScheduler {
+	once.Do(FunctionSchedulerInit)
 	return fs
 }
 
@@ -22,26 +27,22 @@ func FunctionSchedulerInit() {
 	go fs.Sync()
 }
 
-const SCORE_MAX = 9999
-
-type InstanceStatus map[string]int
-
 // FunctionScheduler implements Runner and Scheduler
 type FunctionScheduler struct {
 	sync.Locker
-	Runner
+	runner.Runner
 	instances map[string]*set
 }
 
 type set struct {
 	sync.Locker
-	instances []instance
+	instances []instance.Instance
 }
 
 func newSet() *set {
 	return &set{
 		Locker:    &sync.Mutex{},
-		instances: []instance{},
+		instances: []instance.Instance{},
 	}
 }
 
@@ -97,7 +98,7 @@ func (fs *FunctionScheduler) Sync() {
 			syncMap[functionName] = len(ins.instances)
 		}
 		fs.Unlock()
-		GetLSDSIns().Sync(syncMap)
+		lsds.GetLSDSIns().Sync(syncMap)
 		time.Sleep(100 * time.Millisecond)
 	}
 }
@@ -147,8 +148,8 @@ func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Sp
 }
 
 // todo add policy architecture
-func ChooseTargetInstance(instances []instance) (target instance) {
-	max := SCORE_MAX
+func ChooseTargetInstance(instances []instance.Instance) (target instance.Instance) {
+	max := runner.SCORE_MAX
 	for _, i := range instances {
 		score := i.Score()
 		if max > i.Score() {
@@ -160,14 +161,14 @@ func ChooseTargetInstance(instances []instance) (target instance) {
 }
 
 // add test inject point here
-var NewInstance = func(functionName string) instance {
-	return NewProcessInstance(functionName)
+var NewInstance = func(functionName string) instance.Instance {
+	return instance.NewProcessInstance(functionName)
 }
 
-func (fs *FunctionScheduler) Stats() InstanceStatus {
+func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	fs.Lock()
 	defer fs.Unlock()
-	stats := InstanceStatus{}
+	stats := runner.InstanceStatus{}
 	for functionName, s := range fs.instances {
 		s.Lock()
 		stats[functionName] = len(s.instances)

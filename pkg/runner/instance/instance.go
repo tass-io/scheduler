@@ -1,4 +1,4 @@
-package runner
+package instance
 
 // processInstance Status will be updated by FunctionScheduler
 // first it will patch to apiserver, and then change local status, finally it will send SIGTERM to process
@@ -11,7 +11,7 @@ const (
 	Terminated  Status = 3
 )
 
-type instance interface {
+type Instance interface {
 	Invoke(parameters map[string]interface{}) (map[string]interface{}, error)
 	Score() int
 	Release()
