@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"time"
 
 	"github.com/tass-io/scheduler/pkg/event"
@@ -53,15 +54,13 @@ func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
 
 // NewManager will use path to init workflow from file
 func NewManager() *Manager {
-	runner.LDSinit()
-	runner.FunctionSchedulerInit()
 	m := &Manager{
-		ctx:         context.Background(),
-		runner:      runner.NewRunner(),
-		stopCh:      make(chan struct{}),
-		events:      event.Events(),
+		ctx:             context.Background(),
+		runner:          helper.NewRunner(),
+		stopCh:          make(chan struct{}),
+		events:          event.Events(),
 		middlewareOrder: nil,
-		middlewares: middleware.Middlewares(),
+		middlewares:     middleware.Middlewares(),
 	}
 	m.start()
 	return m
@@ -139,6 +138,10 @@ func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span
 		}
 	}
 	return m.executeSpec(parameters, workflow, sp)
+}
+
+func (m *Manager) GetRunner() runner.Runner {
+	return m.runner
 }
 
 func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string, functionName string) (result map[string]interface{}, err error) {

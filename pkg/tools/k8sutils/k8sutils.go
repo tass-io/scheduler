@@ -3,6 +3,7 @@ package k8sutils
 import (
 	"context"
 	"errors"
+	"github.com/tass-io/scheduler/pkg/env"
 	"io"
 	"os"
 	"strings"
@@ -32,11 +33,11 @@ var WithInjectData = func(objects *[]runtime.Object) {
 }
 
 func Prepare() {
-	if local := viper.GetBool("local"); local {
-		workflowRuntimeFilePath := viper.GetString("workflowRuntimeFilePath")
-		selfName = viper.GetString("selfName")
+	if local := viper.GetBool(env.Local); local {
+		workflowRuntimeFilePath := viper.GetString(env.WorkflowRuntimeFilePath)
+		selfName = viper.GetString(env.SelfName)
 		workflowruntimes := generateWorkflowRuntimeObjectsByFile(workflowRuntimeFilePath)
-		workflowFilePath := viper.GetString("workflowPath")
+		workflowFilePath := viper.GetString(env.WorkflowPath)
 		workflows := generateWorkflowObjectsByFile(workflowFilePath)
 		objects := append(workflowruntimes, workflows...)
 		WithInjectData(&objects)

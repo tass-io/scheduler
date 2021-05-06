@@ -1,9 +1,11 @@
-package runner
+package lsds
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/tass-io/scheduler/pkg/env"
+	"github.com/tass-io/scheduler/pkg/runner"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -31,12 +33,13 @@ type Policy func(functionName string, selfName string, runtime *serverlessv1alph
 
 var (
 	lsds                    *LSDS
+	once                    = &sync.Once{}
 	WorkflowRuntimeResource = schema.GroupVersionResource{
 		Group:    "serverless.tass.io",
 		Version:  "v1alpha1",
 		Resource: "workflowruntimes",
 	}
-	TargetPolicy = viper.GetString("policy")
+	TargetPolicy = viper.GetString(env.Policy)
 )
 
 func LDSinit() {
@@ -45,13 +48,14 @@ func LDSinit() {
 }
 
 func GetLSDSIns() *LSDS {
+	once.Do(LDSinit)
 	return lsds
 }
 
 // LSDS is the short of Local Scheduler Discovery Service, which maintains own information and sync to apiserver
 // and get other Local Scheduler info for remote request
 type LSDS struct {
-	Runner
+	runner.Runner
 	informer        cache.SharedInformer
 	ctx             context.Context
 	stopCh          chan struct{}

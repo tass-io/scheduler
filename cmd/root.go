@@ -4,11 +4,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/http"
 	initial "github.com/tass-io/scheduler/pkg/initial"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"github.com/tass-io/scheduler/pkg/workflow"
+	"time"
 )
 
 var (
@@ -31,16 +33,18 @@ func Execute() error {
 }
 
 func init() {
-	rootCmd.Flags().BoolP("local", "l", false, "whether to use local file")
-	viper.BindPFlag("local", rootCmd.Flags().Lookup("local"))
-	rootCmd.Flags().StringP("policy", "p", "simple", "policy name to use")
-	viper.BindPFlag("policy", rootCmd.Flags().Lookup("policy"))
-	rootCmd.Flags().StringP("selfName", "s", "ubuntu", "if local is true, it is used to set selfName")
-	viper.BindPFlag("selfName", rootCmd.Flags().Lookup("selfName"))
-	rootCmd.Flags().StringP("workflowFilePath", "w", "./workflow.yaml", "if local is true, it is used to init workflow by file")
-	viper.BindPFlag("workflowFilePath", rootCmd.Flags().Lookup("workflowFilePath"))
-	rootCmd.Flags().StringP("workflowRuntimeFilePath", "r", "./workflowruntime.yaml", "if local is true, it is used to init workflow runtime by file")
-	viper.BindPFlag("workflowRuntimeFilePath", rootCmd.Flags().Lookup("workflowRuntimeFilePath"))
+	rootCmd.Flags().BoolP(env.Local, "l", false, "whether to use local file")
+	viper.BindPFlag(env.Local, rootCmd.Flags().Lookup(env.Local))
+	rootCmd.Flags().StringP(env.Policy, "p", "simple", "policy name to use")
+	viper.BindPFlag(env.Policy, rootCmd.Flags().Lookup(env.Policy))
+	rootCmd.Flags().StringP(env.SelfName, "s", "ubuntu", "if local is true, it is used to set selfName")
+	viper.BindPFlag(env.SelfName, rootCmd.Flags().Lookup(env.SelfName))
+	rootCmd.Flags().StringP(env.WorkflowPath, "w", "./workflow.yaml", "if local is true, it is used to init workflow by file")
+	viper.BindPFlag(env.WorkflowPath, rootCmd.Flags().Lookup(env.WorkflowPath))
+	rootCmd.Flags().StringP(env.WorkflowRuntimeFilePath, "r", "./workflowruntime.yaml", "if local is true, it is used to init workflow runtime by file")
+	viper.BindPFlag(env.WorkflowRuntimeFilePath, rootCmd.Flags().Lookup(env.WorkflowRuntimeFilePath))
+	rootCmd.Flags().DurationP(env.LSDSWait, "t", 200 * time.Millisecond, "lsds wait a period of time for instance start")
+	viper.BindPFlag(env.LSDSWait, rootCmd.Flags().Lookup(env.LSDSWait))
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initial.InitCmd)
 }

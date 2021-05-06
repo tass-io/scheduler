@@ -126,7 +126,10 @@ func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serv
 		WorkflowName: wf.Name,
 		FunctionName: wf.Spec.Spec[index].Function,
 	}
-	midResult := m.middleware(parameters, &sp)
+	midResult, err := m.middleware(parameters, &sp)
+	if err != nil {
+		return nil, err
+	}
 	if midResult != nil {
 		return midResult, nil
 	}
@@ -394,7 +397,7 @@ func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool
 	}
 }
 
-func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) map[string]interface{} {
+func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) (map[string]interface{},error) {
 	if m.middlewareOrder == nil {
 		m.middlewareOrder = middleware.Orders()
 	}
@@ -403,7 +406,11 @@ func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) map[str
 			zap.S().Warnw("middle execute not found", "middleware", source)
 			continue
 		} else {
-			result, decision := mid.Handle(body, sp)
+			result, decision, err := mid.Handle(body, sp)
+			if err != nil {
+				zap.S().Errorw("middleware error", "middleware", mid.GetSource(), "err", err)
+				return nil, err
+			}
 			switch decision {
 			case middleware.Next:
 				{
@@ -412,10 +419,10 @@ func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) map[str
 				}
 			case middleware.Abort:
 				{
-					return result
+					return result, nil
 				}
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
