@@ -410,7 +410,7 @@ func TestManager(t *testing.T) {
 			}
 			Convey(testcase.caseName, func() {
 				// mock Runner
-				helper.NewRunner = testcase.newRunner
+				helper.GetMasterRunner = testcase.newRunner
 				// mock data
 				k8sutils.WithInjectData = testcase.withInjectData
 

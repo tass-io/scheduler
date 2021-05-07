@@ -56,7 +56,7 @@ func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
 func NewManager() *Manager {
 	m := &Manager{
 		ctx:             context.Background(),
-		runner:          helper.NewRunner(),
+		runner:          helper.GetMasterRunner(),
 		stopCh:          make(chan struct{}),
 		events:          event.Events(),
 		middlewareOrder: nil,

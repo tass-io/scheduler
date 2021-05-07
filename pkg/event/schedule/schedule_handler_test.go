@@ -132,6 +132,43 @@ func TestScheduleHandler(t *testing.T) {
 				"a": 1,
 			},
 		},
+		{
+			caseName: "test single function with same-source mercy",
+			skipped:  false,
+			upstreams: []ScheduleEvent{
+				{
+					FunctionName: "a",
+					Target:       1,
+					Trend:        Increase,
+					Source:       "First",
+				},
+				{
+					FunctionName: "a",
+					Target:       3,
+					Trend:        Increase,
+					Source:       "Second",
+				},
+				{
+					FunctionName: "b",
+					Target:       3,
+					Trend:        Decrease,
+					Source:       "First",
+				},
+				{
+					FunctionName: "b",
+					Target:       1,
+					Trend:        Decrease,
+					Source:       "Second",
+				},
+			},
+			orders: func() []event.Source {
+				return []event.Source{"First", "Second"}
+			},
+			exceptResult: map[string]int{
+				"a": 3,
+				"b": 1,
+			},
+		},
 	}
 	for _, testcase := range testcases {
 		if testcase.skipped {

@@ -7,6 +7,8 @@ import (
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"io/ioutil"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"net/http"
 	"strings"
 	"sync"
@@ -19,8 +21,6 @@ import (
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -32,14 +32,23 @@ var InvalidTargetError error = errors.New("no valid target")
 type Policy func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string
 
 var (
-	lsds                    *LSDS
-	once                    = &sync.Once{}
-	WorkflowRuntimeResource = schema.GroupVersionResource{
+	lsds                     *LSDS
+	once                     = &sync.Once{}
+	WorkflowRuntimeResources = schema.GroupVersionResource{
 		Group:    "serverless.tass.io",
 		Version:  "v1alpha1",
 		Resource: "workflowruntimes",
 	}
-	TargetPolicy = viper.GetString(env.Policy)
+	WorkflowRuntimeResource = schema.GroupVersionResource{
+		Group:    "serverless.tass.io",
+		Version:  "v1alpha1",
+		Resource: "workflowruntime",
+	}
+	WorkflowRuntimeKind = schema.GroupVersionKind{
+		Group:   "serverless.tass.io",
+		Version: "v1alpha1",
+		Kind:    "WorkflowRuntime",
+	}
 )
 
 func LDSinit() {
@@ -105,7 +114,7 @@ func NewLSDS(ctx context.Context) *LSDS {
 
 func (l *LSDS) getWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime, bool, error) {
 
-	key := k8sutils.GetSelfName() + "/" + name
+	key := k8sutils.GetSelfNamespace() + "/" + name
 	obj, existed, err := l.informer.GetStore().GetByKey(key)
 	if err != nil {
 		return nil, false, err
@@ -113,9 +122,20 @@ func (l *LSDS) getWorkflowRuntimeByName(name string) (*serverlessv1alpha1.Workfl
 	if !existed {
 		return nil, false, nil
 	}
-	ust := obj.(*unstructured.Unstructured)
-	wfrt := &serverlessv1alpha1.WorkflowRuntime{}
-	runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
+	var wfrt *serverlessv1alpha1.WorkflowRuntime
+	switch obj.(type) {
+	case *serverlessv1alpha1.WorkflowRuntime:
+		{
+			wfrt = obj.(*serverlessv1alpha1.WorkflowRuntime)
+		}
+	case *unstructured.Unstructured:
+		{
+			ust := obj.(*unstructured.Unstructured)
+			wfrt = &serverlessv1alpha1.WorkflowRuntime{}
+			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
+		}
+	}
+
 	return wfrt, true, nil
 }
 
@@ -131,6 +151,7 @@ func (l *LSDS) chooseTarget(functionName string) (ip string) {
 		zap.S().Warnw("workflowruntime not found", "functionName", functionName, "workflowName", l.workflowName)
 		return ""
 	}
+	TargetPolicy := viper.GetString(env.Policy)
 	ip = l.policies[TargetPolicy](functionName, l.selfName, wfrt)
 	return
 }
@@ -147,23 +168,39 @@ func (l *LSDS) Sync(info map[string]int) {
 		}
 	}
 	l.processRuntimes = processes
-	pathByte := l.GeneratePatchWorkflowRuntime(l.processRuntimes)
+	patchByte := l.GeneratePatchWorkflowRuntime()
 	// use patch to update
-	k8sutils.GetPatchClientIns().Resource(WorkflowRuntimeResource).Patch(
+	//result, err := k8sutils.GetPatchClientIns().Resource(WorkflowRuntimeResources).List(l.ctx, v1.ListOptions{})
+	//if err != nil {
+	//	zap.S().Errorw("k8s WorkflowRuntime list error", "err", err)
+	//}
+	//for _, item := range result.Items {
+	//	zap.S().Debugw("get WorkflowRuntime", "name", item.GetName(), "kind", item.GetKind(), "version", item.GetAPIVersion())
+	//}
+	/* ***attention***
+		the MergePatchType will merge old and new structs, so you should set zero, if some instance is scale down to zero instead of deleting key.
+	*/
+	_, err := k8sutils.GetPatchClientIns().Resource(WorkflowRuntimeResources).Namespace(k8sutils.GetSelfNamespace()).Patch(
 		context.Background(),
 		l.workflowName,
-		types.StrategicMergePatchType,
-		pathByte,
+		types.MergePatchType,
+		patchByte,
 		v1.PatchOptions{})
+	if err != nil {
+		zap.S().Errorw("k8s WorkflowRuntime patch error", "WorkflowRuntime", l.workflowName, "err", err)
+	}
+	//wfrt := &serverlessv1alpha1.WorkflowRuntime{}
+	//runtime.DefaultUnstructuredConverter.FromUnstructured(_.UnstructuredContent(), wfrt)
+	//zap.S().Debugw("refresh data", "refresh", wfrt)
 }
 
 // Help Function for Sync patch
-func (l *LSDS) GeneratePatchWorkflowRuntime(processes serverlessv1alpha1.ProcessRuntimes) []byte {
+func (l *LSDS) GeneratePatchWorkflowRuntime() []byte {
 	pwfrt := serverlessv1alpha1.WorkflowRuntime{
 		Status: serverlessv1alpha1.WorkflowRuntimeStatus{
 			Instances: serverlessv1alpha1.Instances{
-				l.workflowName: serverlessv1alpha1.Instance{
-					ProcessRuntimes: processes,
+				l.selfName: serverlessv1alpha1.Instance{
+					ProcessRuntimes: l.processRuntimes,
 				},
 			},
 		},
@@ -188,7 +225,7 @@ func (l *LSDS) startListen() error {
 	// 			"name": k8sutils.GetWorkflowName(),
 	// 		}).String()
 	// }), informers.WithNamespace(k8sutils.GetWorkflowName()))
-	listAndWatch := k8sutils.CreateUnstructuredListWatch(l.ctx, k8sutils.GetSelfNamespace(), WorkflowRuntimeResource)
+	listAndWatch := k8sutils.CreateUnstructuredListWatch(l.ctx, k8sutils.GetSelfNamespace(), WorkflowRuntimeResources)
 	informer := cache.NewSharedInformer(
 		listAndWatch,
 		&serverlessv1alpha1.WorkflowRuntime{},
@@ -283,4 +320,25 @@ func (l *LSDS) Run(parameters map[string]interface{}, span span.Span) (result ma
 		return nil, err
 	}
 	return resp.Result, nil
+}
+
+// LSDS Stats will return own stats in the serverlessv1alpha1.WorkflowRuntime
+func (l *LSDS) Stats() runner.InstanceStatus {
+	wfrt, existed, err := l.getWorkflowRuntimeByName(l.workflowName)
+	if err != nil {
+		zap.S().Errorw("lsds stats error", "err", err)
+		return nil
+	}
+	if !existed {
+		return nil
+	}
+	selfStatus, existed := wfrt.Status.Instances[l.selfName]
+	if !existed {
+		return nil
+	}
+	result := runner.InstanceStatus{}
+	for functionName, stat := range selfStatus.ProcessRuntimes {
+		result[functionName] = stat.Number
+	}
+	return result
 }
