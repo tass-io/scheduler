@@ -1,4 +1,4 @@
-package function_scheduler
+package fnscheduler
 
 import (
 	"github.com/tass-io/scheduler/pkg/runner"
