@@ -8,8 +8,10 @@ import (
 	"sync"
 )
 
-// Trend means the operation trend Trend with num will show the event  mean.
-// for example, Increase function a with number 2 means you wanna the instance a increase to 2.
+// Trend is a type that claims what the operation expects to be done.
+// It's wrapped in a ScheduleEvent to show the meaning of this event.
+// For example, a ScheduleEvent that Trend is "Increase" and Target is 2
+// means that you wanna increase the function instance to 2
 type Trend string
 
 const (
