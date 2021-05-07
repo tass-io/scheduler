@@ -3,15 +3,12 @@ package k8sutils
 import (
 	"context"
 	"errors"
-	"github.com/tass-io/scheduler/pkg/env"
-	"io"
-	"os"
-	"strings"
-
 	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/env"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
+	"io"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -20,13 +17,15 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"os"
+	"strings"
 )
 
 var (
 	selfName      string
 	workflowName  string
 	dynamicClient dynamic.Interface
-	scheme        *runtime.Scheme
+	scheme        = runtime.NewScheme()
 )
 var WithInjectData = func(objects *[]runtime.Object) {
 
@@ -34,6 +33,7 @@ var WithInjectData = func(objects *[]runtime.Object) {
 
 func Prepare() {
 	if local := viper.GetBool(env.Local); local {
+		workflowName = viper.GetString(env.WorkflowName)
 		workflowRuntimeFilePath := viper.GetString(env.WorkflowRuntimeFilePath)
 		selfName = viper.GetString(env.SelfName)
 		workflowruntimes := generateWorkflowRuntimeObjectsByFile(workflowRuntimeFilePath)
@@ -42,7 +42,6 @@ func Prepare() {
 		objects := append(workflowruntimes, workflows...)
 		WithInjectData(&objects)
 		zap.S().Infow("get objects", "objects", objects)
-		scheme = runtime.NewScheme()
 		if err := serverlessv1alpha1.AddToScheme(scheme); err != nil {
 			panic(err)
 		}

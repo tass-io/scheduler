@@ -5,6 +5,6 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 )
 
-var NewRunner = func() runner.Runner {
+var GetMasterRunner = func() runner.Runner {
 	return fnscheduler.GetFunctionScheduler()
 }
