@@ -6,5 +6,6 @@ const (
 	Local = "local"
 	WorkflowRuntimeFilePath = "workflowRuntimeFilePath"
 	WorkflowPath = "workflowPath"
+	WorkflowName = "workflowName"
 	SelfName = "selfName"
 )

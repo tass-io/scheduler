@@ -4,17 +4,15 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/pkg/runner/lsds"
-	"go.uber.org/zap"
-	"sync"
-	"time"
-
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/errorutils"
+	"go.uber.org/zap"
+	"sync"
 )
 
 var (
 	once = &sync.Once{}
-	fs *FunctionScheduler
+	fs   *FunctionScheduler
 )
 
 func GetFunctionScheduler() *FunctionScheduler {
@@ -24,7 +22,7 @@ func GetFunctionScheduler() *FunctionScheduler {
 
 func FunctionSchedulerInit() {
 	fs = NewFunctionScheduler()
-	go fs.Sync()
+	go fs.sync()
 }
 
 // FunctionScheduler implements Runner and Scheduler
@@ -32,6 +30,7 @@ type FunctionScheduler struct {
 	sync.Locker
 	runner.Runner
 	instances map[string]*set
+	trigger   chan struct{}
 }
 
 type set struct {
@@ -49,16 +48,19 @@ func newSet() *set {
 func NewFunctionScheduler() *FunctionScheduler {
 	// todo context architecture
 	return &FunctionScheduler{
-		Locker: &sync.Mutex{},
+		Locker:    &sync.Mutex{},
 		instances: make(map[string]*set, 10),
+		trigger: make(chan struct{}, 100),
 	}
 }
 
 func (fs *FunctionScheduler) Refresh(functionName string, target int) {
+	zap.S().Debugw("refresh")
 	ins, existed := fs.instances[functionName]
 	if !existed {
-		zap.S().Warnw("function scheduler refresh warning for function set not found", "function", functionName)
-		return
+		fs.Lock()
+		fs.instances[functionName] = newSet()
+		fs.Unlock()
 	}
 	ins.Lock()
 	defer ins.Unlock()
@@ -87,11 +89,13 @@ func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 			}
 		}
 	}
+	fs.instances[functionName] = ins
+	fs.trigger <- struct{}{}
 }
 
 // Sync Function Scheduler info to api server via LSDS
-func (fs *FunctionScheduler) Sync() {
-	for {
+func (fs *FunctionScheduler) sync() {
+	for _ = range fs.trigger{
 		syncMap := make(map[string]int, len(fs.instances))
 		fs.Lock()
 		for functionName, ins := range fs.instances {
@@ -99,7 +103,6 @@ func (fs *FunctionScheduler) Sync() {
 		}
 		fs.Unlock()
 		lsds.GetLSDSIns().Sync(syncMap)
-		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -176,3 +179,4 @@ func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	}
 	return stats
 }
+

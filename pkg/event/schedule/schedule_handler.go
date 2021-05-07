@@ -89,7 +89,7 @@ func (board *scoreBoard) Decide(orders []event.Source) *ScheduleEvent {
 	origin := &ScheduleEvent{}
 	err := common.DeepCopy(origin, board.bestWishes)
 	if err != nil {
-		zap.S().Errorw("scoreboard decide error", "error", err)
+		zap.S().Errorw("scoreboard decide deep copy error", "error", err)
 		return nil
 	}
 	zap.S().Debugw("board get orders", "orders", orders)
