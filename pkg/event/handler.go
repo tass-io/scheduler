@@ -27,6 +27,7 @@ func Register(source Source, handler Handler, order int) {
 		level = []Handler{}
 	}
 	level = append(level, handler)
+	orderOrigin[order] = level
 }
 
 var Events = func() map[Source]Handler {

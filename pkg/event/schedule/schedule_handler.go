@@ -60,9 +60,10 @@ func (event *ScheduleEvent) Merge(target *ScheduleEvent) {
 				event.Target = target.Target
 			}
 		}
-	case None: {
-		_ = common.DeepCopy(event, target)
-	}
+	case None:
+		{
+			_ = common.DeepCopy(event, target)
+		}
 	}
 }
 
@@ -75,9 +76,9 @@ type scoreBoard struct {
 
 func newScoreBoard(functionName string) scoreBoard {
 	return scoreBoard{
-		lock: &sync.Mutex{},
+		lock:       &sync.Mutex{},
 		bestWishes: newNoneScheduleEvent(functionName),
-		scores: make(map[event.Source]ScheduleEvent, 10),
+		scores:     make(map[event.Source]ScheduleEvent, 10),
 	}
 }
 

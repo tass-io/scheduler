@@ -24,9 +24,9 @@ const (
 type SimpleFakeRunner struct {
 }
 
-// SimpleFakeRunner will 'register' all function will be call, which indexes the function by span.FunctionName
+// SimpleFakeRunner will 'register' all function will be call, which indexes the function by span.FlowName
 func (r *SimpleFakeRunner) Run(parameters map[string]interface{}, sp span.Span) (result map[string]interface{}, err error) {
-	switch sp.FunctionName {
+	switch sp.FlowName {
 	case "simple_start":
 		{
 			return map[string]interface{}{"b": "c"}, nil
@@ -143,11 +143,11 @@ func TestManager(t *testing.T) {
 					*objects = append(*objects, workflow)
 				},
 				sp: span.Span{
-					FunctionName: "",
+					FlowName:     "",
 					WorkflowName: "simple",
 				},
 				parameters: map[string]interface{}{"a": "b"},
-				expect:     map[string]interface{}{"d": "e"},
+				expect:     map[string]interface{}{"simple_mid": map[string]interface{}{"simple_end": map[string]interface{}{"d": "e"}}},
 			},
 			{
 				caseName: "simple with parallel",
@@ -206,11 +206,11 @@ func TestManager(t *testing.T) {
 					*objects = append(*objects, workflow)
 				},
 				sp: span.Span{
-					FunctionName: "",
+					FlowName:     "",
 					WorkflowName: "simple",
 				},
 				parameters: map[string]interface{}{"a": "b"},
-				expect:     map[string]interface{}{"simple_branch_1": map[string]interface{}{"branch_1": "branch_1"}, "simple_branch_2": map[string]interface{}{"branch_2": "branch_2"}},
+				expect:     map[string]interface{}{"simple_mid": map[string]interface{}{"simple_branch_1": map[string]interface{}{"branch_1": "branch_1"}, "simple_branch_2": map[string]interface{}{"branch_2": "branch_2"}}},
 			},
 			{
 				caseName: "simple with one condition",
@@ -244,7 +244,7 @@ func TestManager(t *testing.T) {
 									Outputs:  []string{"condition_end"},
 									Conditions: []*serverlessv1alpha1.Condition{
 										{
-											Name:        "condition_1",
+											Name:        "root",
 											Type:        "string",
 											Operator:    "eq",
 											Target:      "fuck",
@@ -283,16 +283,24 @@ func TestManager(t *testing.T) {
 					*objects = append(*objects, workflow)
 				},
 				sp: span.Span{
-					FunctionName: "",
+					FlowName:     "",
 					WorkflowName: "condition",
 				},
 				parameters: map[string]interface{}{"a": "b"},
 				expect: map[string]interface{}{
-					"a":               "b",
-					"condition_start": "condition_start",
-					"condition_mid":   "condition_mid",
-					"condition_end":   "condition_end",
-					"condition_flow":  "condition_flow",
+					"condition_mid": map[string]interface{}{
+						"condition_end": map[string]interface{}{
+							"condition_end": "condition_end",
+							"flows": map[string]interface{}{
+								"condition_flow": map[string]interface{}{
+									"a":               "b",
+									"condition_flow":  "condition_flow",
+									"condition_mid":   "condition_mid",
+									"condition_start": "condition_start",
+								},
+							},
+						},
+					},
 				},
 			},
 			{
@@ -327,31 +335,30 @@ func TestManager(t *testing.T) {
 									Outputs:  []string{"condition_end"},
 									Conditions: []*serverlessv1alpha1.Condition{
 										{
-											Name:        "condition_1",
+											Name:        "root",
 											Type:        "string",
 											Operator:    "eq",
 											Target:      "fuck",
 											Comparision: "fuck",
 											Destination: serverlessv1alpha1.Destination{
 												IsTrue: serverlessv1alpha1.Next{
-													Conditions: []*serverlessv1alpha1.Condition{
-														{
-															Name:        "condition_nested",
-															Type:        "string",
-															Operator:    "eq",
-															Target:      "$.condition_start",
-															Comparision: "$.condition_start",
-															Destination: serverlessv1alpha1.Destination{
-																IsTrue: serverlessv1alpha1.Next{
-																	Flows:      []string{"condition_nested"},
-																	Conditions: []*serverlessv1alpha1.Condition{},
-																},
-															},
-														},
-													},
-													Flows: []string{"condition_flow"},
+													Conditions: []string{"condition_nested"},
+													Flows:      []string{"condition_flow"},
 												},
 												IsFalse: serverlessv1alpha1.Next{},
+											},
+										},
+										{
+											Name:        "condition_nested",
+											Type:        "string",
+											Operator:    "eq",
+											Target:      "condition_start",
+											Comparision: "condition_start",
+											Destination: serverlessv1alpha1.Destination{
+												IsTrue: serverlessv1alpha1.Next{
+													Flows:      []string{"condition_nested"},
+													Conditions: []string{},
+												},
 											},
 										},
 									},
@@ -389,17 +396,36 @@ func TestManager(t *testing.T) {
 					*objects = append(*objects, workflow)
 				},
 				sp: span.Span{
-					FunctionName: "",
+					FlowName:     "",
 					WorkflowName: "condition",
 				},
 				parameters: map[string]interface{}{"a": "b"},
 				expect: map[string]interface{}{
-					"a":                "b",
-					"condition_start":  "condition_start",
-					"condition_mid":    "condition_mid",
-					"condition_end":    "condition_end",
-					"condition_flow":   "condition_flow",
-					"condition_nested": "condition_nested",
+					"condition_mid": map[string]interface{}{
+						"condition_end": map[string]interface{}{
+							"condition_end": "condition_end",
+							"conditions": map[string]interface{}{
+								"condition_nested": map[string]interface{}{
+									"flows": map[string]interface{}{
+										"condition_nested": map[string]interface{}{
+											"a":                "b",
+											"condition_mid":    "condition_mid",
+											"condition_nested": "condition_nested",
+											"condition_start":  "condition_start",
+										},
+									},
+								},
+							},
+							"flows": map[string]interface{}{
+								"condition_flow": map[string]interface{}{
+									"a":               "b",
+									"condition_flow":  "condition_flow",
+									"condition_mid":   "condition_mid",
+									"condition_start": "condition_start",
+								},
+							},
+						},
+					},
 				},
 			},
 		}
@@ -417,8 +443,8 @@ func TestManager(t *testing.T) {
 				viper.Set("local", true)
 				k8sutils.Prepare()
 				mgr := NewManager()
-				time.Sleep(2 * time.Second)
-				result, err := mgr.Invoke(testcase.parameters, testcase.sp.WorkflowName, testcase.sp.FunctionName)
+				time.Sleep(1 * time.Second)
+				result, err := mgr.Invoke(testcase.parameters, testcase.sp.WorkflowName, testcase.sp.FlowName)
 				So(err, ShouldBeNil)
 				So(result, ShouldResemble, testcase.expect)
 			})

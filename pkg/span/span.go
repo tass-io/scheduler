@@ -5,5 +5,5 @@ package span
 // may be the struct will put context.Context into
 type Span struct {
 	WorkflowName string
-	FunctionName string
+	FlowName     string
 }
