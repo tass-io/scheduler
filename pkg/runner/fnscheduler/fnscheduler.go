@@ -60,6 +60,7 @@ func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 	if !existed {
 		fs.Lock()
 		fs.instances[functionName] = newSet()
+		ins = fs.instances[functionName]
 		fs.Unlock()
 	}
 	ins.Lock()
@@ -78,6 +79,7 @@ func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 		// scale up
 		for i := 0; i < target-l; i++ {
 			if fs.canCreate() {
+
 				newIns := NewInstance(functionName)
 				zap.S().Infow("function scheduler creates instance", "instance", newIns)
 				err := newIns.Start()
@@ -117,13 +119,13 @@ func (fs *FunctionScheduler) canCreate() bool {
 // now with middleware and events, fs run will be simplified
 func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Span) (result map[string]interface{}, err error) {
 	fs.Lock()
-	target, existed := fs.instances[span.FunctionName]
+	target, existed := fs.instances[span.FlowName]
 	if !existed {
 		// cold start, create target and create process
 		target = newSet()
 	}
 	// take care of the lock order, the set lock is before fs unlock
-	fs.instances[span.FunctionName] = target
+	fs.instances[span.FlowName] = target
 	target.Lock()
 	fs.Unlock()
 	if len(target.instances) > 0 {
@@ -132,10 +134,10 @@ func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Sp
 		target.Unlock()
 		return process.Invoke(parameters)
 	} else {
-		return nil, errorutils.NewNoInstanceError(span.FunctionName)
+		return nil, errorutils.NewNoInstanceError(span.FlowName)
 		// if fs.canCreate() {
 		// 	// cold start, create a new process to handle request
-		// 	newInstance := NewInstance(span.FunctionName)
+		// 	newInstance := NewInstance(span.FlowName)
 		// 	err = newInstance.Start()
 		// 	if err != nil {
 		// 		return nil, err

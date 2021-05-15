@@ -1,6 +1,7 @@
 package lsds
 
 import (
+	"fmt"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/event/schedule"
@@ -21,6 +22,7 @@ var (
 )
 
 func init() {
+	fmt.Println("NMSL")
 	lsdsmiddle = newLSDSMiddleware()
 	middleware.Register(LSDSMiddlewareSource, lsdsmiddle, 2)
 }
@@ -39,22 +41,25 @@ func GetLSDSMiddleware() *LSDSMiddleware {
 
 func (lsds *LSDSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
 	stats := helper.GetMasterRunner().Stats() // use runner api instead of workflow api to reduce coupling
-	instanceNum, existed := stats[sp.FunctionName]
+	zap.S().Infow("get master runner stats at lsds", "stats", stats)
+	instanceNum, existed := stats[sp.FlowName]
 	// todo use retry
 	if !existed || instanceNum == 0 {
 		// create event and wait a period of time
 		event := schedule.ScheduleEvent{
-			FunctionName: sp.FunctionName,
+			FunctionName: sp.FlowName,
 			Target:       1,
 			Trend:        schedule.Increase,
 			Source:       schedule.ScheduleSource,
 		}
+		zap.S().Infow("create event at lsds", "event", event)
 		schedule.GetScheduleHandlerIns().AddEvent(event)
 		time.Sleep(viper.GetDuration(env.LSDSWait))
 		stats = helper.GetMasterRunner().Stats()
-		instanceNum, existed = stats[sp.FunctionName]
+		zap.S().Infow("get master runner stats at lsds", "stats", stats)
+		instanceNum, existed = stats[sp.FlowName]
 		if !existed || instanceNum == 0 {
-			result ,err := runnerlsds.GetLSDSIns().Run(body, *sp)
+			result, err := runnerlsds.GetLSDSIns().Run(body, *sp)
 			if err != nil {
 				zap.S().Errorw("lsds middleware run error", "err", err)
 				return nil, middleware.Abort, err

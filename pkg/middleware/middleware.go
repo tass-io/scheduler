@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"github.com/tass-io/scheduler/pkg/span"
 	"sort"
 )
@@ -29,12 +30,14 @@ type Handler interface {
 }
 
 func Register(source Source, handler Handler, order int) {
+	fmt.Printf("register %s with order %d\n", source, order)
 	handlers[source] = handler
 	level, existed := orderOrigin[order]
 	if !existed {
 		level = []Handler{}
 	}
 	level = append(level, handler)
+	orderOrigin[order] = level
 }
 
 var Middlewares = func() map[Source]Handler {
