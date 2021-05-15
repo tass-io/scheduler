@@ -48,7 +48,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 			},
 			span: span.Span{
 				WorkflowName: "test",
-				FunctionName: "a",
+				FlowName:     "a",
 			},
 			expect: nil,
 		},
@@ -65,7 +65,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 			},
 			span: span.Span{
 				WorkflowName: "test",
-				FunctionName: "b",
+				FlowName:     "b",
 			},
 			expect: errorutils.NewNoInstanceError("b"),
 		},
@@ -168,7 +168,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			So(stats, ShouldResemble, testcase.excepts)
 			time.Sleep(1 * time.Second)
 			for functionName, e := range testcase.runTargets {
-				_, err := fs.Run(nil, span.Span{WorkflowName: "", FunctionName: functionName})
+				_, err := fs.Run(nil, span.Span{WorkflowName: "", FlowName: functionName})
 				So(err, ShouldResemble, e)
 			}
 			k8sstats := ls.Stats()

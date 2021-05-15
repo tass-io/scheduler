@@ -6,6 +6,7 @@ import (
 )
 
 func CopyMap(m map[string]interface{}) (map[string]interface{}, error) {
+	gob.Register(map[string]interface{}{})
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 	dec := gob.NewDecoder(&buf)

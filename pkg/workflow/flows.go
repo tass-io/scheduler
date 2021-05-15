@@ -2,14 +2,15 @@ package workflow
 
 import (
 	"errors"
-	"reflect"
-	"sync"
-
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/common"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
+)
+
+const (
+	RootCondition = "root"
 )
 
 var (
@@ -18,49 +19,56 @@ var (
 	FlowNotFoundError     = errors.New("flow not found")
 )
 
-// Promise is an abstraction like javascript Promise
-type Promise struct {
-	wg   sync.WaitGroup
-	name string
-	f    func(map[string]interface{}, *serverlessv1alpha1.Workflow, span.Span) (map[string]interface{}, error)
-	res  map[string]interface{}
-	err  error
-}
-
-func NewPromise(f func(map[string]interface{}, *serverlessv1alpha1.Workflow, span.Span) (map[string]interface{}, error), name string) *Promise {
-	p := &Promise{
-		f:    f,
-		name: name,
+// parallelFlowsWithSpan just handle Flow.Outputs and Condition.Flows, they are the same logic
+func (m *Manager) parallelConditions(para map[string]interface{}, wf *serverlessv1alpha1.Workflow, target int, nexts []string) (map[string]interface{}, error) {
+	if len(nexts) == 0 {
+		return nil, nil
 	}
-	return p
-}
-func (p *Promise) Run(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp span.Span) {
-	p.wg.Add(1)
-	go func() {
-		defer p.wg.Done()
-		p.res, p.err = p.f(parameters, wf, sp)
-	}()
+	promises := []*CondPromise{}
+	flow := wf.Spec.Spec[target]
+	for _, next := range nexts {
+		// think about all next is like a new workflow
+		newSp := span.Span{
+			WorkflowName: wf.Name,
+			FlowName:     flow.Name,
+		}
+		cond := findConditionByName(next, &flow)
+		p := NewCondPromise(m.executeCondition, next)
+		zap.S().Debugw("call condition with parameter", "flow", newSp.FlowName, "parameters", para, "target", target)
+		p.Run(cond, wf, target, para)
+		promises = append(promises, p)
+	}
+
+	finalResult := make(map[string]interface{}, len(promises))
+
+	for _, p := range promises {
+		resp, err := p.GetResult()
+		zap.S().Debugw("get resp with function", "function", p.name, "resp", resp)
+		if err != nil {
+			zap.S().Errorw("get error from condition promise", "err", err)
+			return nil, err
+		}
+		if resp != nil {
+			finalResult[p.name] = resp
+		}
+	}
+	return finalResult, nil
 }
 
-func (p *Promise) GetResult() (map[string]interface{}, error) {
-	p.wg.Wait()
-	return p.res, p.err
-}
-
-// parallelFlows just handle Flow.Outputs and Condition.Flows, they are the same logic
+// parallelFlowsWithSpan just handle Flow.Outputs and Condition.Flows, they are the same logic
 func (m *Manager) parallelFlowsWithSpan(para map[string]interface{}, wf *serverlessv1alpha1.Workflow, nexts []int, sp span.Span) (map[string]interface{}, error) {
 	if len(nexts) == 0 {
-		return para, nil
+		return nil, nil
 	}
-	promises := []*Promise{}
+	promises := []*FlowPromise{}
 	for _, next := range nexts {
 		// think about all next is like a new workflow
 		newSp := span.Span{
 			WorkflowName: sp.WorkflowName,
-			FunctionName: wf.Spec.Spec[next].Function,
+			FlowName:     wf.Spec.Spec[next].Name,
 		}
-		p := NewPromise(m.executeSpec, newSp.FunctionName)
-		zap.S().Debugw("call function with parameter", "function", newSp.FunctionName, "parameters", para)
+		p := NewFlowPromise(m.executeSpec, newSp.FlowName)
+		zap.S().Debugw("call function with parameter", "flow", newSp.FlowName, "parameters", para)
 		p.Run(para, wf, newSp)
 		promises = append(promises, p)
 	}
@@ -71,12 +79,11 @@ func (m *Manager) parallelFlowsWithSpan(para map[string]interface{}, wf *serverl
 		resp, err := p.GetResult()
 		zap.S().Debugw("get resp with function", "function", p.name, "resp", resp)
 		if err != nil {
+			zap.S().Errorw("get error from function promise", "err", err)
 			return nil, err
 		}
-		if len(promises) > 1 {
+		if resp != nil {
 			finalResult[p.name] = resp
-		} else {
-			finalResult = resp
 		}
 	}
 	return finalResult, nil
@@ -91,23 +98,26 @@ func (m *Manager) parallelFlows(para map[string]interface{}, wf *serverlessv1alp
 
 // executeSpec is the main function about workflow control, it handle the main flow path
 func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp span.Span) (map[string]interface{}, error) {
-	zap.S().Debugw("executeSpec start", "parameters", wf)
+	zap.S().Debugw("executeSpec start", "parameters", parameters)
 	para, err := common.CopyMap(parameters)
 	if err != nil {
+		zap.S().Errorw("copy map error", "err", err, "para", para)
 		return nil, err
 	}
-	target, err := findFlowByName(wf, sp.FunctionName)
+	target, err := findFlowByName(wf, sp.FlowName)
 	if err != nil {
 		zap.S().Debugw("executeSpec findFlowByName error", "err", err, "span", sp)
 		return nil, err
 	}
 	result, err := m.executeRunFunction(para, wf, target)
 	if err != nil {
+		zap.S().Errorw("executeRunFunction error", "err", err)
 		return nil, err
 	}
 	// pay attention !!! here may change result
 	nexts, err := m.findNext(&result, wf, target) // has serveral next functions
 	if err != nil {
+		zap.S().Errorw("findNext error", "err", err)
 		return nil, err
 	}
 
@@ -115,7 +125,14 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 		return result, nil
 	}
 
-	return m.parallelFlowsWithSpan(result, wf, nexts, sp)
+	finalResult, err := m.parallelFlowsWithSpan(result, wf, nexts, sp)
+	if err != nil {
+		return nil, err
+	}
+	if finalResult == nil {
+		return result, nil
+	}
+	return finalResult, err
 }
 
 // executeRunFunction Run function without other logic
@@ -124,12 +141,14 @@ func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serv
 
 	sp := span.Span{
 		WorkflowName: wf.Name,
-		FunctionName: wf.Spec.Spec[index].Function,
+		FlowName:     wf.Spec.Spec[index].Function,
 	}
+	zap.S().Info("run middleware")
 	midResult, err := m.middleware(parameters, &sp)
 	if err != nil {
 		return nil, err
 	}
+	zap.S().Infow("get middleware result", "result", midResult)
 	if midResult != nil {
 		return midResult, nil
 	}
@@ -140,7 +159,7 @@ func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serv
 func findStart(wf *serverlessv1alpha1.Workflow) (string, error) {
 	for _, flow := range wf.Spec.Spec {
 		if flow.Role == serverlessv1alpha1.Start {
-			return flow.Function, nil
+			return flow.Name, nil
 		}
 	}
 	return "", NoStartFoundError
@@ -181,7 +200,8 @@ func (m *Manager) findNext(result *map[string]interface{}, wf *serverlessv1alpha
 	case serverlessv1alpha1.Switch:
 		{
 			zap.S().Debugw("in switch with conditions", now.Conditions)
-			*result, err = m.executeConditions(now.Conditions, wf, *result)
+			rootcond := findRootCondition(&now)
+			*result, err = m.executeCondition(rootcond, wf, target, *result)
 			zap.S().Debugw("in switch with get new result", "result", result)
 			if err != nil {
 				return nil, err
@@ -206,15 +226,15 @@ func (m *Manager) findNext(result *map[string]interface{}, wf *serverlessv1alpha
 }
 
 // execute conditions use m.executeCondition
-func (m *Manager) executeConditions(conditions []*serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, functionResult map[string]interface{}) (map[string]interface{}, error) {
+func (m *Manager) executeConditions(conditions []*serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) (map[string]interface{}, error) {
 	para, _ := common.CopyMap(functionResult)
-	if conditions == nil {
+	if conditions == nil || len(conditions) == 0 {
 		return para, nil
 	}
 	var err error
 	for _, condition := range conditions {
 		zap.S().Debugw("condition execute with parameters", "condition", condition, "para", functionResult)
-		para, err = m.executeCondition(condition, wf, para)
+		para, err = m.executeCondition(condition, wf, target, para)
 		if err != nil {
 			zap.S().Errorw("execute condition error", "err", err)
 		}
@@ -224,7 +244,7 @@ func (m *Manager) executeConditions(conditions []*serverlessv1alpha1.Condition, 
 }
 
 // handle all about a condition
-func (m *Manager) executeCondition(condition *serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, functionResult map[string]interface{}) (map[string]interface{}, error) {
+func (m *Manager) executeCondition(condition *serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) (map[string]interface{}, error) {
 	branch := executeConditionLogic(condition, functionResult)
 	var next *serverlessv1alpha1.Next
 	if branch {
@@ -232,9 +252,14 @@ func (m *Manager) executeCondition(condition *serverlessv1alpha1.Condition, wf *
 	} else {
 		next = &condition.Destination.IsFalse
 	}
-	para, err := m.executeConditions(next.Conditions, wf, functionResult)
+	// parallel execute flows and conditions
+	mergedResult := map[string]interface{}{}
+	conditionsResult, err := m.parallelConditions(functionResult, wf, target, next.Conditions)
 	if err != nil {
-		return nil, err
+		zap.S().Errorw("error at parallel conditions", "err", err)
+	} else if conditionsResult != nil {
+
+		mergedResult["conditions"] = conditionsResult
 	}
 	// execute condition.Flows
 	// attention !!! not change to var flowsNum []int
@@ -247,7 +272,13 @@ func (m *Manager) executeCondition(condition *serverlessv1alpha1.Condition, wf *
 		flowsNum = append(flowsNum, i)
 	}
 	zap.S().Debugw("after conditions flows", "flows", flowsNum)
-	return m.parallelFlows(para, wf, flowsNum)
+	flowsResult, err := m.parallelFlows(functionResult, wf, flowsNum)
+	if err != nil {
+		zap.S().Errorw("error at parallel flow", "err", err)
+	} else if flowsResult != nil {
+		mergedResult["flows"] = flowsResult
+	}
+	return mergedResult, err
 }
 
 // just run GetValue and compare logic
@@ -277,8 +308,6 @@ func executeConditionLogic(condition *serverlessv1alpha1.Condition, functionResu
 	common.GetValue(functionResult, string(condition.Comparision), rightValue)
 
 	zap.S().Debugw("condition logic get value", "left", leftValue, "right", rightValue)
-	compare(leftValue, rightValue, condition.Operator)
-	zap.S().Debugw("condition logic result", "result", reflect.DeepEqual(leftValue, rightValue))
 	return compare(leftValue, rightValue, condition.Operator)
 }
 
@@ -289,7 +318,9 @@ func compare(left interface{}, right interface{}, op serverlessv1alpha1.Operator
 		{
 			leftValue := left.(*int)
 			rightValue := right.(*int)
-			return compareInt(*leftValue, *rightValue, op)
+			result := compareInt(*leftValue, *rightValue, op)
+			zap.S().Debugw("get compareInt result at compare", "result", result)
+			return result
 		}
 	case *string:
 		{
@@ -310,6 +341,7 @@ func compare(left interface{}, right interface{}, op serverlessv1alpha1.Operator
 
 // help function for int compare
 func compareInt(left int, right int, op serverlessv1alpha1.OperatorType) bool {
+	zap.S().Debugw("compareInt", "left", left, "right", right, "op", op)
 	switch op {
 	case serverlessv1alpha1.Eq:
 		{
@@ -329,6 +361,7 @@ func compareInt(left int, right int, op serverlessv1alpha1.OperatorType) bool {
 		}
 	case serverlessv1alpha1.Gt:
 		{
+			zap.S().Debugw("compare int result", "left", left, "right", right, "result", left > right)
 			return left > right
 		}
 	case serverlessv1alpha1.Ge:
@@ -397,20 +430,24 @@ func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool
 	}
 }
 
-func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) (map[string]interface{},error) {
+// execute middleware action
+func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) (map[string]interface{}, error) {
 	if m.middlewareOrder == nil {
 		m.middlewareOrder = middleware.Orders()
 	}
+	zap.S().Infow("get m.middlewareOrder", "orders", m.middlewareOrder)
 	for _, source := range m.middlewareOrder {
 		if mid, existed := m.middlewares[source]; !existed {
-			zap.S().Warnw("middle execute not found", "middleware", source)
+			zap.S().Warnw("middleware execute not found", "middleware", source)
 			continue
 		} else {
+			zap.S().Infow("run middleware", "source", source)
 			result, decision, err := mid.Handle(body, sp)
 			if err != nil {
 				zap.S().Errorw("middleware error", "middleware", mid.GetSource(), "err", err)
 				return nil, err
 			}
+			zap.S().Infow("middleware result", "result", result, "decision", decision)
 			switch decision {
 			case middleware.Next:
 				{
@@ -425,4 +462,18 @@ func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) (map[st
 		}
 	}
 	return nil, nil
+}
+
+func findConditionByName(name string, flow *serverlessv1alpha1.Flow) *serverlessv1alpha1.Condition {
+
+	for _, condition := range flow.Conditions {
+		if condition.Name == name {
+			return condition
+		}
+	}
+	return nil
+}
+
+func findRootCondition(flow *serverlessv1alpha1.Flow) *serverlessv1alpha1.Condition {
+	return findConditionByName(RootCondition, flow)
 }

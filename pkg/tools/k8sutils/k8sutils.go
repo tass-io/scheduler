@@ -1,17 +1,20 @@
 package k8sutils
 
 import (
+	"bytes"
 	"context"
-	"errors"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
+	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
-	"io"
+	"io/ioutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
@@ -33,13 +36,19 @@ var WithInjectData = func(objects *[]runtime.Object) {
 
 func Prepare() {
 	if local := viper.GetBool(env.Local); local {
+		objects := []runtime.Object{}
 		workflowName = viper.GetString(env.WorkflowName)
 		workflowRuntimeFilePath := viper.GetString(env.WorkflowRuntimeFilePath)
 		selfName = viper.GetString(env.SelfName)
-		workflowruntimes := generateWorkflowRuntimeObjectsByFile(workflowRuntimeFilePath)
+		err := generateWorkflowRuntimeObjectsByFile(workflowRuntimeFilePath, &objects)
+		if err != nil {
+			zap.S().Warnw("generate WorkflowRuntime error", "err", err)
+		}
 		workflowFilePath := viper.GetString(env.WorkflowPath)
-		workflows := generateWorkflowObjectsByFile(workflowFilePath)
-		objects := append(workflowruntimes, workflows...)
+		err = generateWorkflowObjectsByFile(workflowFilePath, &objects)
+		if err != nil {
+			zap.S().Warnw("generate Workflow error", "err", err)
+		}
 		WithInjectData(&objects)
 		zap.S().Infow("get objects", "objects", objects)
 		if err := serverlessv1alpha1.AddToScheme(scheme); err != nil {
@@ -81,70 +90,69 @@ var GetSelfNamespace = func() string {
 	return "default"
 }
 
-func generateWorkflowObjectsByFile(fileName string) (result []runtime.Object) {
-	f, err := os.Open(fileName)
+func generateWorkflowObjectsByFile(fileName string, objects *[]runtime.Object) error {
+	filebytes, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		return []runtime.Object{}
+		return err
 	}
-	defer f.Close()
-	d := yaml.NewDecoder(f)
-
+	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), 100)
 	for {
-		// create new spec here
-		spec := new(serverlessv1alpha1.Workflow)
-		// pass a reference to spec reference
-		err := d.Decode(&spec)
-		// check it was parsed
-		if spec == nil {
-			continue
-		}
-		// break the loop in case of EOF
-		if errors.Is(err, io.EOF) {
+		var rawObj runtime.RawExtension
+		if err = decoder.Decode(&rawObj); err != nil {
 			break
 		}
+
+		obj, _, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
 		if err != nil {
-			zap.S().Errorw("generate workflow from file error", "err", err)
+			return err
 		}
-		result = append(result, spec)
+		ust := obj.(*unstructured.Unstructured)
+		workflow := new(serverlessv1alpha1.Workflow)
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), workflow)
+		if err != nil {
+			return err
+		}
+		zap.S().Debugw("get Workflow", "workflow", workflow)
+		*objects = append(*objects, workflow)
 	}
-	return
+	return err
 }
 
-func generateWorkflowRuntimeObjectsByFile(fileName string) (result []runtime.Object) {
-	f, err := os.Open(fileName)
+func generateWorkflowRuntimeObjectsByFile(fileName string, objects *[]runtime.Object) error {
+	filebytes, err := ioutil.ReadFile(fileName)
 	if err != nil {
-		return []runtime.Object{}
+		return err
 	}
-	defer f.Close()
-	d := yaml.NewDecoder(f)
-
+	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), 100)
 	for {
-		// create new spec here
-		spec := new(serverlessv1alpha1.WorkflowRuntime)
-		// pass a reference to spec reference
-		err := d.Decode(&spec)
-		// check it was parsed
-		if spec == nil {
-			continue
-		}
-		// break the loop in case of EOF
-		if errors.Is(err, io.EOF) {
+		var rawObj runtime.RawExtension
+		if err = decoder.Decode(&rawObj); err != nil {
 			break
 		}
+
+		obj, _, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
 		if err != nil {
-			zap.S().Errorw("generate workflow runtime from file error", "err", err)
+			return err
 		}
-		result = append(result, spec)
+		ust := obj.(*unstructured.Unstructured)
+		wfrt := new(serverlessv1alpha1.WorkflowRuntime)
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
+		if err != nil {
+			return err
+		}
+		zap.S().Debugw("get WorkflowRuntime", "workflow", wfrt)
+		*objects = append(*objects, wfrt)
 	}
-	return
+	return err
 }
 
 func CreateUnstructuredListWatch(ctx context.Context, namespace string, resource schema.GroupVersionResource) *cache.ListWatch {
 	return &cache.ListWatch{
 		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 
-			return dynamicClient.Resource(resource).Namespace(namespace).List(ctx, opts)
-
+			result, err := dynamicClient.Resource(resource).Namespace(namespace).List(ctx, opts)
+			zap.S().Debugw("get result at list and watch", "result", result)
+			return result, err
 		},
 		// Setup the watch function
 		WatchFunc: func(opts metav1.ListOptions) (watch.Interface, error) {

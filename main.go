@@ -1,9 +1,8 @@
 package main
 
 import (
-	"log"
-
 	"github.com/tass-io/scheduler/cmd"
+	"log"
 )
 
 func main() {

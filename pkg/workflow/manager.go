@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
+	"sync"
 	"time"
 
 	"github.com/tass-io/scheduler/pkg/event"
@@ -19,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// unlike lsds and other things, Manager should not lazy start
 func ManagerInit() {
 	manager = NewManager()
 }
@@ -30,6 +32,7 @@ var (
 		Resource: "workflows",
 	}
 	manager               *Manager
+	once                  = &sync.Once{}
 	WorkflowNotFoundError = errors.New("workflow not found")
 )
 
@@ -83,7 +86,7 @@ func (m *Manager) startListen() error {
 	listAndWatch := k8sutils.CreateUnstructuredListWatch(m.ctx, k8sutils.GetSelfNamespace(), WorkflowResource)
 	informer := cache.NewSharedInformer(
 		listAndWatch,
-		&serverlessv1alpha1.WorkflowRuntime{},
+		&serverlessv1alpha1.Workflow{},
 		1*time.Second,
 	)
 	m.informer = informer
@@ -131,8 +134,8 @@ func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span
 		zap.S().Errorw("workflow not found", "workflowname", sp.WorkflowName)
 		return nil, WorkflowNotFoundError
 	}
-	if sp.FunctionName == "" {
-		sp.FunctionName, err = findStart(workflow)
+	if sp.FlowName == "" {
+		sp.FlowName, err = findStart(workflow)
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +150,7 @@ func (m *Manager) GetRunner() runner.Runner {
 func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string, functionName string) (result map[string]interface{}, err error) {
 	sp := span.Span{
 		WorkflowName: workflowName,
-		FunctionName: functionName,
+		FlowName:     functionName,
 	}
 	return m.handleWorkflow(parameters, sp)
 }
