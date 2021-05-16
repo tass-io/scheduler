@@ -310,7 +310,7 @@ func WorkflowRequest(parameters map[string]interface{}, target string, sp span.S
 
 // find a suitable pod to send http request with
 func (l *LSDS) Run(parameters map[string]interface{}, span span.Span) (result map[string]interface{}, err error) {
-	target := l.chooseTarget(span.FlowName)
+	target := l.chooseTarget(span.FunctionName)
 	if target == "" {
 		return nil, InvalidTargetError
 	}
