@@ -98,6 +98,14 @@ func (m *Manager) parallelFlows(para map[string]interface{}, wf *serverlessv1alp
 
 // executeSpec is the main function about workflow control, it handle the main flow path
 func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp span.Span) (map[string]interface{}, error) {
+	if sp.FunctionName == "" {
+		index, err := findFlowByName(wf, sp.FlowName)
+		if err != nil {
+			zap.S().Errorw("fill in function name error", "err", err)
+			return nil, err
+		}
+		sp.FunctionName = wf.Spec.Spec[index].Function
+	}
 	zap.S().Debugw("executeSpec start", "parameters", parameters)
 	para, err := common.CopyMap(parameters)
 	if err != nil {
