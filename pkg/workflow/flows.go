@@ -138,10 +138,11 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 // executeRunFunction Run function without other logic
 // middleware will inject there.
 func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, index int) (map[string]interface{}, error) {
-
+	flow := wf.Spec.Spec[index]
 	sp := span.Span{
 		WorkflowName: wf.Name,
-		FlowName:     wf.Spec.Spec[index].Function,
+		FlowName:     flow.Name,
+		FunctionName: flow.Function,
 	}
 	zap.S().Info("run middleware")
 	midResult, err := m.middleware(parameters, &sp)
@@ -156,13 +157,13 @@ func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serv
 }
 
 // find the start flow name of a Workflow
-func findStart(wf *serverlessv1alpha1.Workflow) (string, error) {
+func findStart(wf *serverlessv1alpha1.Workflow) (string, string, error) {
 	for _, flow := range wf.Spec.Spec {
 		if flow.Role == serverlessv1alpha1.Start {
-			return flow.Name, nil
+			return flow.Name, flow.Function, nil
 		}
 	}
-	return "", NoStartFoundError
+	return "", "", NoStartFoundError
 }
 
 // end is a strong rule, ignore Outputs

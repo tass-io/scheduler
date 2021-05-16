@@ -135,7 +135,7 @@ func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span
 		return nil, WorkflowNotFoundError
 	}
 	if sp.FlowName == "" {
-		sp.FlowName, err = findStart(workflow)
+		sp.FlowName, sp.FunctionName, err = findStart(workflow)
 		if err != nil {
 			return nil, err
 		}
@@ -147,10 +147,11 @@ func (m *Manager) GetRunner() runner.Runner {
 	return m.runner
 }
 
-func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string, functionName string) (result map[string]interface{}, err error) {
+func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string, flowName string) (result map[string]interface{}, err error) {
 	sp := span.Span{
 		WorkflowName: workflowName,
-		FlowName:     functionName,
+		FlowName:     flowName,
+		FunctionName: "",
 	}
 	return m.handleWorkflow(parameters, sp)
 }
