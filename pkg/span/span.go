@@ -6,4 +6,5 @@ package span
 type Span struct {
 	WorkflowName string
 	FlowName     string
+	FunctionName string
 }
