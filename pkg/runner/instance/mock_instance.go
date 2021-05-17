@@ -1,10 +1,15 @@
 package instance
 
+import "github.com/tass-io/scheduler/pkg/tools/common"
+
 type mockInstance struct {
+	functionName string
 }
 
 func (m *mockInstance) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
-	return parameters, nil
+	output, err := common.CopyMap(parameters)
+	output[m.functionName] = m.functionName
+	return output, err
 }
 
 func (m *mockInstance) Score() int {
@@ -19,5 +24,7 @@ func (m *mockInstance) Start() error {
 }
 
 func NewMockInstance(functionName string) *mockInstance {
-	return &mockInstance{}
+	return &mockInstance{
+		functionName: functionName,
+	}
 }

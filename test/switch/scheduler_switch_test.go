@@ -188,7 +188,8 @@ func TestSchedulerSwitch(t *testing.T) {
 			for caseName := range testcase.requests {
 				t.Logf("testcase %s\n", caseName)
 				resp := &dto.InvokeResponse{}
-				status := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.requests[caseName], resp)
+				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.requests[caseName], resp)
+				So(err, ShouldBeNil)
 				So(status, ShouldEqual, 200)
 				expect := testcase.expects[caseName].Result
 				// todo evil equal

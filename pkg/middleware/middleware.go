@@ -41,6 +41,7 @@ func Register(source Source, handler Handler, order int) {
 }
 
 var Middlewares = func() map[Source]Handler {
+
 	return handlers
 }
 

@@ -3,9 +3,9 @@ package fnscheduler
 import (
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
-	"github.com/tass-io/scheduler/pkg/runner/lsds"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/errorutils"
+	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	"go.uber.org/zap"
 	"sync"
 )
@@ -104,7 +104,7 @@ func (fs *FunctionScheduler) sync() {
 			syncMap[functionName] = len(ins.instances)
 		}
 		fs.Unlock()
-		lsds.GetLSDSIns().Sync(syncMap)
+		k8sutils.Sync(syncMap)
 	}
 }
 
@@ -135,20 +135,6 @@ func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Sp
 		return process.Invoke(parameters)
 	} else {
 		return nil, errorutils.NewNoInstanceError(span.FunctionName)
-		// if fs.canCreate() {
-		// 	// cold start, create a new process to handle request
-		// 	newInstance := NewInstance(span.FlowName)
-		// 	err = newInstance.Start()
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// 	target.instances = append(target.instances, newInstance)
-		// 	target.Unlock()
-		// 	result, err = newInstance.Invoke(parameters)
-		// } else {
-		// 	// resource limit, return error
-		// 	return nil, ResourceLimitError
-		// }
 	}
 }
 

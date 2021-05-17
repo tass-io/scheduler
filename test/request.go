@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"fmt"
 	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
@@ -9,7 +10,7 @@ import (
 )
 
 // wrapper request to local scheduler
-func RequestJson(url string, method string, headers map[string]string, param interface{}, bodyStruct interface{}) int {
+func RequestJson(url string, method string, headers map[string]string, param interface{}, bodyStruct interface{}) (int, error) {
 	var jsonByte []byte
 	jsonByte, _ = json.Marshal(param)
 	client := &http.Client{
@@ -23,10 +24,11 @@ func RequestJson(url string, method string, headers map[string]string, param int
 	for key, val := range headers {
 		req.Header.Add(key, val)
 	}
+	fmt.Println(req)
 
 	res, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		return 0,err
 	}
 	defer res.Body.Close()
 
@@ -39,5 +41,5 @@ func RequestJson(url string, method string, headers map[string]string, param int
 	if err != nil {
 		panic(err)
 	}
-	return res.StatusCode
+	return res.StatusCode, nil
 }
