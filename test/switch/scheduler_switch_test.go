@@ -8,7 +8,6 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/test"
-	"go.uber.org/zap"
 	"testing"
 	"time"
 )
@@ -42,7 +41,6 @@ func TestSchedulerSwitch(t *testing.T) {
 		workflowName string
 		requests     map[string]dto.InvokeRequest
 		expects      map[string]dto.InvokeResponse
-		mockInstance func(functionName string) instance.Instance
 	}{
 		{
 			skipped: false,
@@ -70,10 +68,6 @@ func TestSchedulerSwitch(t *testing.T) {
 					Message: "ok",
 					Result:  map[string]interface{}{"flows": map[string]interface{}{"right": map[string]interface{}{"a": 1, "function1": "function1", "function2": "function2"}}},
 				},
-			},
-			mockInstance: func(functionName string) instance.Instance {
-				zap.S().Info("MNSL")
-				return &switchMockInstance{name: functionName}
 			},
 		},
 		{
@@ -165,9 +159,6 @@ func TestSchedulerSwitch(t *testing.T) {
 						},
 					},
 				},
-			},
-			mockInstance: func(functionName string) instance.Instance {
-				return &switchMockInstance{name: functionName}
 			},
 		},
 	}
