@@ -18,7 +18,7 @@ import (
 const (
 	APIVersion              = "serverless.tass.io/v1alpha1"
 	WorkflowKind            = "Workflow"
-	WorkflowRuntimeKindName = "WorkflowRuntime"
+	WorkflowRuntimeKind = "WorkflowRuntime"
 )
 
 func TestLSDS_Policy(t *testing.T) {
@@ -79,7 +79,7 @@ func TestLSDS_Policy(t *testing.T) {
 				workflowRuntime := &serverlessv1alpha1.WorkflowRuntime{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: APIVersion,
-						Kind:       WorkflowRuntimeKindName,
+						Kind:       WorkflowRuntimeKind,
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      name,
@@ -214,7 +214,7 @@ func TestLSDS_Sync(t *testing.T) {
 				workflowRuntime := &serverlessv1alpha1.WorkflowRuntime{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: APIVersion,
-						Kind:       WorkflowRuntimeKindName,
+						Kind:       WorkflowRuntimeKind,
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      name,
@@ -277,7 +277,7 @@ func TestLSDS_Sync(t *testing.T) {
 			once = &sync.Once{}
 			daemon := GetLSDSIns()
 			time.Sleep(2 * time.Second)
-			daemon.Sync(testcase.syncInfo)
+			k8sutils.Sync(testcase.syncInfo)
 			time.Sleep(1 * time.Second)
 			wfrt, existed, err := daemon.getWorkflowRuntimeByName(daemon.workflowName)
 			So(err, ShouldBeNil)

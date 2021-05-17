@@ -3,6 +3,7 @@ package k8sutils
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
+	"k8s.io/apimachinery/pkg/types"
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
@@ -22,13 +24,26 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
-	selfName      string
-	workflowName  string
-	dynamicClient dynamic.Interface
-	scheme        = runtime.NewScheme()
+	selfName         string
+	workflowName     string
+	dynamicClient    dynamic.Interface
+	scheme           = runtime.NewScheme()
+	WorkflowResource = schema.GroupVersionResource{
+		Group:    "serverless.tass.io",
+		Version:  "v1alpha1",
+		Resource: "workflows",
+	}
+	WorkflowRuntimeResources = schema.GroupVersionResource{
+		Group:    "serverless.tass.io",
+		Version:  "v1alpha1",
+		Resource: "workflowruntimes",
+	}
+	workflowInformer        cache.SharedInformer
+	workflowRuntimeInformer cache.SharedInformer
 )
 var WithInjectData = func(objects *[]runtime.Object) {
 
@@ -55,6 +70,8 @@ func Prepare() {
 			panic(err)
 		}
 		dynamicClient = dynamicfake.NewSimpleDynamicClient(scheme, objects...)
+		InitWorkflowRuntimeInformer()
+		InitWorkflowInformer()
 	} else {
 		// use real k8s
 		hostName, _ := os.Hostname()
@@ -70,6 +87,8 @@ func Prepare() {
 			panic(err)
 		}
 		dynamicClient = dynamic.NewForConfigOrDie(config)
+		InitWorkflowRuntimeInformer()
+		InitWorkflowInformer()
 	}
 }
 
@@ -161,4 +180,109 @@ func CreateUnstructuredListWatch(ctx context.Context, namespace string, resource
 			return dynamicClient.Resource(resource).Namespace(namespace).Watch(ctx, opts)
 		},
 	}
+}
+
+func InitWorkflowRuntimeInformer() {
+	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowRuntimeResources)
+	workflowRuntimeInformer = cache.NewSharedInformer(
+		listAndWatch,
+		&serverlessv1alpha1.WorkflowRuntime{},
+		1*time.Second,
+	)
+
+	zap.S().Debug("in the lsds start listen")
+	go workflowRuntimeInformer.Run(make(<-chan struct{}))
+}
+
+func InitWorkflowInformer() {
+	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowResource)
+	informer := cache.NewSharedInformer(
+		listAndWatch,
+		&serverlessv1alpha1.Workflow{},
+		1*time.Second,
+	)
+	workflowInformer = informer
+	go workflowInformer.Run(make(<-chan struct{}))
+}
+
+func GetWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) {
+	key := GetSelfNamespace() + "/" + name
+	obj, existed, err := workflowInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, false, err
+	}
+	if !existed {
+		return nil, false, nil
+	}
+	ust := obj.(*unstructured.Unstructured)
+	wf := &serverlessv1alpha1.Workflow{}
+	_ = runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wf)
+	return wf, true, nil
+}
+
+func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime, bool, error) {
+
+	key := GetSelfNamespace() + "/" + name
+	obj, existed, err := workflowRuntimeInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, false, err
+	}
+	if !existed {
+		return nil, false, nil
+	}
+	var wfrt *serverlessv1alpha1.WorkflowRuntime
+	switch obj.(type) {
+	case *serverlessv1alpha1.WorkflowRuntime:
+		{
+			wfrt = obj.(*serverlessv1alpha1.WorkflowRuntime)
+		}
+	case *unstructured.Unstructured:
+		{
+			ust := obj.(*unstructured.Unstructured)
+			wfrt = &serverlessv1alpha1.WorkflowRuntime{}
+			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
+		}
+	}
+
+	return wfrt, true, nil
+}
+
+func patchRuntime(workflowName string, pathBytes []byte) error {
+	_, err := dynamicClient.Resource(WorkflowRuntimeResources).Namespace(GetSelfNamespace()).Patch(
+		context.Background(),
+		workflowName,
+		types.MergePatchType,
+		pathBytes,
+		metav1.PatchOptions{})
+	if err != nil {
+		zap.S().Errorw("k8s WorkflowRuntime patch error", "WorkflowRuntime", workflowName, "err", err)
+	}
+	return err
+}
+
+// Help Function for Sync patch
+func generatePatchWorkflowRuntime(runtimes serverlessv1alpha1.ProcessRuntimes) []byte {
+	pwfrt := serverlessv1alpha1.WorkflowRuntime{
+		Status: serverlessv1alpha1.WorkflowRuntimeStatus{
+			Instances: serverlessv1alpha1.Instances{
+				selfName: serverlessv1alpha1.Instance{
+					ProcessRuntimes: runtimes,
+				},
+			},
+		},
+	}
+	result, _ := json.Marshal(pwfrt)
+	return result
+}
+
+// Patch the WorkflowRuntime to apiserver
+func Sync(info map[string]int) {
+	processes := serverlessv1alpha1.ProcessRuntimes{}
+	for key, num := range info {
+		processes[key] = serverlessv1alpha1.ProcessRuntime{
+			Number: num,
+		}
+	}
+	patchBytes := generatePatchWorkflowRuntime(processes)
+	_ = patchRuntime(workflowName, patchBytes)
 }
