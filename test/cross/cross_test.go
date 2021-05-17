@@ -138,7 +138,7 @@ func DumpConfig(object runtime.Object, fileName string) error {
 
 func stdOutDump(cmd *exec.Cmd, fileName string) {
 	// open the out file for writing
-	outfile,err := os.Create(fileName)
+	outfile, err := os.Create(fileName)
 	if err != nil {
 		panic(err)
 	}
@@ -159,11 +159,16 @@ func TestDump(t *testing.T) {
 	t.Log(err)
 }
 
-// TestCross need binary, developer should refresh binary manually
 func TestCross(t *testing.T) {
 	Convey("test across local scheduler test", t, func() {
+		// build go binary
+		complieCmd := exec.Command("go", "build", "../../main.go")
+		err := complieCmd.Start()
+		So(err, ShouldBeNil)
+		err = complieCmd.Wait()
+		So(err, ShouldBeNil)
 		// exec two commands to start two local schedulers
-		err := DumpConfig(GetSampleWorkflow(), "./config/workflow.yaml")
+		err = DumpConfig(GetSampleWorkflow(), "./config/workflow.yaml")
 		So(err, ShouldBeNil)
 		err = DumpConfig(GetSampleWorkflowRuntime(), "./config/workflowruntime.yaml")
 		So(err, ShouldBeNil)
@@ -176,7 +181,7 @@ func TestCross(t *testing.T) {
 		callee := exec.Command("./main", strings.Split(calleeParam, " ")...)
 		stdOutDump(callee, "./callee.log")
 		defer callee.Process.Kill()
-		time.Sleep(10 * time.Second)
+		time.Sleep(1 * time.Second)
 		// request the first one
 		request := dto.InvokeRequest{
 			WorkflowName: "simple",
@@ -188,7 +193,9 @@ func TestCross(t *testing.T) {
 		resp := &dto.InvokeResponse{}
 		status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, request, resp)
 		t.Log(err)
+		expect := map[string]interface{}{"simple_mid": map[string]interface{}{"simple_branch_1": map[string]interface{}{"simple": "simple", "simple_branch_1": "simple_branch_1", "simple_mid": "simple_mid", "simple_start": "simple_start"}, "simple_branch_2": map[string]interface{}{"simple": "simple", "simple_branch_2": "simple_branch_2", "simple_mid": "simple_mid", "simple_start": "simple_start"}}}
 		So(status, ShouldEqual, 200)
+		So(resp.Result, ShouldResemble, expect)
 		t.Log(resp)
 	})
 }

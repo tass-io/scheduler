@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/pkg/env"
@@ -125,7 +126,7 @@ func WorkflowRequest(parameters map[string]interface{}, target string, sp span.S
 		zap.S().Errorw("workflow request body error", "err", err)
 		return dto.InvokeResponse{}, err
 	}
-	req, err := http.NewRequest("POST", target+"/v1/workflow", strings.NewReader(string(reqByte)))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/workflow", target), strings.NewReader(string(reqByte)))
 	if err != nil {
 		zap.S().Errorw("workflow request request error", "err", err)
 		return dto.InvokeResponse{}, err

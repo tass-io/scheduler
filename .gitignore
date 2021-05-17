@@ -25,6 +25,5 @@ vendor/
 # Excel Test File
 *.xlsx
 
-# Swagger files
-
-docs
+# Logs
+*.log
