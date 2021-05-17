@@ -27,3 +27,5 @@ vendor/
 
 # Logs
 *.log
+# cross test file
+/test/cross/config/
