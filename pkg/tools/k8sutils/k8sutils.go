@@ -206,6 +206,7 @@ func InitWorkflowInformer() {
 }
 
 func GetWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) {
+	zap.S().Debugw("get workflow name", "name", name, "keys", workflowInformer.GetStore().ListKeys())
 	key := GetSelfNamespace() + "/" + name
 	obj, existed, err := workflowInformer.GetStore().GetByKey(key)
 	if err != nil {
@@ -221,7 +222,7 @@ func GetWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) 
 }
 
 func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime, bool, error) {
-
+	zap.S().Debugw("get workflowruntime name", "name", name, "keys", workflowRuntimeInformer.GetStore().ListKeys())
 	key := GetSelfNamespace() + "/" + name
 	obj, existed, err := workflowRuntimeInformer.GetStore().GetByKey(key)
 	if err != nil {
