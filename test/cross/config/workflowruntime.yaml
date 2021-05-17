@@ -1,0 +1,30 @@
+apiVersion: serverless.tass.io/v1alpha1
+kind: WorkflowRuntime
+metadata:
+  creationTimestamp: null
+  name: simple
+  namespace: default
+spec:
+  replicas: 2
+status:
+  instances:
+    callee:
+      processRuntimes:
+        simple_branch_1:
+          int: 1
+        simple_branch_2:
+          int: 1
+      status:
+        creationTimestamp: null
+        hostIP: 127.0.0.1
+        podIP: 127.0.0.1:9090
+    caller:
+      processRuntimes:
+        simple_mid:
+          int: 1
+        simple_start:
+          int: 1
+      status:
+        creationTimestamp: null
+        hostIP: 127.0.0.1
+        podIP: 127.0.0.1:8080

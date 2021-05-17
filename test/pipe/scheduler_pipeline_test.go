@@ -12,7 +12,29 @@ import (
 	"time"
 )
 
+type PipeMockInstance struct {
+}
+
+func (p *PipeMockInstance) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
+	return parameters, nil
+}
+
+func (p *PipeMockInstance) Score() int {
+	return 1
+}
+
+func (p *PipeMockInstance) Release() {
+	return
+}
+
+func (p *PipeMockInstance) Start() error {
+	return nil
+}
+
 func TestSchedulerPipeline(t *testing.T) {
+	fnscheduler.NewInstance = func(functionName string) instance.Instance {
+		return &PipeMockInstance{}
+	}
 	testcases := []struct {
 		caseName     string
 		skipped      bool
@@ -105,9 +127,6 @@ func TestSchedulerPipeline(t *testing.T) {
 			},
 		},
 	}
-	fnscheduler.NewInstance = func(functionName string) instance.Instance {
-		return instance.NewMockInstance(functionName)
-	}
 	for _, testcase := range testcases {
 		if testcase.skipped {
 			continue
@@ -120,7 +139,8 @@ func TestSchedulerPipeline(t *testing.T) {
 			}()
 			time.Sleep(1 * time.Second)
 			resp := &dto.InvokeResponse{}
-			status := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.request, resp)
+			status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.request, resp)
+			So(err, ShouldBeNil)
 			So(status, ShouldEqual, 200)
 			So(*resp, ShouldResemble, testcase.expect)
 		})

@@ -3,21 +3,18 @@ package workflow
 import (
 	"context"
 	"errors"
-	"github.com/tass-io/scheduler/pkg/runner/helper"
-	"sync"
-	"time"
-
+	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/middleware"
+	"github.com/tass-io/scheduler/pkg/middleware/static"
 	"github.com/tass-io/scheduler/pkg/runner"
+	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/tools/cache"
+	"sync"
 )
 
 // unlike lsds and other things, Manager should not lazy start
@@ -26,11 +23,6 @@ func ManagerInit() {
 }
 
 var (
-	WorkflowResource = schema.GroupVersionResource{
-		Group:    "serverless.tass.io",
-		Version:  "v1alpha1",
-		Resource: "workflows",
-	}
 	manager               *Manager
 	once                  = &sync.Once{}
 	WorkflowNotFoundError = errors.New("workflow not found")
@@ -40,7 +32,6 @@ type Manager struct {
 	ctx             context.Context
 	runner          runner.Runner
 	stopCh          chan struct{}
-	informer        cache.SharedInformer
 	events          map[event.Source]event.Handler
 	middlewareOrder []middleware.Source
 	middlewares     map[middleware.Source]middleware.Handler
@@ -55,8 +46,15 @@ func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
 	return m.events[source]
 }
 
+func middlewareInject() {
+	if viper.GetBool(env.StaticMiddleware) {
+		static.Register()
+	}
+}
+
 // NewManager will use path to init workflow from file
 func NewManager() *Manager {
+	middlewareInject()
 	m := &Manager{
 		ctx:             context.Background(),
 		runner:          helper.GetMasterRunner(),
@@ -71,27 +69,10 @@ func NewManager() *Manager {
 
 // Start will watch Workflow related CRD
 func (m *Manager) start() {
-	err := m.startListen()
+	err := m.startEvents()
 	if err != nil {
 		panic(err)
 	}
-	err = m.startEvents()
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (m *Manager) startListen() error {
-	zap.S().Debug("in the manager start listen")
-	listAndWatch := k8sutils.CreateUnstructuredListWatch(m.ctx, k8sutils.GetSelfNamespace(), WorkflowResource)
-	informer := cache.NewSharedInformer(
-		listAndWatch,
-		&serverlessv1alpha1.Workflow{},
-		1*time.Second,
-	)
-	m.informer = informer
-	go informer.Run(make(<-chan struct{}))
-	return nil
 }
 
 func (m *Manager) startEvents() error {
@@ -109,19 +90,7 @@ func (m *Manager) startEvents() error {
 }
 
 func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) {
-	zap.S().Debugw("manager hold workflow", "workflow", m.informer.GetStore().ListKeys())
-	key := k8sutils.GetSelfNamespace() + "/" + name
-	obj, existed, err := m.informer.GetStore().GetByKey(key)
-	if err != nil {
-		return nil, false, err
-	}
-	if !existed {
-		return nil, false, nil
-	}
-	ust := obj.(*unstructured.Unstructured)
-	wf := &serverlessv1alpha1.Workflow{}
-	runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wf)
-	return wf, true, nil
+	return k8sutils.GetWorkflowByName(name)
 }
 
 // handleWorkflow is the core function at manager, it will execute Workflow defined logic, call runner.Run and return the final result
