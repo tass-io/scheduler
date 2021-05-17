@@ -1,7 +1,6 @@
 package lsds
 
 import (
-	"fmt"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/event/schedule"
@@ -22,7 +21,6 @@ var (
 )
 
 func init() {
-	fmt.Println("NMSL")
 	lsdsmiddle = newLSDSMiddleware()
 	middleware.Register(LSDSMiddlewareSource, lsdsmiddle, 2)
 }
@@ -33,10 +31,6 @@ type LSDSMiddleware struct {
 
 func newLSDSMiddleware() *LSDSMiddleware {
 	return &LSDSMiddleware{}
-}
-
-func GetLSDSMiddleware() *LSDSMiddleware {
-	return lsdsmiddle
 }
 
 func (lsds *LSDSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
