@@ -173,6 +173,11 @@ func TestCross(t *testing.T) {
 		err = DumpConfig(GetSampleWorkflowRuntime(), "./config/workflowruntime.yaml")
 		So(err, ShouldBeNil)
 		// exec two commands to start two local schedulers
+		// -l means use local files to init k8s status (make -w ,-r, -s work)
+		// -i means use static middleware to send request directly when no instances
+		// -m means use mock instance
+		// -a means set port
+		// -s means set selfName
 		callerParam := "-l -i -m -a 8080 -s caller -w ./config/workflow.yaml -r ./config/workflowruntime.yaml"
 		calleeParam := "-l -i -m -a 9090 -s callee -w ./config/workflow.yaml -r ./config/workflowruntime.yaml"
 		caller := exec.Command("./main", strings.Split(callerParam, " ")...)
