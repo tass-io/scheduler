@@ -1,10 +1,6 @@
 package instance
 
 import (
-	"bufio"
-	"encoding/base64"
-	"io/ioutil"
-	"os"
 	"os/exec"
 	"testing"
 	"time"
@@ -13,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
+	"github.com/tass-io/scheduler/pkg/tools/base64"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
@@ -24,22 +21,6 @@ const (
 	FunctionAPIVersion = "serverless.tass.io/v1alpha1"
 	FunctionKind       = "function"
 )
-
-func encodeUserCode(name string) (string, error) {
-	f, err := os.Open(name)
-	if err != nil {
-		return "", err
-	}
-	// Read entire JPG into byte slice.
-	reader := bufio.NewReader(f)
-	content, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return "", err
-	}
-	// Encode as base64.
-	encoded := base64.StdEncoding.EncodeToString(content)
-	return encoded, nil
-}
 
 func TestProcessInstance(t *testing.T) {
 	Convey("test process instance", t, func() {
@@ -102,7 +83,7 @@ func TestProcessInstance(t *testing.T) {
 			if testcase.skipped {
 				continue
 			}
-			code, err := encodeUserCode(testcase.fileName)
+			code, err := base64.EncodeUserCode(testcase.fileName)
 			So(err, ShouldBeNil)
 			err = store.Set("default", testcase.functionName, code)
 			So(err, ShouldBeNil)
@@ -118,6 +99,9 @@ func TestProcessInstance(t *testing.T) {
 				So(err, ShouldBeNil)
 				So(result, ShouldResemble, testcase.expect)
 			}
+			process.Release()
+			time.Sleep(1 * time.Second)
+			So(process.getWaitNum(), ShouldEqual, 0)
 		}
 	})
 }

@@ -171,6 +171,7 @@ func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[
 	i.producer.GetChannel() <- *req
 	i.lock.Unlock()
 	result = <-i.responseMapping[id]
+	delete(i.responseMapping, id)
 	return
 }
 

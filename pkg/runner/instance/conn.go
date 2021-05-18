@@ -121,10 +121,9 @@ func (c *Consumer) Start() {
 	}()
 }
 
-func (c *Consumer) Terminate() {
-	c.f.Close()
-	close(c.responseChannel)
-}
+// Consumer do nothing about Terminate
+// because the resp will get after kill desicion
+func (c *Consumer) Terminate() {}
 
 func (p *Producer) GetChannel() chan interface{} {
 	return p.requestChannel

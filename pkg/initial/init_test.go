@@ -3,9 +3,7 @@ package initial
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"testing"
@@ -13,29 +11,14 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
+	"github.com/tass-io/scheduler/pkg/tools/base64"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 )
-
-func encodeUserCode(name string) (string, error) {
-	f, err := os.Open(name)
-	if err != nil {
-		return "", err
-	}
-	// Read entire JPG into byte slice.
-	reader := bufio.NewReader(f)
-	content, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return "", err
-	}
-	// Encode as base64.
-	encoded := base64.StdEncoding.EncodeToString(content)
-	return encoded, nil
-}
 
 func TestFunctionFilePrepare(t *testing.T) {
 	Convey("test function Init", t, func() {
 		store.Get = func(ns, name string) (string, error) {
-			return encodeUserCode(fmt.Sprintf("../../user-code/%s-%s.zip", ns, name))
+			return base64.EncodeUserCode(fmt.Sprintf("../../user-code/%s-%s.zip", ns, name))
 		}
 		testcases := []struct {
 			caseName string

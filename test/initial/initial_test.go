@@ -1,14 +1,12 @@
 package initial_test
 
 import (
-	"bufio"
-	"encoding/base64"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/tass-io/scheduler/pkg/tools/base64"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/spf13/viper"
@@ -16,22 +14,6 @@ import (
 	"github.com/tass-io/scheduler/pkg/store"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 )
-
-func encodeUserCode(name string) (string, error) {
-	f, err := os.Open(name)
-	if err != nil {
-		return "", err
-	}
-	// Read entire JPG into byte slice.
-	reader := bufio.NewReader(f)
-	content, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return "", err
-	}
-	// Encode as base64.
-	encoded := base64.StdEncoding.EncodeToString(content)
-	return encoded, nil
-}
 
 // InitCmd use binary level black test because of syscall.Exec
 func TestInitCmd(t *testing.T) {
@@ -65,7 +47,7 @@ func TestInitCmd(t *testing.T) {
 			}
 			t.Log(testcase.caseName)
 			// prepare code file
-			code, err := encodeUserCode(testcase.fileName)
+			code, err := base64.EncodeUserCode(testcase.fileName)
 			So(err, ShouldBeNil)
 			viper.Set(env.RedisIp, "10.0.0.96")
 			viper.Set(env.RedisPort, "30285")
