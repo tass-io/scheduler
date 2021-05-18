@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 )
@@ -60,7 +61,7 @@ func TestFunctionFilePrepare(t *testing.T) {
 				// test code
 				codePrepare(code)
 				pid := os.Getpid()
-				directoryPath := fmt.Sprintf("/tmp/tass/%d", pid)
+				directoryPath := fmt.Sprintf(env.TassFileRoot+"%d", pid)
 				codePath := directoryPath + "/code"
 				indexFile := codePath + "/index.js"
 				newProcess := exec.Command("node", indexFile)

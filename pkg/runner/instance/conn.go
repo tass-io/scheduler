@@ -4,8 +4,10 @@ import (
 	"bufio"
 	"encoding/json"
 	"os"
+	"reflect"
 	"strings"
 
+	"github.com/tass-io/scheduler/pkg/tools/common"
 	"go.uber.org/zap"
 )
 
@@ -29,64 +31,70 @@ var (
 	splitByte = []byte("littledrizzle")
 )
 
-// functionRequest will be put into the producer and send it to request pipe
-type functionRequest struct {
-	Id         string `json:"id"`
-	Parameters string `json:"parameters"`
+// FunctionRequest will be put into the producer and send it to request pipe
+type FunctionRequest struct {
+	Id         string                 `json:"id"`
+	Parameters map[string]interface{} `json:"parameters"`
 }
 
-func NewFunctionRequest(id string, parameters map[string]interface{}) *functionRequest {
-	parameterStr, err := json.Marshal(parameters)
+func NewFunctionRequest(id string, parameters map[string]interface{}) *FunctionRequest {
+	transfer, err := common.CopyMap(parameters)
 	if err != nil {
 		zap.S().Errorw("functionRequest marshal error", "err", err)
 		return nil
 	}
-	return &functionRequest{
+	return &FunctionRequest{
 		Id:         id,
-		Parameters: string(parameterStr),
+		Parameters: transfer,
 	}
 }
 
-// functionResponse will be put into channel to be consume by instance.
-type functionResponse struct {
+// FunctionResponse will be put into channel to be consume by instance.
+type FunctionResponse struct {
 	Id     string
 	Result map[string]interface{}
 }
 
-type producer struct {
+type Producer struct {
 	f              *os.File
-	requestChannel chan functionRequest
+	demo           interface{}
+	requestChannel chan interface{}
 }
 
-type consumer struct {
+type Consumer struct {
 	f               *os.File
-	responseChannel chan functionResponse
+	demo            interface{}
+	responseChannel chan interface{}
 }
 
-func (c *consumer) GetChannel() chan functionResponse {
+func (c *Consumer) GetChannel() chan interface{} {
 	return c.responseChannel
 }
 
-func NewConsumer(f *os.File) *consumer {
-	return &consumer{
+func NewConsumer(f *os.File, demo interface{}) *Consumer {
+	return &Consumer{
 		f:               f,
-		responseChannel: make(chan functionResponse, 10),
+		demo:            demo,
+		responseChannel: make(chan interface{}, 10),
 	}
 }
 
 // consumer Start will get function response and send it to the channel
-func (c *consumer) Start() {
+func (c *Consumer) Start() {
 	go func() {
+		typ := reflect.TypeOf(c.demo)
+		zap.S().Debugw("consumer get type", "type", typ)
 		data := make([]byte, 4<<20)
 		reader := bufio.NewReader(c.f)
 		tail := ""
 		for {
 			// todo fixed error read
-			_, err := reader.Read(data)
+			n, err := reader.Read(data)
 			if err != nil {
-				zap.S().Errorw("consumer error", "err", err)
+				// zap.S().Errorw("consumer error", "err", err)
+				continue
 			}
-			s := string(data)
+			s := string(data[:n])
 			s = tail + s
 			tail = ""
 			pkg := strings.Split(s, string(splitByte))
@@ -95,42 +103,49 @@ func (c *consumer) Start() {
 				pkg = append(pkg, s)
 			}
 			for _, item := range pkg {
-				resp := &functionResponse{}
-				err = json.Unmarshal([]byte(item), resp)
+
+				resp := reflect.New(typ.Elem())
+				newP := resp.Interface()
+				err = json.Unmarshal([]byte(item), newP)
 				if err != nil {
-					zap.S().Infow("consumer unmarshal error", "err", err, "item", item)
+					zap.S().Infow("consumer unmarshal error", "err", err)
 					// take care of `{"s":"b"}littledrizzle{"n":`
 					// the item must be the last one
 					tail = item
 					continue
 				}
-				c.responseChannel <- *resp
+				zap.S().Debugw("get resp with in consumer ", "resp", newP)
+				c.responseChannel <- newP
 			}
 		}
 	}()
 }
 
-func (c *consumer) Terminate() {
+func (c *Consumer) Terminate() {
 	c.f.Close()
 	close(c.responseChannel)
 }
 
-func (p *producer) GetChannel() chan functionRequest {
+func (p *Producer) GetChannel() chan interface{} {
 	return p.requestChannel
 }
 
-func NewProducer(f *os.File) *producer {
-	return &producer{
+func NewProducer(f *os.File, demo interface{}) *Producer {
+	return &Producer{
 		f:              f,
-		requestChannel: make(chan functionRequest, 10),
+		demo:           demo,
+		requestChannel: make(chan interface{}, 10),
 	}
 }
 
 // producer will listen channel and get request, write to pipe
-func (p *producer) Start() {
+func (p *Producer) Start() {
 	go func() {
 		for req := range p.requestChannel {
-			reqByte, _ := json.Marshal(&req)
+			reqByte, err := json.Marshal(&req)
+			if err != nil {
+				zap.S().Errorw("producer marshal error", "err", err)
+			}
 			reqByte = append(reqByte, splitByte...)
 			n, err := p.f.Write(reqByte)
 			if err != nil || n != len(reqByte) {
@@ -140,7 +155,7 @@ func (p *producer) Start() {
 	}()
 }
 
-func (p *producer) Terminate() {
+func (p *Producer) Terminate() {
 	// pay attention!!! producer will not close the channel, FunctionScheduler will close it
 	p.f.Close()
 }

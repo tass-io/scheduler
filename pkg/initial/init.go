@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -15,6 +16,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"go.uber.org/zap"
 )
 
@@ -34,42 +36,34 @@ var (
 // functionInit will move function code to it's own directory
 // redirect stdout and stderr to file
 // and exec function code
-func functionInit(funcName string) {
-	codeBase64, err := store.Get(k8sutils.GetSelfNamespace(), funcName)
+func functionInit(functionName string) {
+	codeBase64, err := store.Get(k8sutils.GetSelfNamespace(), functionName)
 	if err != nil {
+		zap.S().Errorw("get function content error", "err", err)
 		panic(err)
 	}
-	codePrepareAndExec(codeBase64)
+	codePrepareAndExec(codeBase64, functionName, viper.GetString(env.Environment))
 }
 
-func codePrepareAndExec(code string) {
+func codePrepareAndExec(code string, functionName string, environment string) {
 	codePrepare(code)
-	// todo support customize cmd
-	pid := os.Getpid()
-	directoryPath := fmt.Sprintf("/tmp/tass/%d", pid)
-	codePath := directoryPath + "/code"
-	entryPath := codePath + "/index.js"
-	if err := syscall.Exec("node", []string{entryPath}, os.Environ()); err != nil {
-		zap.S().Errorw("init exec error", "err", err)
-	}
+	codeExec(functionName, environment)
 }
 
 func codePrepare(code string) {
 	pid := os.Getpid()
-	directoryPath := fmt.Sprintf("/tmp/tass/%d", pid)
+	directoryPath := fmt.Sprintf(env.TassFileRoot+"%d", pid)
 	codePath := directoryPath + "/code"
 	codeZipPath := codePath + "/code.zip"
-	err := os.MkdirAll(directoryPath, 0775)
+	err := os.MkdirAll(directoryPath, 0777)
 	if err != nil {
+		zap.S().Errorw("code prepare mkdir all error", "err", err)
 		panic(err)
 	}
 
-	err = os.Mkdir(codePath, 0775)
+	err = os.Mkdir(codePath, 0777)
 	if err != nil {
-		panic(err)
-	}
-
-	if err != nil {
+		zap.S().Errorw("code prepare mkdir error", "err", err)
 		panic(err)
 	}
 
@@ -80,6 +74,7 @@ func codePrepare(code string) {
 	}
 	f, err := os.Create(codeZipPath)
 	if err != nil {
+		zap.S().Errorw("code prepare create error", "err", err)
 		panic(err)
 	}
 	if _, err := f.Write(dec); err != nil {
@@ -97,6 +92,51 @@ func codePrepare(code string) {
 		panic(err)
 	}
 	zap.S().Infow("unzip user code", "filepath", filepaths)
+}
+
+func codeExec(functionName string, environment string) {
+	// todo support customize cmd
+	pid := os.Getpid()
+	directoryPath := fmt.Sprintf(env.TassFileRoot+"%d", pid)
+	codePath := directoryPath + "/code"
+	switch environment {
+	case "JavaScript":
+		{
+			entryPath := codePath + "/index.js"
+			zap.S().Debugw("run with entryPath", "path", entryPath)
+			if _, err := os.Stat(entryPath); err != nil {
+				zap.S().Errorw("code file error", "err", err, "entryPath", entryPath)
+			}
+			binary, err := exec.LookPath("node")
+			if err != nil {
+				zap.S().Errorw("environment prepare error at JavaScript", "err", err)
+				os.Exit(2)
+			}
+			if err := syscall.Exec(binary, []string{entryPath}, os.Environ()); err != nil {
+				zap.S().Errorw("init exec error", "err", err)
+				os.Exit(2)
+			}
+		}
+	case "Golang":
+		{
+			entryPath := codePath + "/main"
+			err := os.Chmod(entryPath, 0777)
+			if err != nil {
+				zap.S().Errorw("init chmod error", "err", err)
+				os.Exit(3)
+			}
+			zap.S().Debugw("prepare to exec golang binary", "entryPath", entryPath)
+			// todo support cmd params customize
+			if err := syscall.Exec(entryPath, []string{"main"}, os.Environ()); err != nil {
+				zap.S().Errorw("init exec error", "err", err)
+				os.Exit(4)
+			}
+		}
+	default:
+		{
+			zap.S().Error("init exec with unsupport environment")
+		}
+	}
 }
 
 // unzip will decompress a zip archive, moving all files and folders
@@ -169,4 +209,6 @@ func init() {
 	viper.BindPFlag(env.RedisPassword, InitCmd.Flags().Lookup(env.RedisPassword))
 	InitCmd.Flags().Int32P(env.DefaultDb, "D", 0, "redis default db to init function")
 	viper.BindPFlag(env.DefaultDb, InitCmd.Flags().Lookup(env.DefaultDb))
+	InitCmd.Flags().StringP(env.Environment, "E", "JavaScript", "function run environment/language required")
+	viper.BindPFlag(env.Environment, InitCmd.Flags().Lookup(env.Environment))
 }

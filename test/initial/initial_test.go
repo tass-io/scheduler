@@ -2,7 +2,6 @@ package initial_test
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
+	_ "github.com/tass-io/scheduler/pkg/tools/log"
 )
 
 func encodeUserCode(name string) (string, error) {
@@ -40,6 +40,7 @@ func TestInitCmd(t *testing.T) {
 			caseName     string
 			skipped      bool
 			functionName string
+			environment  string
 			fileName     string
 			expect       string
 		}{
@@ -47,6 +48,7 @@ func TestInitCmd(t *testing.T) {
 				caseName:     "hello world test",
 				skipped:      false,
 				functionName: "hello",
+				environment:  "JavaScript",
 				fileName:     "../../user-code/default-hello.zip",
 			},
 		}
@@ -58,6 +60,9 @@ func TestInitCmd(t *testing.T) {
 		So(err, ShouldBeNil)
 		// use Cmd to run init cmd
 		for _, testcase := range testcases {
+			if testcase.skipped {
+				continue
+			}
 			t.Log(testcase.caseName)
 			// prepare code file
 			code, err := encodeUserCode(testcase.fileName)
@@ -68,14 +73,12 @@ func TestInitCmd(t *testing.T) {
 			viper.Set(env.DefaultDb, 0)
 			err = store.Set("default", testcase.functionName, code)
 			So(err, ShouldBeNil)
-			initParam := fmt.Sprintf("init -n %s -I 10.0.0.96 -P 30285 -D 0", testcase.functionName)
+			initParam := fmt.Sprintf("init -n %s -I 10.0.0.96 -P 30285 -D 0 -E %s", testcase.functionName, testcase.environment)
 			initCmd := exec.Command("./main", strings.Split(initParam, " ")...)
-			b := bytes.NewBuffer(make([]byte, 0))
-			output := bufio.NewWriter(b)
-			initCmd.Stdout = output
+			output, err := initCmd.Output()
+			t.Logf("process output %s\n", string(output))
 			So(err, ShouldBeNil)
-			t.Log(b.String())
-			So(b.String(), ShouldContainSubstring, testcase.expect)
+			So(string(output), ShouldContainSubstring, testcase.expect)
 		}
 		// get the result of it from stdout
 	})

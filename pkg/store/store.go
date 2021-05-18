@@ -21,7 +21,7 @@ var (
 
 func getrdb() *redis.Client {
 	once.Do(func() {
-		zap.S().Debugw("get redis config from viper", "addr")
+		zap.S().Debugw("get redis config from viper", "addr", viper.GetString(env.RedisIp)+":"+viper.GetString(env.RedisPort))
 		rdb = redis.NewClient(&redis.Options{
 			Addr:     viper.GetString(env.RedisIp) + ":" + viper.GetString(env.RedisPort),
 			Password: viper.GetString(env.RedisPassword),
