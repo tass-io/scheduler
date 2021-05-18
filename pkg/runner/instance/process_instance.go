@@ -1,12 +1,14 @@
 package instance
 
 import (
-	"github.com/rs/xid"
-	"github.com/tass-io/scheduler/pkg/runner"
-	"go.uber.org/zap"
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
+
+	"github.com/rs/xid"
+	"github.com/tass-io/scheduler/pkg/runner"
+	"go.uber.org/zap"
 )
 
 // processInstance Status will be updated by FunctionScheduler
@@ -21,7 +23,7 @@ const (
 )
 
 type processInstance struct {
-	lock sync.Locker
+	lock            sync.Locker
 	functionName    string
 	Status          Status
 	producer        *producer
@@ -39,7 +41,7 @@ func (i *processInstance) Score() int {
 
 func NewProcessInstance(functionName string) *processInstance {
 	return &processInstance{
-		lock:          &sync.Mutex{},
+		lock:            &sync.Mutex{},
 		functionName:    functionName,
 		responseMapping: make(map[string]chan map[string]interface{}, 10),
 	}
@@ -91,9 +93,9 @@ func (i *processInstance) startListen() {
 func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
 	cmd := exec.Command("/proc/self/exe", "init", "-n", functionName)
 	// It is different from docker, we do not create mount namespace and network namespace
-	//cmd.SysProcAttr = &syscall.SysProcAttr{
-	//	Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWIPC,
-	//}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWIPC,
+	}
 	cmd.ExtraFiles = []*os.File{request, response}
 	err = cmd.Start()
 	// todo how to check whether a process is init over
@@ -118,7 +120,7 @@ func (i *processInstance) Release() {
 
 // cleanUp will be used at processInstance exception or graceful shut down
 func (i *processInstance) cleanUp() {
-	i.Status = Terminated
+	i.Status = Terminating
 	i.consumer.Terminate()
 	i.producer.Terminate()
 }
@@ -140,5 +142,3 @@ func (i *processInstance) getWaitNum() int {
 	defer i.lock.Unlock()
 	return len(i.responseMapping)
 }
-
-

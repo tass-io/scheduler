@@ -8,4 +8,8 @@ const (
 	WorkflowPath            = "workflowPath"
 	WorkflowName            = "workflowName"
 	SelfName                = "selfName"
+	RedisIp = "RedisIp"
+	RedisPort = "RedisPort"
+	RedisPassword = "RedisPassword"
+	DefaultDb = "DefaultDb"
 )

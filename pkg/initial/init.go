@@ -11,6 +11,10 @@ import (
 	"syscall"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/env"
+	"github.com/tass-io/scheduler/pkg/store"
+	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	"go.uber.org/zap"
 )
 
@@ -31,7 +35,7 @@ var (
 // redirect stdout and stderr to file
 // and exec function code
 func functionInit(funcName string) {
-	codeBase64, err := Get("default", funcName)
+	codeBase64, err := store.Get(k8sutils.GetSelfNamespace(), funcName)
 	if err != nil {
 		panic(err)
 	}
@@ -39,12 +43,23 @@ func functionInit(funcName string) {
 }
 
 func codePrepareAndExec(code string) {
+	codePrepare(code)
+	// todo support customize cmd
+	pid := os.Getpid()
+	directoryPath := fmt.Sprintf("/tmp/tass/%d", pid)
+	codePath := directoryPath + "/code"
+	entryPath := codePath + "/index.js"
+	if err := syscall.Exec("node", []string{entryPath}, os.Environ()); err != nil {
+		zap.S().Errorw("init exec error", "err", err)
+	}
+}
+
+func codePrepare(code string) {
 	pid := os.Getpid()
 	directoryPath := fmt.Sprintf("/tmp/tass/%d", pid)
 	codePath := directoryPath + "/code"
 	codeZipPath := codePath + "/code.zip"
-	entryPath := codePath + "/index.js"
-	err := os.Mkdir(directoryPath, 0775)
+	err := os.MkdirAll(directoryPath, 0775)
 	if err != nil {
 		panic(err)
 	}
@@ -82,10 +97,6 @@ func codePrepareAndExec(code string) {
 		panic(err)
 	}
 	zap.S().Infow("unzip user code", "filepath", filepaths)
-	// todo support customize cmd
-	if err = syscall.Exec("node", []string{entryPath}, os.Environ()); err != nil {
-		zap.S().Errorw("init exec error", "err", err)
-	}
 }
 
 // unzip will decompress a zip archive, moving all files and folders
@@ -150,4 +161,12 @@ func unzip(src string, dest string) ([]string, error) {
 
 func init() {
 	InitCmd.Flags().StringVarP(&funcName, "name", "n", "", "Name of the function")
+	InitCmd.Flags().StringP(env.RedisIp, "I", "10.0.0.96", "redis ip to init function")
+	viper.BindPFlag(env.RedisIp, InitCmd.Flags().Lookup(env.RedisIp))
+	InitCmd.Flags().StringP(env.RedisPort, "P", "30285", "redis port to init function")
+	viper.BindPFlag(env.RedisPort, InitCmd.Flags().Lookup(env.RedisPort))
+	InitCmd.Flags().StringP(env.RedisPassword, "S", "", "redis password to init function")
+	viper.BindPFlag(env.RedisPassword, InitCmd.Flags().Lookup(env.RedisPassword))
+	InitCmd.Flags().Int32P(env.DefaultDb, "D", 0, "redis default db to init function")
+	viper.BindPFlag(env.DefaultDb, InitCmd.Flags().Lookup(env.DefaultDb))
 }
