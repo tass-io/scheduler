@@ -3,8 +3,11 @@ package workflow
 import (
 	"context"
 	"errors"
+	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/middleware"
+	"github.com/tass-io/scheduler/pkg/middleware/static"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"github.com/tass-io/scheduler/pkg/span"
@@ -43,8 +46,15 @@ func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
 	return m.events[source]
 }
 
+func middlewareInject() {
+	if viper.GetBool(env.StaticMiddleware) {
+		static.Register()
+	}
+}
+
 // NewManager will use path to init workflow from file
 func NewManager() *Manager {
+	middlewareInject()
 	m := &Manager{
 		ctx:             context.Background(),
 		runner:          helper.GetMasterRunner(),
