@@ -1,9 +1,10 @@
 package workflow
 
 import (
-	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"testing"
 	"time"
+
+	"github.com/tass-io/scheduler/pkg/runner/helper"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/spf13/viper"
