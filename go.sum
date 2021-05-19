@@ -519,6 +519,8 @@ github.com/tass-io/tass-operator v0.0.0-20210514150345-6224315c482e h1:2/ubrh+td
 github.com/tass-io/tass-operator v0.0.0-20210514150345-6224315c482e/go.mod h1:wYGQOAc2ld5NjBhOuhG3GDcLnVgOnc5wVq2Xsmq8uIQ=
 github.com/tass-io/tass-operator v0.1.0 h1:ukmBO0cSwAS2xYTbyl5d4iBqLHWf0KtLV8m4QZsTzm8=
 github.com/tass-io/tass-operator v0.1.0/go.mod h1:wYGQOAc2ld5NjBhOuhG3GDcLnVgOnc5wVq2Xsmq8uIQ=
+github.com/tass-io/tass-operator v0.1.1 h1:A7LPxYPN9zwnyJXzJQ3OnEHdP07VV/UeY1J5u3bJFF8=
+github.com/tass-io/tass-operator v0.1.1/go.mod h1:wYGQOAc2ld5NjBhOuhG3GDcLnVgOnc5wVq2Xsmq8uIQ=
 github.com/tidwall/gjson v1.7.5 h1:zmAN/xmX7OtpAkv4Ovfso60r/BiCi5IErCDYGNJu+uc=
 github.com/tidwall/gjson v1.7.5/go.mod h1:5/xDoumyyDNerp2U36lyolv46b3uF/9Bu6OfyQ9GImk=
 github.com/tidwall/match v1.0.3 h1:FQUVvBImDutD8wJLN6c5eMzWtjgONK9MwIBCOrUJKeE=

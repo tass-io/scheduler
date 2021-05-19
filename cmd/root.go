@@ -19,9 +19,6 @@ import (
 )
 
 var (
-	server = &http.Server{
-		Addr:    ":8080",
-	}
 	rootCmd = &cobra.Command{
 		Use:   "scheduler",
 		Short: "scheduler",
@@ -31,7 +28,10 @@ var (
 			workflow.ManagerInit()
 			r := gin.Default()
 			schttp.RegisterRoute(r)
-			server.Handler = r
+			server := &http.Server{
+				Addr:    ":" + viper.GetString(env.Port),
+				Handler: r,
+			}
 
 			quit := make(chan os.Signal)
 			signal.Notify(quit, os.Interrupt)
@@ -66,6 +66,8 @@ func SetArgs(args []string) {
 func init() {
 	rootCmd.Flags().BoolP(env.Local, "l", false, "whether to use local file")
 	viper.BindPFlag(env.Local, rootCmd.Flags().Lookup(env.Local))
+	rootCmd.Flags().StringP(env.Port, "a", "8080", "the http port local scheduler exposed")
+	viper.BindPFlag(env.Port, rootCmd.Flags().Lookup(env.Port))
 	rootCmd.Flags().StringP(env.Policy, "p", "simple", "policy name to use")
 	viper.BindPFlag(env.Policy, rootCmd.Flags().Lookup(env.Policy))
 	rootCmd.Flags().StringP(env.SelfName, "s", "ubuntu", "if local is true, it is used to set selfName")
@@ -76,6 +78,10 @@ func init() {
 	viper.BindPFlag(env.WorkflowRuntimeFilePath, rootCmd.Flags().Lookup(env.WorkflowRuntimeFilePath))
 	rootCmd.Flags().DurationP(env.LSDSWait, "t", 200*time.Millisecond, "lsds wait a period of time for instance start")
 	viper.BindPFlag(env.LSDSWait, rootCmd.Flags().Lookup(env.LSDSWait))
+	rootCmd.Flags().BoolP(env.Mock, "m", false, "whether to use mock instance")
+	viper.BindPFlag(env.Mock, rootCmd.Flags().Lookup(env.Mock))
+	rootCmd.Flags().BoolP(env.StaticMiddleware, "i", false, "whether to use StaticMiddleware")
+	viper.BindPFlag(env.StaticMiddleware, rootCmd.Flags().Lookup(env.StaticMiddleware))
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initial.InitCmd)
 }
