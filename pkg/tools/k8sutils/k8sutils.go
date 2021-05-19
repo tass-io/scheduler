@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
-	"io/ioutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,9 +26,6 @@ import (
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"os"
-	"strings"
-	"time"
 )
 
 var (
@@ -42,8 +43,14 @@ var (
 		Version:  "v1alpha1",
 		Resource: "workflowruntimes",
 	}
+	FunctionResources = schema.GroupVersionResource{
+		Group:    "serverless.tass.io",
+		Version:  "v1alpha1",
+		Resource: "functions",
+	}
 	workflowInformer        cache.SharedInformer
 	workflowRuntimeInformer cache.SharedInformer
+	functionInformer        cache.SharedInformer
 )
 var WithInjectData = func(objects *[]runtime.Object) {
 
@@ -72,8 +79,6 @@ func Prepare() {
 			panic(err)
 		}
 		dynamicClient = dynamicfake.NewSimpleDynamicClient(scheme, objects...)
-		InitWorkflowRuntimeInformer()
-		InitWorkflowInformer()
 	} else {
 		// use real k8s
 		hostName, _ := os.Hostname()
@@ -89,9 +94,11 @@ func Prepare() {
 			panic(err)
 		}
 		dynamicClient = dynamic.NewForConfigOrDie(config)
-		InitWorkflowRuntimeInformer()
-		InitWorkflowInformer()
+
 	}
+	InitWorkflowRuntimeInformer()
+	InitWorkflowInformer()
+	InitFunctionInformer()
 }
 
 var GetSelfName = func() string {
@@ -208,6 +215,17 @@ func InitWorkflowInformer() {
 	go workflowInformer.Run(make(<-chan struct{}))
 }
 
+func InitFunctionInformer() {
+	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), FunctionResources)
+	informer := cache.NewSharedInformer(
+		listAndWatch,
+		&serverlessv1alpha1.Workflow{},
+		1*time.Second,
+	)
+	functionInformer = informer
+	go functionInformer.Run(make(<-chan struct{}))
+}
+
 func GetWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) {
 	zap.S().Debugw("get workflow name", "name", name, "keys", workflowInformer.GetStore().ListKeys())
 	key := GetSelfNamespace() + "/" + name
@@ -249,6 +267,33 @@ func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime,
 	}
 
 	return wfrt, true, nil
+}
+
+func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) {
+	zap.S().Debugw("get workflowruntime name", "name", name, "keys", workflowRuntimeInformer.GetStore().ListKeys())
+	key := GetSelfNamespace() + "/" + name
+	obj, existed, err := functionInformer.GetStore().GetByKey(key)
+	if err != nil {
+		return nil, false, err
+	}
+	if !existed {
+		return nil, false, nil
+	}
+	var function *serverlessv1alpha1.Function
+	switch obj.(type) {
+	case *serverlessv1alpha1.WorkflowRuntime:
+		{
+			function = obj.(*serverlessv1alpha1.Function)
+		}
+	case *unstructured.Unstructured:
+		{
+			ust := obj.(*unstructured.Unstructured)
+			function = &serverlessv1alpha1.Function{}
+			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
+		}
+	}
+
+	return function, true, nil
 }
 
 func patchRuntime(workflowName string, pathBytes []byte) error {

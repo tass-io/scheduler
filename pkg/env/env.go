@@ -9,6 +9,12 @@ const (
 	WorkflowPath            = "workflowPath"
 	WorkflowName            = "workflowName"
 	SelfName                = "selfName"
+	Environment             = "Environment"
+	RedisIp                 = "RedisIp"
+	RedisPort               = "RedisPort"
+	RedisPassword           = "RedisPassword"
+	DefaultDb               = "DefaultDb"
+	TassFileRoot            = "/tass/"
 	Mock                    = "Mock"
 	StaticMiddleware        = "StaticMiddleware"
 )

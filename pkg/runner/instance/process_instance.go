@@ -1,12 +1,19 @@
 package instance
 
 import (
-	"github.com/rs/xid"
-	"github.com/tass-io/scheduler/pkg/runner"
-	"go.uber.org/zap"
+	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
+	"syscall"
+
+	"github.com/rs/xid"
+	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/env"
+	"github.com/tass-io/scheduler/pkg/runner"
+	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	"go.uber.org/zap"
 )
 
 // processInstance Status will be updated by FunctionScheduler
@@ -20,12 +27,20 @@ const (
 	Terminated  Status = 3
 )
 
+var (
+	binary = "/proc/self/exe"
+)
+
 type processInstance struct {
-	lock sync.Locker
+	uuid            string
+	lock            sync.Locker
 	functionName    string
 	Status          Status
-	producer        *producer
-	consumer        *consumer
+	cpu             string // todo we thought about implementing resource limitation either at instance create
+	memory          string
+	environment     string
+	producer        *Producer
+	consumer        *Consumer
 	responseMapping map[string]chan map[string]interface{}
 	cmd             *exec.Cmd
 }
@@ -38,9 +53,22 @@ func (i *processInstance) Score() int {
 }
 
 func NewProcessInstance(functionName string) *processInstance {
+	function, existed, err := k8sutils.GetFunctionByName(functionName)
+	if err != nil {
+		zap.S().Warnw("new process instances get function by name error", "functionName", functionName)
+		return nil
+	}
+	if !existed {
+		zap.S().Warnw("function infomartion not found", "functionName", functionName)
+		return nil
+	}
 	return &processInstance{
-		lock:          &sync.Mutex{},
+		uuid:            xid.New().String(),
+		lock:            &sync.Mutex{},
 		functionName:    functionName,
+		cpu:             function.Spec.Resource.Cpu,
+		memory:          function.Spec.Resource.Memory,
+		environment:     string(function.Spec.Environment),
 		responseMapping: make(map[string]chan map[string]interface{}, 10),
 	}
 }
@@ -66,9 +94,9 @@ func (i *processInstance) Start() (err error) {
 	if err != nil {
 		return
 	}
-	i.producer = NewProducer(producerWrite)
+	i.producer = NewProducer(producerWrite, &FunctionRequest{})
 	i.producer.Start()
-	i.consumer = NewConsumer(consumerRead)
+	i.consumer = NewConsumer(consumerRead, &FunctionResponse{})
 	i.consumer.Start()
 	err = i.startProcess(producerRead, consumerWrite, i.functionName)
 	if err != nil {
@@ -80,7 +108,8 @@ func (i *processInstance) Start() (err error) {
 
 func (i *processInstance) startListen() {
 	go func() {
-		for resp := range i.consumer.GetChannel() {
+		for respRaw := range i.consumer.GetChannel() {
+			resp := respRaw.(*FunctionResponse)
 			i.responseMapping[resp.Id] <- resp.Result
 		}
 	}()
@@ -89,11 +118,21 @@ func (i *processInstance) startListen() {
 // start function process and use pipe create connection
 // todo customize the command
 func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
-	cmd := exec.Command("/proc/self/exe", "init", "-n", functionName)
+	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName, viper.GetString(env.RedisIp), viper.GetString(env.RedisPort), viper.GetString(env.RedisPassword), i.environment)
+	cmd := exec.Command(binary, strings.Split(initParam, " ")...)
 	// It is different from docker, we do not create mount namespace and network namespace
-	//cmd.SysProcAttr = &syscall.SysProcAttr{
-	//	Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWPID | syscall.CLONE_NEWIPC,
-	//}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC,
+	}
+	_ = os.MkdirAll(fmt.Sprintf("%slogs/", env.TassFileRoot), 0777)
+	logFileName := fmt.Sprintf("%slogs/%s.log", env.TassFileRoot, i.uuid)
+	logFile, err := os.Create(logFileName)
+	zap.S().Debugw("init log file", "logFileName", logFileName)
+	if err != nil {
+		zap.S().Errorw("init log file error", "err", err)
+	} else {
+		cmd.Stdout = logFile
+	}
 	cmd.ExtraFiles = []*os.File{request, response}
 	err = cmd.Start()
 	// todo how to check whether a process is init over
@@ -105,7 +144,7 @@ func (i *processInstance) startProcess(request *os.File, response *os.File, func
 func (i *processInstance) handleCmdExit() {
 	err := i.cmd.Wait()
 	if err != nil {
-		zap.S().Errorw("processInstance cmd exit error", "processInstance", i, "err", err)
+		zap.S().Errorw("processInstance cmd exit error", "processInstance", i.uuid, "err", err)
 	}
 	i.cleanUp()
 }
@@ -118,7 +157,7 @@ func (i *processInstance) Release() {
 
 // cleanUp will be used at processInstance exception or graceful shut down
 func (i *processInstance) cleanUp() {
-	i.Status = Terminated
+	i.Status = Terminating
 	i.consumer.Terminate()
 	i.producer.Terminate()
 }
@@ -132,6 +171,7 @@ func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[
 	i.producer.GetChannel() <- *req
 	i.lock.Unlock()
 	result = <-i.responseMapping[id]
+	delete(i.responseMapping, id)
 	return
 }
 
@@ -140,5 +180,3 @@ func (i *processInstance) getWaitNum() int {
 	defer i.lock.Unlock()
 	return len(i.responseMapping)
 }
-
-
