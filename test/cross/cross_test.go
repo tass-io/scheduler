@@ -1,6 +1,12 @@
 package cross
 
 import (
+	"os"
+	"os/exec"
+	"strings"
+	"testing"
+	"time"
+
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/test"
@@ -9,11 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
-	"os"
-	"os/exec"
-	"strings"
-	"testing"
-	"time"
 )
 
 const (
@@ -120,11 +121,12 @@ func GetSampleWorkflow() *serverlessv1alpha1.Workflow {
 	}
 }
 
-func DumpConfig(object runtime.Object, fileName string) error {
+func DumpConfig(object runtime.Object, folderName, fileName string) error {
 	scheme := runtime.NewScheme()
 	_ = serverlessv1alpha1.AddToScheme(scheme)
-	serializer := json.NewSerializerWithOptions(yaml.DefaultMetaFactory, scheme, scheme, json.SerializerOptions{true, false, false})
-	dumpFile, err := os.OpenFile(fileName, os.O_WRONLY|os.O_CREATE, 0)
+	serializer := json.NewSerializerWithOptions(yaml.DefaultMetaFactory, scheme, scheme, json.SerializerOptions{Yaml: true, Pretty: false, Strict: false})
+	os.MkdirAll(folderName, 0666)
+	dumpFile, err := os.OpenFile(folderName+fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0)
 	if err != nil {
 		return err
 	}
@@ -153,9 +155,9 @@ func stdOutDump(cmd *exec.Cmd, fileName string) {
 }
 
 func TestDump(t *testing.T) {
-	err := DumpConfig(GetSampleWorkflow(), "./config/workflow.yaml")
+	err := DumpConfig(GetSampleWorkflow(), "./config/", "workflow.yaml")
 	t.Log(err)
-	err = DumpConfig(GetSampleWorkflowRuntime(), "./config/workflowruntime.yaml")
+	err = DumpConfig(GetSampleWorkflowRuntime(), "./config/", "workflowruntime.yaml")
 	t.Log(err)
 }
 
@@ -168,9 +170,9 @@ func TestCross(t *testing.T) {
 		err = complieCmd.Wait()
 		So(err, ShouldBeNil)
 		// exec two commands to start two local schedulers
-		err = DumpConfig(GetSampleWorkflow(), "./config/workflow.yaml")
+		err = DumpConfig(GetSampleWorkflow(), "./config/", "workflow.yaml")
 		So(err, ShouldBeNil)
-		err = DumpConfig(GetSampleWorkflowRuntime(), "./config/workflowruntime.yaml")
+		err = DumpConfig(GetSampleWorkflowRuntime(), "./config/", "workflowruntime.yaml")
 		So(err, ShouldBeNil)
 		// exec two commands to start two local schedulers
 		// -l means use local files to init k8s status (make -w ,-r, -s work)
