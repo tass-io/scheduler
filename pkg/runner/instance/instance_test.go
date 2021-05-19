@@ -66,6 +66,39 @@ func TestProcessInstance(t *testing.T) {
 					"motto": "Veni Vidi Vici",
 				},
 			},
+			{
+				caseName:     "test with golang wrapper and plugin",
+				skipped:      false,
+				functionName: "plugin-golang-wrapper",
+				fileName:     "../../../user-code/plugin-golang-wrapper.zip",
+				request: map[string]interface{}{
+					"a": "b",
+				},
+				withInjectData: func(objects *[]runtime.Object) {
+					function := &serverlessv1alpha1.Function{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: FunctionAPIVersion,
+							Kind:       FunctionKind,
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "plugin-golang-wrapper",
+							Namespace: "default",
+						},
+						Spec: serverlessv1alpha1.FunctionSpec{
+							Environment: serverlessv1alpha1.Golang,
+							Resource: serverlessv1alpha1.Resource{
+								Cpu:    "200%",
+								Memory: "100Mi",
+							},
+						},
+					}
+					*objects = append(*objects, function)
+				},
+				expect: map[string]interface{}{
+					"a":      "b",
+					"plugin": "plugin",
+				},
+			},
 		}
 		viper.Set(env.Local, true)
 		viper.Set(env.RedisIp, "10.0.0.96")

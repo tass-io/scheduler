@@ -120,6 +120,7 @@ func codeExec(functionName string, environment string) {
 	case "Golang":
 		{
 			entryPath := codePath + "/main"
+			pluginPath := codePath + "/plugin.so"
 			err := os.Chmod(entryPath, 0777)
 			if err != nil {
 				zap.S().Errorw("init chmod error", "err", err)
@@ -127,7 +128,7 @@ func codeExec(functionName string, environment string) {
 			}
 			zap.S().Debugw("prepare to exec golang binary", "entryPath", entryPath)
 			// todo support cmd params customize
-			if err := syscall.Exec(entryPath, []string{"main"}, os.Environ()); err != nil {
+			if err := syscall.Exec(entryPath, []string{"main", pluginPath}, os.Environ()); err != nil {
 				zap.S().Errorw("init exec error", "err", err)
 				os.Exit(4)
 			}
