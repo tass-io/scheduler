@@ -59,7 +59,6 @@ var WithInjectData = func(objects *[]runtime.Object) {
 func Prepare() {
 	if local := viper.GetBool(env.Local); local {
 		objects := []runtime.Object{}
-		workflowName = viper.GetString(env.WorkflowName)
 		workflowRuntimeFilePath := viper.GetString(env.WorkflowRuntimeFilePath)
 		selfName = viper.GetString(env.SelfName)
 		err := generateWorkflowRuntimeObjectsByFile(workflowRuntimeFilePath, &objects)
@@ -70,6 +69,9 @@ func Prepare() {
 		err = generateWorkflowObjectsByFile(workflowFilePath, &objects)
 		if err != nil {
 			zap.S().Warnw("generate Workflow error", "err", err)
+		}
+		if workflowName == "" {
+			workflowName = viper.GetString(env.WorkflowName)
 		}
 		WithInjectData(&objects)
 		zap.S().Infow("get objects", "objects", objects)
@@ -139,6 +141,7 @@ func generateWorkflowObjectsByFile(fileName string, objects *[]runtime.Object) e
 			return err
 		}
 		zap.S().Debugw("get Workflow", "workflow", workflow)
+		workflowName = workflow.Name
 		*objects = append(*objects, workflow)
 	}
 	return err

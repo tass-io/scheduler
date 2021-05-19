@@ -4,6 +4,7 @@ const (
 	LSDSWait                = "LSDSWait"
 	Policy                  = "policy"
 	Local                   = "local"
+	Port                    = "port"
 	WorkflowRuntimeFilePath = "workflowRuntimeFilePath"
 	WorkflowPath            = "workflowPath"
 	WorkflowName            = "workflowName"
@@ -14,4 +15,6 @@ const (
 	RedisPassword           = "RedisPassword"
 	DefaultDb               = "DefaultDb"
 	TassFileRoot            = "/tass/"
+	Mock                    = "Mock"
+	StaticMiddleware        = "StaticMiddleware"
 )

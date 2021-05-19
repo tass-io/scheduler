@@ -1,6 +1,8 @@
 package fnscheduler
 
 import (
+	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/pkg/span"
@@ -21,6 +23,11 @@ func GetFunctionScheduler() *FunctionScheduler {
 }
 
 func FunctionSchedulerInit() {
+	if viper.GetBool(env.Mock) {
+		NewInstance = func(functionName string) instance.Instance {
+			return instance.NewMockInstance(functionName)
+		}
+	}
 	fs = NewFunctionScheduler()
 	go fs.sync()
 }
