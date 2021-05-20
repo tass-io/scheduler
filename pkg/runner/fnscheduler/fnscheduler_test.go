@@ -149,6 +149,8 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 		},
 	}
 	viper.Set(env.Local, true)
+	viper.Set(env.CreatePolicy, "default")
+	viper.Set(env.InstanceScorePolicy, "default")
 	for _, testcase := range testcases {
 		if testcase.skipped {
 			continue

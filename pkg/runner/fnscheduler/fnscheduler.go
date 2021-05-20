@@ -14,9 +14,16 @@ import (
 )
 
 var (
-	once = &sync.Once{}
-	fs   *FunctionScheduler
+	once              = &sync.Once{}
+	fs                *FunctionScheduler
+	canCreatePolicies = map[string]func() bool{
+		"default": DefaultCanCreatePolicy,
+	}
 )
+
+func DefaultCanCreatePolicy() bool {
+	return true
+}
 
 func GetFunctionScheduler() *FunctionScheduler {
 	once.Do(FunctionSchedulerInit)
@@ -176,7 +183,7 @@ func (fs *FunctionScheduler) sync() {
 // todo check how to get metrics
 // todo policy architecture
 func (fs *FunctionScheduler) canCreate() bool {
-	return true
+	return canCreatePolicies[viper.GetString(env.CreatePolicy)]()
 }
 
 // FunctionScheduler.Run will choose a target instance to run
@@ -194,14 +201,14 @@ func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Sp
 	return target.Invoke(parameters)
 }
 
-// todo add policy architecture
+// choose target by instance score
 func ChooseTargetInstance(instances []instance.Instance) (target instance.Instance) {
 	max := runner.SCORE_MAX
-	for _, i := range instances {
-		score := i.Score()
-		if max > i.Score() {
+	for _, item := range instances {
+		score := item.Score()
+		if max > score {
 			max = score
-			target = i
+			target = item
 		}
 	}
 	return

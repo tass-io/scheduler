@@ -1,6 +1,10 @@
 package lsds
 
 import (
+	"sync"
+	"testing"
+	"time"
+
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
@@ -10,14 +14,11 @@ import (
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sync"
-	"testing"
-	"time"
 )
 
 const (
-	APIVersion              = "serverless.tass.io/v1alpha1"
-	WorkflowKind            = "Workflow"
+	APIVersion          = "serverless.tass.io/v1alpha1"
+	WorkflowKind        = "Workflow"
 	WorkflowRuntimeKind = "WorkflowRuntime"
 )
 
