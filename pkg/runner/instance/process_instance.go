@@ -155,6 +155,10 @@ func (i *processInstance) Release() {
 	i.cleanUp()
 }
 
+func (i *processInstance) IsRunning() bool {
+	return i.Status == Running
+}
+
 // cleanUp will be used at processInstance exception or graceful shut down
 func (i *processInstance) cleanUp() {
 	i.Status = Terminating
