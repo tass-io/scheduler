@@ -1,6 +1,10 @@
 package fnscheduler
 
 import (
+	"sync"
+	"testing"
+	"time"
+
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
@@ -14,9 +18,6 @@ import (
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sync"
-	"testing"
-	"time"
 )
 
 const (
@@ -148,6 +149,8 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 		},
 	}
 	viper.Set(env.Local, true)
+	viper.Set(env.CreatePolicy, "default")
+	viper.Set(env.InstanceScorePolicy, "default")
 	for _, testcase := range testcases {
 		if testcase.skipped {
 			continue
@@ -162,7 +165,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			for functionName, num := range testcase.targets {
 				// work like a prepare middleware
-				fs.instances[functionName] = newSet()
+				fs.instances[functionName] = newSet(functionName)
 				fs.Refresh(functionName, num)
 				time.Sleep(1 * time.Second)
 			}

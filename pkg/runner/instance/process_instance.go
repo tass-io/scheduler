@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/rs/xid"
 	"github.com/spf13/viper"
@@ -28,10 +29,20 @@ const (
 )
 
 var (
-	binary = "/proc/self/exe"
+	binary   = "/proc/self/exe"
+	policies = map[string]func(*processInstance) int{
+		"default": defaultPolicyfunc,
+	}
 )
 
+func defaultPolicyfunc(i *processInstance) int {
+	now := time.Now().Unix()
+	birthday := i.startTime.Unix() // happy birthday for LittleDrizzle. He write this line at the birthday (smddx)
+	return int(now - birthday)
+}
+
 type processInstance struct {
+	startTime       time.Time
 	uuid            string
 	lock            sync.Locker
 	functionName    string
@@ -45,11 +56,13 @@ type processInstance struct {
 	cmd             *exec.Cmd
 }
 
+// todo
 func (i *processInstance) Score() int {
 	if i.Status != Running {
 		return runner.SCORE_MAX
 	}
-	return len(i.responseMapping)
+	policyName := viper.GetString(env.InstanceScorePolicy)
+	return policies[policyName](i)
 }
 
 func NewProcessInstance(functionName string) *processInstance {
@@ -63,6 +76,7 @@ func NewProcessInstance(functionName string) *processInstance {
 		return nil
 	}
 	return &processInstance{
+		startTime:       time.Now(),
 		uuid:            xid.New().String(),
 		lock:            &sync.Mutex{},
 		functionName:    functionName,
@@ -153,6 +167,10 @@ func (i *processInstance) Release() {
 	// todo send SIGTERM
 	i.cmd.Process.Kill()
 	i.cleanUp()
+}
+
+func (i *processInstance) IsRunning() bool {
+	return i.Status == Running
 }
 
 // cleanUp will be used at processInstance exception or graceful shut down

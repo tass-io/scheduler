@@ -1,6 +1,9 @@
 package pipe
 
 import (
+	"testing"
+	"time"
+
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/cmd"
 	"github.com/tass-io/scheduler/pkg/dto"
@@ -8,8 +11,6 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"github.com/tass-io/scheduler/test"
-	"testing"
-	"time"
 )
 
 type PipeMockInstance struct {
@@ -25,6 +26,10 @@ func (p *PipeMockInstance) Score() int {
 
 func (p *PipeMockInstance) Release() {
 	return
+}
+
+func (p *PipeMockInstance) IsRunning() bool {
+	return true
 }
 
 func (p *PipeMockInstance) Start() error {

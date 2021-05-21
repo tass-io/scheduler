@@ -4,6 +4,7 @@ import "github.com/tass-io/scheduler/pkg/tools/common"
 
 type mockInstance struct {
 	functionName string
+	released     bool
 }
 
 func (m *mockInstance) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
@@ -17,6 +18,11 @@ func (m *mockInstance) Score() int {
 }
 
 func (m *mockInstance) Release() {
+	m.released = true
+}
+
+func (m *mockInstance) IsRunning() bool {
+	return !m.released
 }
 
 func (m *mockInstance) Start() error {
@@ -26,5 +32,6 @@ func (m *mockInstance) Start() error {
 func NewMockInstance(functionName string) *mockInstance {
 	return &mockInstance{
 		functionName: functionName,
+		released:     false,
 	}
 }
