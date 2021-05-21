@@ -37,7 +37,7 @@ var (
 
 func defaultPolicyfunc(i *processInstance) int {
 	now := time.Now().Unix()
-	birthday := i.startTime.Unix() // happy birthday for LittleDrizzle. He write this line at the birthday (smddx)
+	birthday := i.startTime.Unix() // happy birthday for LittleDrizzle. He wrote this line at the birthday (smddx)
 	return int(now - birthday)
 }
 
