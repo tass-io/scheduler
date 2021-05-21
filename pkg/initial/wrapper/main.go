@@ -5,21 +5,33 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"os/signal"
 	"os/user"
 	"path/filepath"
 	"plugin"
+	"sync"
+	"syscall"
 
+	cmap "github.com/orcaman/concurrent-map"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
+var (
+	sigtermChan      = make(chan os.Signal, 1)
+	w                = NewWrapper()
+	closeChannelOnce = &sync.Once{}
+)
+
 // Wrapper will handle all lifecycle
 // here the Consumer and Producer role exchanged.
 type Wrapper struct {
-	consumer *instance.Consumer
-	producer *instance.Producer
-	handler  func(map[string]interface{}) (map[string]interface{}, error)
+	requestMap      cmap.ConcurrentMap // Now use a counter is also ok, but I think it is more convenient to debug.
+	consumer        *instance.Consumer
+	producer        *instance.Producer
+	handler         func(map[string]interface{}) (map[string]interface{}, error)
+	receiveShutdown bool
 }
 
 func loadPlugin(codePath string, entrypoint string) (func(map[string]interface{}) (map[string]interface{}, error), error) {
@@ -60,10 +72,13 @@ func NewWrapper() *Wrapper {
 	if err != nil {
 		zap.S().Warnw("user code puglin load error", "err", err)
 	}
+	m := cmap.New()
 	wrapper := &Wrapper{
-		consumer: instance.NewConsumer(requestFile, &instance.FunctionRequest{}),
-		producer: instance.NewProducer(producerFile, &instance.FunctionResponse{}),
-		handler:  handler,
+		requestMap:      m,
+		consumer:        instance.NewConsumer(requestFile, &instance.FunctionRequest{}),
+		producer:        instance.NewProducer(producerFile, &instance.FunctionResponse{}),
+		handler:         handler,
+		receiveShutdown: false,
 	}
 	return wrapper
 }
@@ -71,10 +86,44 @@ func NewWrapper() *Wrapper {
 func (w *Wrapper) Start() {
 	w.consumer.Start()
 	w.producer.Start()
-	for reqRaw := range w.consumer.GetChannel() {
-		req := reqRaw.(*instance.FunctionRequest)
-		zap.S().Debugw("get req", "req", req)
-		w.producer.GetChannel() <- w.invoke(*req)
+	reqChan := w.consumer.GetChannel()
+	for {
+		select {
+		case reqRaw, ok := <-reqChan:
+			{
+				if !ok {
+					zap.S().Info("wrapper reqChan not ok")
+					continue
+				}
+				req := reqRaw.(*instance.FunctionRequest)
+				zap.S().Debugw("get req", "req", req)
+				go func() {
+					w.requestMap.Set(req.Id, "")
+					result := w.invoke(*req)
+					w.producer.GetChannel() <- result
+					w.requestMap.Remove(req.Id)
+				}()
+			}
+		default:
+			{
+				// w.receiveShutdown has a high probability of being false, which shows whether the process receives SIGTERM.
+				// w.consumer.NoNewInfo and w.producer.NoNewInfo check whether the IPC is empty.
+				// w.requestMap.IsEmpty() will check whether the process is handling a request.
+				if w.receiveShutdown && w.consumer.NoNewInfo() {
+					zap.S().Debug("more requests")
+					if w.requestMap.IsEmpty() {
+						zap.S().Debug("all requests have been handled and put responses into channel")
+						closeChannelOnce.Do(func() {
+							w.producer.Terminate()
+						})
+						if w.producer.NoNewInfo() {
+							zap.S().Info("function shutdown after no requests and all responses have been sent")
+							os.Exit(0)
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -103,6 +152,10 @@ func (w *Wrapper) invoke(request instance.FunctionRequest) instance.FunctionResp
 
 }
 
+func (w *Wrapper) Shutdown() {
+	w.receiveShutdown = true
+}
+
 func init() {
 	cfg := zap.Config{
 		Encoding:         "json",
@@ -127,6 +180,11 @@ func init() {
 		fmt.Println(err.Error())
 	}
 	zap.ReplaceGlobals(logger)
+	signal.Notify(sigtermChan, syscall.SIGTERM)
+	go func() {
+		<-sigtermChan
+		w.Shutdown()
+	}()
 }
 
 func main() {
@@ -135,6 +193,5 @@ func main() {
 		zap.S().Warnw("unable to get current user: %s", err)
 	}
 	zap.S().Infow("run the binary user", "user", currentUser.Name)
-	w := NewWrapper()
 	w.Start()
 }

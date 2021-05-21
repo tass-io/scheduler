@@ -117,6 +117,7 @@ func (i *processInstance) Start() (err error) {
 		return
 	}
 	i.startListen()
+	i.Status = Running
 	return
 }
 
@@ -160,12 +161,25 @@ func (i *processInstance) handleCmdExit() {
 	if err != nil {
 		zap.S().Errorw("processInstance cmd exit error", "processInstance", i.uuid, "err", err)
 	}
-	i.cleanUp()
 }
 
+// Send SIGTERM to process and trigger clean up
+// Process Release step
+/* 1. send SIGTERM to function process
+ *  2. close main request channel
+ *  3. when function process get eof about request, set noNewInfo true
+ *  4. when function process has no requests handling, function process Wrapper.requestMap is empty.
+ *  5. when function process sends all responses, close file
+ *  6. when main consumer get eof about response, all things have been done.
+ */
 func (i *processInstance) Release() {
-	// todo send SIGTERM
-	i.cmd.Process.Kill()
+	i.lock.Lock()
+	defer i.lock.Unlock()
+	i.Status = Terminating
+	err := i.cmd.Process.Signal(syscall.SIGTERM)
+	if err != nil {
+		zap.S().Errorw("process send SIGTERM error", "err", err)
+	}
 	i.cleanUp()
 }
 
@@ -175,13 +189,15 @@ func (i *processInstance) IsRunning() bool {
 
 // cleanUp will be used at processInstance exception or graceful shut down
 func (i *processInstance) cleanUp() {
-	i.Status = Terminating
-	i.consumer.Terminate()
 	i.producer.Terminate()
 }
 
 // Invoke will generate a functionRequest and will block until the function return the result
 func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[string]interface{}, err error) {
+	if i.Status != Running {
+		zap.S().Infow("process instance Invoke", "status", i.Status)
+		return nil, InstanceNotServiceErr
+	}
 	i.lock.Lock()
 	id := xid.New().String()
 	req := NewFunctionRequest(id, parameters)
@@ -194,7 +210,5 @@ func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[
 }
 
 func (i *processInstance) getWaitNum() int {
-	i.lock.Lock()
-	defer i.lock.Unlock()
 	return len(i.responseMapping)
 }

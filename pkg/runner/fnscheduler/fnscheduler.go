@@ -3,6 +3,7 @@ package fnscheduler
 import (
 	"sync"
 
+	"github.com/avast/retry-go"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
@@ -58,10 +59,31 @@ type set struct {
 func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
 	if s.stats() > 0 {
 		// warm start, try to find a lowest latency process to work
-		s.Lock()
-		process := ChooseTargetInstance(s.instances)
-		s.Unlock()
-		return process.Invoke(parameters)
+		var result map[string]interface{}
+		var err error
+		err = retry.Do(
+			func() error {
+				s.Lock()
+				process := ChooseTargetInstance(s.instances)
+				s.Unlock()
+				result, err = process.Invoke(parameters)
+				zap.S().Debugw("retry in invoke err", "err", err)
+				return err
+			},
+			retry.RetryIf(func(err error) bool {
+				// this retry to avoid this case:
+				// one request choose the process when it is Running
+				// after the choose, the process Released
+				// the process will return instance.InstanceNotServiceErr to describe this case.
+				// todo thinking about the request is unlucky to retry at the fourth time.
+				if err == instance.InstanceNotServiceErr {
+					return true
+				}
+				return false
+			}),
+			retry.Attempts(3),
+		)
+		return result, err
 	} else {
 		return nil, errorutils.NewNoInstanceError(s.functionName)
 	}
@@ -205,10 +227,12 @@ func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Sp
 func ChooseTargetInstance(instances []instance.Instance) (target instance.Instance) {
 	max := runner.SCORE_MAX
 	for _, item := range instances {
-		score := item.Score()
-		if max > score {
-			max = score
-			target = item
+		if item.IsRunning() {
+			score := item.Score()
+			if max > score {
+				max = score
+				target = item
+			}
 		}
 	}
 	return

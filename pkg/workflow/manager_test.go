@@ -444,7 +444,7 @@ func TestManager(t *testing.T) {
 				viper.Set("local", true)
 				k8sutils.Prepare()
 				mgr := NewManager()
-				time.Sleep(1 * time.Second)
+				time.Sleep(500 * time.Millisecond)
 				result, err := mgr.Invoke(testcase.parameters, testcase.sp.WorkflowName, testcase.sp.FlowName)
 				So(err, ShouldBeNil)
 				So(result, ShouldResemble, testcase.expect)

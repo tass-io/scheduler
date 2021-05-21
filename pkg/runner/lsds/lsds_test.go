@@ -139,7 +139,7 @@ func TestLSDS_Policy(t *testing.T) {
 			k8sutils.Prepare()
 			once = &sync.Once{}
 			daemon := GetLSDSIns()
-			time.Sleep(2 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			for functionName, ip := range testcase.expects {
 				target := daemon.chooseTarget(functionName)
 				So(target, ShouldEqual, ip)
@@ -277,9 +277,9 @@ func TestLSDS_Sync(t *testing.T) {
 			k8sutils.Prepare()
 			once = &sync.Once{}
 			daemon := GetLSDSIns()
-			time.Sleep(2 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			k8sutils.Sync(testcase.syncInfo)
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			wfrt, existed, err := daemon.getWorkflowRuntimeByName(daemon.workflowName)
 			So(err, ShouldBeNil)
 			So(existed, ShouldBeTrue)
