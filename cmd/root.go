@@ -1,6 +1,11 @@
 package cmd
 
 import (
+	"net/http"
+	"os"
+	"os/signal"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -12,10 +17,6 @@ import (
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"github.com/tass-io/scheduler/pkg/workflow"
 	"go.uber.org/zap"
-	"net/http"
-	"os"
-	"os/signal"
-	"time"
 )
 
 var (
@@ -63,7 +64,7 @@ func SetArgs(args []string) {
 	rootCmd.SetArgs(args)
 }
 
-func init() {
+func basicFlagInit() {
 	rootCmd.Flags().BoolP(env.Local, "l", false, "whether to use local file")
 	viper.BindPFlag(env.Local, rootCmd.Flags().Lookup(env.Local))
 	rootCmd.Flags().StringP(env.Port, "a", "8080", "the http port local scheduler exposed")
@@ -82,6 +83,19 @@ func init() {
 	viper.BindPFlag(env.Mock, rootCmd.Flags().Lookup(env.Mock))
 	rootCmd.Flags().BoolP(env.StaticMiddleware, "i", false, "whether to use StaticMiddleware")
 	viper.BindPFlag(env.StaticMiddleware, rootCmd.Flags().Lookup(env.StaticMiddleware))
+}
+
+func policyFlagInit() {
+	// policyFlag should not use single dash with a short letter
+	rootCmd.Flags().String(env.InstanceScorePolicy, "default", "settings about instance.Score")
+	viper.BindPFlag(env.InstanceScorePolicy, rootCmd.Flags().Lookup(env.InstanceScorePolicy))
+	rootCmd.Flags().String(env.CreatePolicy, "default", "settings about fnscheduler.canCreate")
+	viper.BindPFlag(env.CreatePolicy, rootCmd.Flags().Lookup(env.CreatePolicy))
+}
+
+func init() {
+	basicFlagInit()
+	policyFlagInit()
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initial.InitCmd)
 }

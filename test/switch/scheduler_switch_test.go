@@ -2,14 +2,15 @@ package _switch
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/cmd"
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/test"
-	"testing"
-	"time"
 )
 
 //
@@ -28,6 +29,10 @@ func (s *switchMockInstance) Score() int {
 
 func (s *switchMockInstance) Release() {
 	return
+}
+
+func (s *switchMockInstance) IsRunning() bool {
+	return true
 }
 
 func (s *switchMockInstance) Start() error {
