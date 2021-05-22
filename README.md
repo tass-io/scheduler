@@ -1,6 +1,11 @@
 # scheduler
 Local scheduler for workflow
 
+## Development
+
+if you wanna develop a new middleware, please see [middleware.md](./examples/middleware/middleware.md)
+
+if you wanna develop a new event handler, please see [event.md](./examples/event/event.md)
 
 ## Test
 

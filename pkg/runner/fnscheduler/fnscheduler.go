@@ -25,6 +25,7 @@ func DefaultCanCreatePolicy() bool {
 	return true
 }
 
+// For global get FunctionScheduler
 func GetFunctionScheduler() *FunctionScheduler {
 	once.Do(FunctionSchedulerInit)
 	return fs
@@ -166,7 +167,7 @@ func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 	fs.trigger <- struct{}{}
 }
 
-// Sync Function Scheduler info to api server via LSDS
+// Sync Function Scheduler info to api server via k8sutils
 func (fs *FunctionScheduler) sync() {
 	for _ = range fs.trigger {
 		syncMap := make(map[string]int, len(fs.instances))
