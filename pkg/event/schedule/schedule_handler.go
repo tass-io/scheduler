@@ -1,11 +1,12 @@
 package schedule
 
 import (
+	"sync"
+
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/schedule"
 	"github.com/tass-io/scheduler/pkg/tools/common"
 	"go.uber.org/zap"
-	"sync"
 )
 
 // Trend is a type that claims what the operation expects to be done.
@@ -67,7 +68,7 @@ func (event *ScheduleEvent) Merge(target *ScheduleEvent) {
 	}
 }
 
-// scoreBoard will store different Source suggestion for the function
+// scoreBoard will store different Source suggestions for the function
 type scoreBoard struct {
 	lock       sync.Locker
 	bestWishes *ScheduleEvent
@@ -148,6 +149,8 @@ func (sh *ScheduleHandler) GetSource() event.Source {
 	return ScheduleSource
 }
 
+// Start will create go routine to handle upstream ScheduleEvent.
+// store new upstream ScheduleEvent and trigger a Decide
 func (sh *ScheduleHandler) Start() error {
 	zap.S().Debug("schedule handler start")
 	go func() {
