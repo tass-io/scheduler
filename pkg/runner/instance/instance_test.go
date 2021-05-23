@@ -133,7 +133,7 @@ func TestProcessInstance(t *testing.T) {
 				So(result, ShouldResemble, testcase.expect)
 			}
 			process.Release()
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			So(process.getWaitNum(), ShouldEqual, 0)
 		}
 	})

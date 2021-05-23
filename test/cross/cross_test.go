@@ -188,7 +188,7 @@ func TestCross(t *testing.T) {
 		callee := exec.Command("./main", strings.Split(calleeParam, " ")...)
 		stdOutDump(callee, "./callee.log")
 		defer callee.Process.Kill()
-		time.Sleep(1 * time.Second)
+		time.Sleep(500 * time.Millisecond)
 		// request the first one
 		request := dto.InvokeRequest{
 			WorkflowName: "simple",

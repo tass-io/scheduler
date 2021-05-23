@@ -2,13 +2,14 @@ package schedule
 
 // if your test wanna to see the zap log, please import "github.com/tass-io/scheduler/pkg/tools/log"
 import (
+	"testing"
+	"time"
+
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/schedule"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"go.uber.org/zap"
-	"testing"
-	"time"
 )
 
 type FakeScheduler struct {
@@ -190,7 +191,7 @@ func TestScheduleHandler(t *testing.T) {
 			for _, e := range testcase.upstreams {
 				handlerIns.AddEvent(e)
 			}
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			So(fake.stats, ShouldResemble, testcase.exceptResult)
 		})
 	}
