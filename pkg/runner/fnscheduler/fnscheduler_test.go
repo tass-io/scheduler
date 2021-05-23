@@ -162,16 +162,16 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			k8sutils.Prepare()
 			ls := lsds.GetLSDSIns()
 			fs := GetFunctionScheduler()
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			for functionName, num := range testcase.targets {
 				// work like a prepare middleware
 				fs.instances[functionName] = newSet(functionName)
 				fs.Refresh(functionName, num)
-				time.Sleep(1 * time.Second)
+				time.Sleep(500 * time.Millisecond)
 			}
 			stats := fs.Stats()
 			So(stats, ShouldResemble, testcase.excepts)
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			for functionName, e := range testcase.runTargets {
 				_, err := fs.Run(nil, span.Span{WorkflowName: "", FlowName: functionName, FunctionName: functionName})
 				So(err, ShouldResemble, e)

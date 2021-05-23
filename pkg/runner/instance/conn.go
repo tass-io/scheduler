@@ -3,6 +3,7 @@ package instance
 import (
 	"bufio"
 	"encoding/json"
+	"io"
 	"os"
 	"reflect"
 	"strings"
@@ -56,15 +57,17 @@ type FunctionResponse struct {
 }
 
 type Producer struct {
-	f              *os.File
-	demo           interface{}
-	requestChannel chan interface{}
+	f                  *os.File
+	demo               interface{}
+	requestChannel     chan interface{}
+	startRoutineExited bool
 }
 
 type Consumer struct {
 	f               *os.File
 	demo            interface{}
 	responseChannel chan interface{}
+	noNewInfo       bool
 }
 
 func (c *Consumer) GetChannel() chan interface{} {
@@ -90,9 +93,16 @@ func (c *Consumer) Start() {
 		for {
 			// todo fixed error read
 			n, err := reader.Read(data)
-			if err != nil {
-				// zap.S().Errorw("consumer error", "err", err)
-				continue
+			if n == 0 {
+				zap.S().Debug("read 0")
+				if err == nil {
+					continue
+				} else {
+					if err == io.EOF {
+						zap.S().Info("consumer read EOF")
+						break
+					}
+				}
 			}
 			s := string(data[:n])
 			s = tail + s
@@ -103,12 +113,14 @@ func (c *Consumer) Start() {
 				pkg = append(pkg, s)
 			}
 			for _, item := range pkg {
-
+				if item == "" {
+					continue
+				}
 				resp := reflect.New(typ.Elem())
 				newP := resp.Interface()
 				err = json.Unmarshal([]byte(item), newP)
 				if err != nil {
-					zap.S().Infow("consumer unmarshal error", "err", err)
+					zap.S().Infow("consumer unmarshal error", "err", err, "item", item)
 					// take care of `{"s":"b"}littledrizzle{"n":`
 					// the item must be the last one
 					tail = item
@@ -118,22 +130,36 @@ func (c *Consumer) Start() {
 				c.responseChannel <- newP
 			}
 		}
+		zap.S().Debug("no more requests")
+		c.noNewInfo = true
+		c.f.Close()
 	}()
+}
+
+func (c *Consumer) NoNewInfo() bool {
+	return c.noNewInfo
 }
 
 // Consumer do nothing about Terminate
 // because the resp will get after kill desicion
-func (c *Consumer) Terminate() {}
+func (c *Consumer) Terminate() {
+	c.f.Close()
+}
 
 func (p *Producer) GetChannel() chan interface{} {
 	return p.requestChannel
 }
 
+func (p *Producer) NoNewInfo() bool {
+	return p.startRoutineExited
+}
+
 func NewProducer(f *os.File, demo interface{}) *Producer {
 	return &Producer{
-		f:              f,
-		demo:           demo,
-		requestChannel: make(chan interface{}, 10),
+		f:                  f,
+		demo:               demo,
+		requestChannel:     make(chan interface{}, 10),
+		startRoutineExited: false,
 	}
 }
 
@@ -142,6 +168,7 @@ func (p *Producer) Start() {
 	go func() {
 		for req := range p.requestChannel {
 			reqByte, err := json.Marshal(&req)
+			zap.S().Debugw("producer get object", "object", string(reqByte))
 			if err != nil {
 				zap.S().Errorw("producer marshal error", "err", err)
 			}
@@ -151,10 +178,12 @@ func (p *Producer) Start() {
 				zap.S().Errorw("instance request error", "err", err, "reqByteLen", len(reqByte), "n", n)
 			}
 		}
+		zap.S().Debug("producer close")
+		p.startRoutineExited = true
+		p.f.Close()
 	}()
 }
 
 func (p *Producer) Terminate() {
-	// pay attention!!! producer will not close the channel, FunctionScheduler will close it
-	p.f.Close()
+	close(p.requestChannel)
 }

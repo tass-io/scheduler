@@ -180,7 +180,7 @@ func TestSchedulerSwitch(t *testing.T) {
 				err := cmd.Execute()
 				c.So(err, ShouldBeNil)
 			}()
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 			for caseName := range testcase.requests {
 				t.Logf("testcase %s\n", caseName)
 				resp := &dto.InvokeResponse{}
