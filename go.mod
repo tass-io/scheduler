@@ -3,7 +3,7 @@ module github.com/tass-io/scheduler
 go 1.14
 
 require (
-	github.com/avast/retry-go v3.0.0+incompatible // indirect
+	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.1
 	github.com/go-playground/validator/v10 v10.5.0 // indirect
@@ -12,7 +12,7 @@ require (
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
-	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc // indirect
+	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc
 	github.com/pelletier/go-toml v1.9.0 // indirect
 	github.com/rs/xid v1.3.0
 	github.com/smartystreets/goconvey v1.6.4
