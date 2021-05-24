@@ -8,5 +8,5 @@ FROM centos as prod
 EXPOSE 50001
 WORKDIR /root/
 COPY --from=0 /code/app .
-RUN chmod +x /code/app
-ENTRYPOINT ["/code/app"]
+RUN chmod +x /root/app
+ENTRYPOINT ["/root/app"]
