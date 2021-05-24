@@ -86,8 +86,8 @@ func Prepare() {
 		if len(sli) < 3 {
 			panic(sli)
 		}
-		selfName = strings.Join(sli[:2], "-")
-		workflowName = strings.Join(sli[2:], "-")
+		workflowName = strings.Join(sli[:2], "-")
+		selfName = strings.Join(sli[2:], "-")
 
 		config, err := rest.InClusterConfig()
 		if err != nil {
