@@ -86,33 +86,35 @@ func TestLSDS_Policy(t *testing.T) {
 						Name:      name,
 						Namespace: "default",
 					},
-					Status: &serverlessv1alpha1.WorkflowRuntimeStatus{
-						Instances: map[string]serverlessv1alpha1.Instance{
-							"ty": serverlessv1alpha1.Instance{
-								Status: &serverlessv1alpha1.InstanceStatus{
-									HostIP: k8sutils.NewStringPtr("ty"),
-									PodIP:  k8sutils.NewStringPtr("ty"),
+					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
+						Status: &serverlessv1alpha1.WfrtStatus{
+							Instances: map[string]serverlessv1alpha1.Instance{
+								"ty": serverlessv1alpha1.Instance{
+									Status: &serverlessv1alpha1.InstanceStatus{
+										HostIP: k8sutils.NewStringPtr("ty"),
+										PodIP:  k8sutils.NewStringPtr("ty"),
+									},
+									ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
+										"test_start": {Number: 1},
+									},
 								},
-								ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
-									"test_start": {Number: 1},
+								"tx": serverlessv1alpha1.Instance{
+									Status: &serverlessv1alpha1.InstanceStatus{
+										HostIP: k8sutils.NewStringPtr("tx"),
+										PodIP:  k8sutils.NewStringPtr("tx"),
+									},
+									ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
+										"test_end": {Number: 1},
+									},
 								},
-							},
-							"tx": serverlessv1alpha1.Instance{
-								Status: &serverlessv1alpha1.InstanceStatus{
-									HostIP: k8sutils.NewStringPtr("tx"),
-									PodIP:  k8sutils.NewStringPtr("tx"),
-								},
-								ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
-									"test_end": {Number: 1},
-								},
-							},
-							"littledrizzle": serverlessv1alpha1.Instance{
-								Status: &serverlessv1alpha1.InstanceStatus{
-									HostIP: k8sutils.NewStringPtr("littledrizzle"),
-									PodIP:  k8sutils.NewStringPtr("littledrizzle"),
-								},
-								ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
-									"test_mid": {Number: 1},
+								"littledrizzle": serverlessv1alpha1.Instance{
+									Status: &serverlessv1alpha1.InstanceStatus{
+										HostIP: k8sutils.NewStringPtr("littledrizzle"),
+										PodIP:  k8sutils.NewStringPtr("littledrizzle"),
+									},
+									ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
+										"test_mid": {Number: 1},
+									},
 								},
 							},
 						},
@@ -221,33 +223,35 @@ func TestLSDS_Sync(t *testing.T) {
 						Name:      name,
 						Namespace: "default",
 					},
-					Status: &serverlessv1alpha1.WorkflowRuntimeStatus{
-						Instances: map[string]serverlessv1alpha1.Instance{
-							"ty": serverlessv1alpha1.Instance{
-								Status: &serverlessv1alpha1.InstanceStatus{
-									HostIP: k8sutils.NewStringPtr("ty"),
-									PodIP:  k8sutils.NewStringPtr("ty"),
+					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
+						Status: &serverlessv1alpha1.WfrtStatus{
+							Instances: map[string]serverlessv1alpha1.Instance{
+								"ty": serverlessv1alpha1.Instance{
+									Status: &serverlessv1alpha1.InstanceStatus{
+										HostIP: k8sutils.NewStringPtr("ty"),
+										PodIP:  k8sutils.NewStringPtr("ty"),
+									},
+									ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
+										"test_start": {Number: 1},
+									},
 								},
-								ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
-									"test_start": {Number: 1},
+								"tx": serverlessv1alpha1.Instance{
+									Status: &serverlessv1alpha1.InstanceStatus{
+										HostIP: k8sutils.NewStringPtr("tx"),
+										PodIP:  k8sutils.NewStringPtr("tx"),
+									},
+									ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
+										"test_end": {Number: 1},
+									},
 								},
-							},
-							"tx": serverlessv1alpha1.Instance{
-								Status: &serverlessv1alpha1.InstanceStatus{
-									HostIP: k8sutils.NewStringPtr("tx"),
-									PodIP:  k8sutils.NewStringPtr("tx"),
-								},
-								ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
-									"test_end": {Number: 1},
-								},
-							},
-							"littledrizzle": serverlessv1alpha1.Instance{
-								Status: &serverlessv1alpha1.InstanceStatus{
-									HostIP: k8sutils.NewStringPtr("littledrizzle"),
-									PodIP:  k8sutils.NewStringPtr("littledrizzle"),
-								},
-								ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
-									"test_mid": {Number: 1},
+								"littledrizzle": serverlessv1alpha1.Instance{
+									Status: &serverlessv1alpha1.InstanceStatus{
+										HostIP: k8sutils.NewStringPtr("littledrizzle"),
+										PodIP:  k8sutils.NewStringPtr("littledrizzle"),
+									},
+									ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
+										"test_mid": {Number: 1},
+									},
 								},
 							},
 						},
@@ -284,7 +288,7 @@ func TestLSDS_Sync(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(existed, ShouldBeTrue)
 			zap.S().Debugw("refresh WorkflowRuntime", "WorkflowRuntime", wfrt)
-			So(wfrt.Status.Instances[testcase.selfName].ProcessRuntimes, ShouldResemble, ConvertMapToProcessRuntimes(testcase.syncInfo))
+			So(wfrt.Spec.Status.Instances[testcase.selfName].ProcessRuntimes, ShouldResemble, ConvertMapToProcessRuntimes(testcase.syncInfo))
 		})
 	}
 }

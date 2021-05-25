@@ -38,34 +38,34 @@ func GetSampleWorkflowRuntime() *serverlessv1alpha1.WorkflowRuntime {
 		},
 		Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
 			Replicas: replicas,
-		},
-		Status: &serverlessv1alpha1.WorkflowRuntimeStatus{
-			Instances: serverlessv1alpha1.Instances{
-				"caller": {
-					Status: &serverlessv1alpha1.InstanceStatus{
-						HostIP: k8sutils.NewStringPtr("127.0.0.1"),
-						PodIP:  k8sutils.NewStringPtr("127.0.0.1:8080"),
-					},
-					ProcessRuntimes: serverlessv1alpha1.ProcessRuntimes{
-						"simple_start": {
-							Number: 1,
+			Status: &serverlessv1alpha1.WfrtStatus{
+				Instances: serverlessv1alpha1.Instances{
+					"caller": {
+						Status: &serverlessv1alpha1.InstanceStatus{
+							HostIP: k8sutils.NewStringPtr("127.0.0.1"),
+							PodIP:  k8sutils.NewStringPtr("127.0.0.1:8080"),
 						},
-						"simple_mid": {
-							Number: 1,
+						ProcessRuntimes: serverlessv1alpha1.ProcessRuntimes{
+							"simple_start": {
+								Number: 1,
+							},
+							"simple_mid": {
+								Number: 1,
+							},
 						},
 					},
-				},
-				"callee": {
-					Status: &serverlessv1alpha1.InstanceStatus{
-						HostIP: k8sutils.NewStringPtr("127.0.0.1"),
-						PodIP:  k8sutils.NewStringPtr("127.0.0.1:9090"),
-					},
-					ProcessRuntimes: serverlessv1alpha1.ProcessRuntimes{
-						"simple_branch_1": {
-							Number: 1,
+					"callee": {
+						Status: &serverlessv1alpha1.InstanceStatus{
+							HostIP: k8sutils.NewStringPtr("127.0.0.1"),
+							PodIP:  k8sutils.NewStringPtr("127.0.0.1:9090"),
 						},
-						"simple_branch_2": {
-							Number: 1,
+						ProcessRuntimes: serverlessv1alpha1.ProcessRuntimes{
+							"simple_branch_1": {
+								Number: 1,
+							},
+							"simple_branch_2": {
+								Number: 1,
+							},
 						},
 					},
 				},
