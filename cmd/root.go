@@ -102,8 +102,6 @@ func initPersistentFlagInit() {
 	viper.BindPFlag(env.RedisPassword, rootCmd.PersistentFlags().Lookup(env.RedisPassword))
 	rootCmd.PersistentFlags().Int32P(env.DefaultDb, "D", 0, "redis default db to init function")
 	viper.BindPFlag(env.DefaultDb, rootCmd.PersistentFlags().Lookup(env.DefaultDb))
-	rootCmd.PersistentFlags().StringP(env.Environment, "E", "JavaScript", "function run environment/language required")
-	viper.BindPFlag(env.Environment, rootCmd.PersistentFlags().Lookup(env.Environment))
 }
 
 func init() {
