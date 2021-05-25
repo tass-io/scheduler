@@ -173,6 +173,7 @@ func (l *LSDS) Stats() runner.InstanceStatus {
 	if !existed {
 		return nil
 	}
+	zap.S().Debugw("get workflow runtime", "wfrt", wfrt, "selfName", l.selfName)
 	selfStatus, existed := wfrt.Status.Instances[l.selfName]
 	if !existed {
 		return nil

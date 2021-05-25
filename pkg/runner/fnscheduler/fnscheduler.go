@@ -68,7 +68,9 @@ func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{},
 				process := ChooseTargetInstance(s.instances)
 				s.Unlock()
 				result, err = process.Invoke(parameters)
-				zap.S().Debugw("retry in invoke err", "err", err)
+				if err != nil {
+					zap.S().Debugw("retry in invoke err", "err", err)
+				}
 				return err
 			},
 			retry.RetryIf(func(err error) bool {
