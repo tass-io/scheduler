@@ -107,6 +107,7 @@ func initPersistentFlagInit() {
 func init() {
 	basicFlagInit()
 	policyFlagInit()
+	initPersistentFlagInit()
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initial.InitCmd)
 }
