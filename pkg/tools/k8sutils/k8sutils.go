@@ -372,7 +372,7 @@ func patchRuntime(workflowName string, patchBytes []byte) error {
 func generatePatchWorkflowRuntime(runtimes serverlessv1alpha1.ProcessRuntimes) []byte {
 	pwfrt := serverlessv1alpha1.WorkflowRuntime{
 		Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
-			Status: &serverlessv1alpha1.WfrtStatus{
+			Status: serverlessv1alpha1.WfrtStatus{
 				Instances: serverlessv1alpha1.Instances{
 					selfName: serverlessv1alpha1.Instance{
 						ProcessRuntimes: runtimes,

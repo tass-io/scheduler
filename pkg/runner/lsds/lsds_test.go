@@ -87,7 +87,7 @@ func TestLSDS_Policy(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
-						Status: &serverlessv1alpha1.WfrtStatus{
+						Status: serverlessv1alpha1.WfrtStatus{
 							Instances: map[string]serverlessv1alpha1.Instance{
 								"ty": serverlessv1alpha1.Instance{
 									Status: &serverlessv1alpha1.InstanceStatus{
@@ -224,7 +224,7 @@ func TestLSDS_Sync(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
-						Status: &serverlessv1alpha1.WfrtStatus{
+						Status: serverlessv1alpha1.WfrtStatus{
 							Instances: map[string]serverlessv1alpha1.Instance{
 								"ty": serverlessv1alpha1.Instance{
 									Status: &serverlessv1alpha1.InstanceStatus{
