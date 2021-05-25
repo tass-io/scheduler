@@ -250,26 +250,26 @@ func InitWorkflowRuntimeInformer() {
 }
 
 func InitWorkflowInformer() {
-	i := factory.ForResource(WorkflowResource)
-	// listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowResource)
-	// informer := cache.NewSharedInformer(
-	// 	listAndWatch,
-	// 	&unstructured.Unstructured{},
-	// 	1*time.Second,
-	// )
-	workflowInformer = i.Informer()
+	// i := factory.ForResource(WorkflowResource)
+	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowResource)
+	informer := cache.NewSharedInformer(
+		listAndWatch,
+		&unstructured.Unstructured{},
+		1*time.Second,
+	)
+	workflowInformer = informer
 	go workflowInformer.Run(make(<-chan struct{}))
 }
 
 func InitFunctionInformer() {
-	i := factory.ForResource(FunctionResources)
-	// listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), FunctionResources)
-	// informer := cache.NewSharedInformer(
-	// 	listAndWatch,
-	// 	&unstructured.Unstructured{},
-	// 	1*time.Second,
-	// )
-	functionInformer = i.Informer()
+	// i := factory.ForResource(FunctionResources)
+	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), FunctionResources)
+	informer := cache.NewSharedInformer(
+		listAndWatch,
+		&unstructured.Unstructured{},
+		1*time.Second,
+	)
+	functionInformer = informer
 	go functionInformer.Run(make(<-chan struct{}))
 }
 
@@ -322,16 +322,18 @@ func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) 
 	return function, true, nil
 }
 
-func patchRuntime(workflowName string, pathBytes []byte) error {
-	_, err := dynamicClient.Resource(WorkflowRuntimeResources).Namespace(GetSelfNamespace()).Patch(
+func patchRuntime(workflowName string, patchBytes []byte) error {
+	zap.S().Debugw("patch Runtime", "patch", patchBytes)
+	result, err := dynamicClient.Resource(WorkflowRuntimeResources).Namespace(GetSelfNamespace()).Patch(
 		context.Background(),
 		workflowName,
 		types.MergePatchType,
-		pathBytes,
+		patchBytes,
 		metav1.PatchOptions{})
 	if err != nil {
 		zap.S().Errorw("k8s WorkflowRuntime patch error", "WorkflowRuntime", workflowName, "err", err)
 	}
+	zap.S().Debugw("patch get result", "result", result)
 	return err
 }
 
