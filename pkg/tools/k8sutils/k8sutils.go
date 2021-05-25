@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
+
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,7 +107,7 @@ func Prepare() {
 		if err := serverlessv1alpha1.AddToScheme(scheme); err != nil {
 			panic(err)
 		}
-		objects = wrapObjects(objects)
+		// objects = wrapObjects(objects)
 		for _, obj := range objects {
 			zap.S().Debugw("obj type", "type", reflect.TypeOf(obj))
 		}
@@ -229,7 +230,7 @@ func InitWorkflowRuntimeInformer() {
 	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowRuntimeResources)
 	workflowRuntimeInformer = cache.NewSharedInformer(
 		listAndWatch,
-		&unstructured.Unstructured{},
+		&serverlessv1alpha1.WorkflowRuntime{},
 		1*time.Second,
 	)
 	handlers := cache.ResourceEventHandlerFuncs{
@@ -254,7 +255,7 @@ func InitWorkflowInformer() {
 	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowResource)
 	informer := cache.NewSharedInformer(
 		listAndWatch,
-		&unstructured.Unstructured{},
+		&serverlessv1alpha1.Workflow{},
 		1*time.Second,
 	)
 	workflowInformer = informer
@@ -266,7 +267,7 @@ func InitFunctionInformer() {
 	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), FunctionResources)
 	informer := cache.NewSharedInformer(
 		listAndWatch,
-		&unstructured.Unstructured{},
+		&serverlessv1alpha1.Function{},
 		1*time.Second,
 	)
 	functionInformer = informer
@@ -283,9 +284,19 @@ func GetWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) 
 	if !existed {
 		return nil, false, nil
 	}
-	ust := obj.(*unstructured.Unstructured)
-	wf := &serverlessv1alpha1.Workflow{}
-	_ = runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wf)
+	var wf *serverlessv1alpha1.Workflow
+	switch obj.(type) {
+	case *serverlessv1alpha1.Workflow:
+		{
+			wf = obj.(*serverlessv1alpha1.Workflow)
+		}
+	case *unstructured.Unstructured:
+		{
+			ust := obj.(*unstructured.Unstructured)
+			wf = &serverlessv1alpha1.Workflow{}
+			_ = runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wf)
+		}
+	}
 	return wf, true, nil
 }
 
@@ -299,9 +310,20 @@ func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime,
 	if !existed {
 		return nil, false, nil
 	}
-	ust := obj.(*unstructured.Unstructured)
-	wfrt := &serverlessv1alpha1.WorkflowRuntime{}
-	runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
+	var wfrt *serverlessv1alpha1.WorkflowRuntime
+	switch obj.(type) {
+	case *serverlessv1alpha1.WorkflowRuntime:
+		{
+			wfrt = obj.(*serverlessv1alpha1.WorkflowRuntime)
+		}
+	case *unstructured.Unstructured:
+		{
+			ust := obj.(*unstructured.Unstructured)
+			wfrt = &serverlessv1alpha1.WorkflowRuntime{}
+			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
+		}
+	}
+
 	return wfrt, true, nil
 }
 
@@ -315,13 +337,22 @@ func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) 
 	if !existed {
 		return nil, false, nil
 	}
-	ust := obj.(*unstructured.Unstructured)
-	function := &serverlessv1alpha1.Function{}
-	runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
+	var function *serverlessv1alpha1.Function
+	switch obj.(type) {
+	case *serverlessv1alpha1.WorkflowRuntime:
+		{
+			function = obj.(*serverlessv1alpha1.Function)
+		}
+	case *unstructured.Unstructured:
+		{
+			ust := obj.(*unstructured.Unstructured)
+			function = &serverlessv1alpha1.Function{}
+			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
+		}
+	}
 
 	return function, true, nil
 }
-
 func patchRuntime(workflowName string, patchBytes []byte) error {
 	zap.S().Debugw("patch Runtime", "patch", patchBytes)
 	result, err := dynamicClient.Resource(WorkflowRuntimeResources).Namespace(GetSelfNamespace()).Patch(
@@ -340,10 +371,12 @@ func patchRuntime(workflowName string, patchBytes []byte) error {
 // Help Function for Sync patch
 func generatePatchWorkflowRuntime(runtimes serverlessv1alpha1.ProcessRuntimes) []byte {
 	pwfrt := serverlessv1alpha1.WorkflowRuntime{
-		Status: &serverlessv1alpha1.WorkflowRuntimeStatus{
-			Instances: serverlessv1alpha1.Instances{
-				selfName: serverlessv1alpha1.Instance{
-					ProcessRuntimes: runtimes,
+		Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
+			Status: &serverlessv1alpha1.WfrtStatus{
+				Instances: serverlessv1alpha1.Instances{
+					selfName: serverlessv1alpha1.Instance{
+						ProcessRuntimes: runtimes,
+					},
 				},
 			},
 		},

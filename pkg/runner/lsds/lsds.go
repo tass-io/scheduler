@@ -55,7 +55,7 @@ type LSDS struct {
 var SimplePolicy Policy = func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string {
 	var target string
 	max := 0
-	for i, instance := range runtime.Status.Instances {
+	for i, instance := range runtime.Spec.Status.Instances {
 		if i == selfName {
 			continue
 		}
@@ -67,7 +67,7 @@ var SimplePolicy Policy = func(functionName string, selfName string, runtime *se
 		}
 	}
 	if target != "" {
-		return *runtime.Status.Instances[target].Status.PodIP
+		return *runtime.Spec.Status.Instances[target].Status.PodIP
 	}
 	return ""
 }
@@ -174,7 +174,7 @@ func (l *LSDS) Stats() runner.InstanceStatus {
 		return nil
 	}
 	zap.S().Debugw("get workflow runtime", "wfrt", wfrt, "selfName", l.selfName)
-	selfStatus, existed := wfrt.Status.Instances[l.selfName]
+	selfStatus, existed := wfrt.Spec.Status.Instances[l.selfName]
 	if !existed {
 		return nil
 	}
