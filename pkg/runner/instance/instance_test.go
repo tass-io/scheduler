@@ -54,8 +54,8 @@ func TestProcessInstance(t *testing.T) {
 						Spec: serverlessv1alpha1.FunctionSpec{
 							Environment: serverlessv1alpha1.Golang,
 							Resource: serverlessv1alpha1.Resource{
-								Cpu:    "200%",
-								Memory: "100Mi",
+								ResourceCPU:    "200%",
+								ResourceMemory: "100Mi",
 							},
 						},
 					}
@@ -87,8 +87,8 @@ func TestProcessInstance(t *testing.T) {
 						Spec: serverlessv1alpha1.FunctionSpec{
 							Environment: serverlessv1alpha1.Golang,
 							Resource: serverlessv1alpha1.Resource{
-								Cpu:    "200%",
-								Memory: "100Mi",
+								ResourceCPU:    "200%",
+								ResourceMemory: "100Mi",
 							},
 						},
 					}
