@@ -204,4 +204,6 @@ func unzip(src string, dest string) ([]string, error) {
 
 func init() {
 	InitCmd.Flags().StringVarP(&funcName, "name", "n", "", "Name of the function")
+	InitCmd.Flags().StringP(env.Environment, "E", "JavaScript", "function run environment/language required")
+	viper.BindPFlag(env.Environment, InitCmd.Flags().Lookup(env.Environment))
 }
