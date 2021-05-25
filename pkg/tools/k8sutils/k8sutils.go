@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -48,6 +50,7 @@ var (
 		Version:  "v1alpha1",
 		Resource: "functions",
 	}
+	factory                 dynamicinformer.DynamicSharedInformerFactory
 	workflowInformer        cache.SharedInformer
 	workflowRuntimeInformer cache.SharedInformer
 	functionInformer        cache.SharedInformer
@@ -60,6 +63,25 @@ func NewStringPtr(val string) *string {
 	ptr := new(string)
 	*ptr = val
 	return ptr
+}
+
+func wrapObjects(objs []runtime.Object) []runtime.Object {
+	result := make([]runtime.Object, 0, len(objs))
+	for _, obj := range objs {
+		if ust, ok := obj.(*unstructured.Unstructured); ok {
+			result = append(result, ust)
+		} else {
+			ustdata, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+			if err != nil {
+				panic(err)
+			}
+			ust := &unstructured.Unstructured{
+				Object: ustdata,
+			}
+			result = append(result, ust)
+		}
+	}
+	return result
 }
 
 func Prepare() {
@@ -84,6 +106,10 @@ func Prepare() {
 		if err := serverlessv1alpha1.AddToScheme(scheme); err != nil {
 			panic(err)
 		}
+		objects = wrapObjects(objects)
+		for _, obj := range objects {
+			zap.S().Debugw("obj type", "type", reflect.TypeOf(obj))
+		}
 		dynamicClient = dynamicfake.NewSimpleDynamicClient(scheme, objects...)
 	} else {
 		// use real k8s
@@ -102,6 +128,7 @@ func Prepare() {
 		dynamicClient = dynamic.NewForConfigOrDie(config)
 
 	}
+	factory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(dynamicClient, 1*time.Second, GetSelfNamespace(), nil)
 	InitWorkflowRuntimeInformer()
 	InitWorkflowInformer()
 	InitFunctionInformer()
@@ -184,7 +211,6 @@ func generateWorkflowRuntimeObjectsByFile(fileName string, objects *[]runtime.Ob
 func CreateUnstructuredListWatch(ctx context.Context, namespace string, resource schema.GroupVersionResource) *cache.ListWatch {
 	return &cache.ListWatch{
 		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
-
 			result, err := dynamicClient.Resource(resource).Namespace(namespace).List(ctx, opts)
 			zap.S().Debugw("get result at list and watch", "result", result)
 			return result, err
@@ -199,36 +225,51 @@ func CreateUnstructuredListWatch(ctx context.Context, namespace string, resource
 }
 
 func InitWorkflowRuntimeInformer() {
+	// i := factory.ForResource(WorkflowResource)
 	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowRuntimeResources)
 	workflowRuntimeInformer = cache.NewSharedInformer(
 		listAndWatch,
-		&serverlessv1alpha1.WorkflowRuntime{},
+		&unstructured.Unstructured{},
 		1*time.Second,
 	)
-
-	zap.S().Debug("in the lsds start listen")
+	handlers := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			u := obj.(*unstructured.Unstructured)
+			zap.S().Infow("received add event!", "u", u)
+		},
+		UpdateFunc: func(oldObj, obj interface{}) {
+			zap.S().Info("received update event!")
+		},
+		DeleteFunc: func(obj interface{}) {
+			zap.S().Info("received update event!")
+		},
+	}
+	workflowRuntimeInformer.AddEventHandler(handlers)
+	// zap.S().Debug("in the lsds start listen")
 	go workflowRuntimeInformer.Run(make(<-chan struct{}))
 }
 
 func InitWorkflowInformer() {
-	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowResource)
-	informer := cache.NewSharedInformer(
-		listAndWatch,
-		&serverlessv1alpha1.Workflow{},
-		1*time.Second,
-	)
-	workflowInformer = informer
+	i := factory.ForResource(WorkflowResource)
+	// listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowResource)
+	// informer := cache.NewSharedInformer(
+	// 	listAndWatch,
+	// 	&unstructured.Unstructured{},
+	// 	1*time.Second,
+	// )
+	workflowInformer = i.Informer()
 	go workflowInformer.Run(make(<-chan struct{}))
 }
 
 func InitFunctionInformer() {
-	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), FunctionResources)
-	informer := cache.NewSharedInformer(
-		listAndWatch,
-		&serverlessv1alpha1.Workflow{},
-		1*time.Second,
-	)
-	functionInformer = informer
+	i := factory.ForResource(FunctionResources)
+	// listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), FunctionResources)
+	// informer := cache.NewSharedInformer(
+	// 	listAndWatch,
+	// 	&unstructured.Unstructured{},
+	// 	1*time.Second,
+	// )
+	functionInformer = i.Informer()
 	go functionInformer.Run(make(<-chan struct{}))
 }
 
@@ -258,20 +299,9 @@ func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime,
 	if !existed {
 		return nil, false, nil
 	}
-	var wfrt *serverlessv1alpha1.WorkflowRuntime
-	switch obj.(type) {
-	case *serverlessv1alpha1.WorkflowRuntime:
-		{
-			wfrt = obj.(*serverlessv1alpha1.WorkflowRuntime)
-		}
-	case *unstructured.Unstructured:
-		{
-			ust := obj.(*unstructured.Unstructured)
-			wfrt = &serverlessv1alpha1.WorkflowRuntime{}
-			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
-		}
-	}
-
+	ust := obj.(*unstructured.Unstructured)
+	wfrt := &serverlessv1alpha1.WorkflowRuntime{}
+	runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
 	return wfrt, true, nil
 }
 
@@ -285,19 +315,9 @@ func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) 
 	if !existed {
 		return nil, false, nil
 	}
-	var function *serverlessv1alpha1.Function
-	switch obj.(type) {
-	case *serverlessv1alpha1.WorkflowRuntime:
-		{
-			function = obj.(*serverlessv1alpha1.Function)
-		}
-	case *unstructured.Unstructured:
-		{
-			ust := obj.(*unstructured.Unstructured)
-			function = &serverlessv1alpha1.Function{}
-			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
-		}
-	}
+	ust := obj.(*unstructured.Unstructured)
+	function := &serverlessv1alpha1.Function{}
+	runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
 
 	return function, true, nil
 }

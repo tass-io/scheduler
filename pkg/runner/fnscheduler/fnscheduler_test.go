@@ -171,7 +171,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			}
 			stats := fs.Stats()
 			So(stats, ShouldResemble, testcase.excepts)
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1 * time.Second)
 			for functionName, e := range testcase.runTargets {
 				_, err := fs.Run(nil, span.Span{WorkflowName: "", FlowName: functionName, FunctionName: functionName})
 				So(err, ShouldResemble, e)
