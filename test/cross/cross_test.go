@@ -38,7 +38,7 @@ func GetSampleWorkflowRuntime() *serverlessv1alpha1.WorkflowRuntime {
 		},
 		Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
 			Replicas: replicas,
-			Status: &serverlessv1alpha1.WfrtStatus{
+			Status: serverlessv1alpha1.WfrtStatus{
 				Instances: serverlessv1alpha1.Instances{
 					"caller": {
 						Status: &serverlessv1alpha1.InstanceStatus{

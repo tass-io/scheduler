@@ -131,7 +131,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
-						Status: &serverlessv1alpha1.WfrtStatus{
+						Status: serverlessv1alpha1.WfrtStatus{
 							Instances: map[string]serverlessv1alpha1.Instance{
 								"littledrizzle": serverlessv1alpha1.Instance{
 									Status: &serverlessv1alpha1.InstanceStatus{

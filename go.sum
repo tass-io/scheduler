@@ -481,8 +481,8 @@ github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5Cc
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/subosito/gotenv v1.2.0 h1:Slr1R9HxAlEKefgq5jn9U+DnETlIUa6HfgEzj0g5d7s=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
-github.com/tass-io/tass-operator v0.1.11 h1:/7QQkyDRzdJ5rFPWU8K0KbsfMcxrrb6n65B4WtmgoEs=
-github.com/tass-io/tass-operator v0.1.11/go.mod h1:wYGQOAc2ld5NjBhOuhG3GDcLnVgOnc5wVq2Xsmq8uIQ=
+github.com/tass-io/tass-operator v0.1.12 h1:HkawAnUIi7DEhja6yTe+iXSHAj6u1tV5zkRgjP42xMw=
+github.com/tass-io/tass-operator v0.1.12/go.mod h1:wYGQOAc2ld5NjBhOuhG3GDcLnVgOnc5wVq2Xsmq8uIQ=
 github.com/tidwall/gjson v1.7.5 h1:zmAN/xmX7OtpAkv4Ovfso60r/BiCi5IErCDYGNJu+uc=
 github.com/tidwall/gjson v1.7.5/go.mod h1:5/xDoumyyDNerp2U36lyolv46b3uF/9Bu6OfyQ9GImk=
 github.com/tidwall/match v1.0.3 h1:FQUVvBImDutD8wJLN6c5eMzWtjgONK9MwIBCOrUJKeE=
