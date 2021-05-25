@@ -130,12 +130,12 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 						Name:      "test",
 						Namespace: "default",
 					},
-					Status: serverlessv1alpha1.WorkflowRuntimeStatus{
+					Status: &serverlessv1alpha1.WorkflowRuntimeStatus{
 						Instances: map[string]serverlessv1alpha1.Instance{
 							"littledrizzle": serverlessv1alpha1.Instance{
-								Status: serverlessv1alpha1.InstanceStatus{
-									HostIP: "littledrizzle",
-									PodIP:  "littledrizzle",
+								Status: &serverlessv1alpha1.InstanceStatus{
+									HostIP: k8sutils.NewStringPtr("littledrizzle"),
+									PodIP:  k8sutils.NewStringPtr("littledrizzle"),
 								},
 								ProcessRuntimes: map[string]serverlessv1alpha1.ProcessRuntime{
 									"test_mid": {Number: 1},

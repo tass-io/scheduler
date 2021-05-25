@@ -56,6 +56,12 @@ var WithInjectData = func(objects *[]runtime.Object) {
 
 }
 
+func NewStringPtr(val string) *string {
+	ptr := new(string)
+	*ptr = val
+	return ptr
+}
+
 func Prepare() {
 	if local := viper.GetBool(env.Local); local {
 		objects := []runtime.Object{}
@@ -86,8 +92,8 @@ func Prepare() {
 		if len(sli) < 3 {
 			panic(sli)
 		}
-		workflowName = strings.Join(sli[:2], "-")
-		selfName = strings.Join(sli[2:], "-")
+		workflowName = strings.Join(sli[:len(sli)-2], "-")
+		selfName = strings.Join(sli[len(sli)-2:], "-")
 
 		config, err := rest.InClusterConfig()
 		if err != nil {
@@ -312,7 +318,7 @@ func patchRuntime(workflowName string, pathBytes []byte) error {
 // Help Function for Sync patch
 func generatePatchWorkflowRuntime(runtimes serverlessv1alpha1.ProcessRuntimes) []byte {
 	pwfrt := serverlessv1alpha1.WorkflowRuntime{
-		Status: serverlessv1alpha1.WorkflowRuntimeStatus{
+		Status: &serverlessv1alpha1.WorkflowRuntimeStatus{
 			Instances: serverlessv1alpha1.Instances{
 				selfName: serverlessv1alpha1.Instance{
 					ProcessRuntimes: runtimes,
