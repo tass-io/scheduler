@@ -52,7 +52,7 @@ func TestScheduleHandler(t *testing.T) {
 				return []event.Source{"First"}
 			},
 			exceptResult: map[string]int{
-				"a": 2,
+				"a": 1,
 			},
 		},
 		{
@@ -175,6 +175,7 @@ func TestScheduleHandler(t *testing.T) {
 		if testcase.skipped {
 			continue
 		}
+		t.Log(testcase.caseName)
 		Convey(testcase.caseName, t, func() {
 			event.Orders = testcase.orders
 			fake := &FakeScheduler{stats: make(map[string]int)}

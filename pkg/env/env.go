@@ -17,6 +17,7 @@ const (
 	TassFileRoot            = "/tass/"
 	Mock                    = "Mock"
 	StaticMiddleware        = "StaticMiddleware"
+	QPSMiddleware           = "QPSMiddleware"
 	InstanceScorePolicy     = "InstanceScorePolicy"
 	CreatePolicy            = "CreatePolicy"
 )

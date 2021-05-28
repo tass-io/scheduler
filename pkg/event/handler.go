@@ -1,12 +1,17 @@
 package event
 
-import "sort"
+import (
+	"sort"
+)
 
 var (
 	// handlers will record all Handlers has registered
-	handlers    = make(map[Source]Handler)
+	handlers = make(map[Source]Handler)
 	// orderOrigin will record all Handlers in different level
 	orderOrigin = make(map[int][]Handler)
+	// deleted store the policy about Decide
+	// if a event has used, whether the board should delete it
+	deleted = make(map[Source]bool)
 )
 
 // Source show the ScheduleEvent's source, ScheduleHandler has a priority table to
@@ -20,7 +25,7 @@ type Handler interface {
 }
 
 // HandlerRegister point
-func Register(source Source, handler Handler, order int) {
+func Register(source Source, handler Handler, order int, delete bool) {
 	handlers[source] = handler
 	level, existed := orderOrigin[order]
 	if !existed {
@@ -28,6 +33,7 @@ func Register(source Source, handler Handler, order int) {
 	}
 	level = append(level, handler)
 	orderOrigin[order] = level
+	deleted[source] = delete
 }
 
 var Events = func() map[Source]Handler {
@@ -48,4 +54,8 @@ var Orders = func() []Source {
 		}
 	}
 	return handlers
+}
+
+func NeedDelete(source Source) bool {
+	return deleted[source]
 }

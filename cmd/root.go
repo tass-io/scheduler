@@ -10,9 +10,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
+	eventinitial "github.com/tass-io/scheduler/pkg/event/initial"
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
-	_ "github.com/tass-io/scheduler/pkg/middleware/lsds"
+	middlewareinitial "github.com/tass-io/scheduler/pkg/middleware/initial"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"github.com/tass-io/scheduler/pkg/workflow"
@@ -27,6 +28,9 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			k8sutils.Prepare()
 			workflow.ManagerInit()
+			eventinitial.Initial()
+			middlewareinitial.Initial()
+			workflow.GetManagerIns().Start()
 			r := gin.Default()
 			schttp.RegisterRoute(r)
 			server := &http.Server{
@@ -83,6 +87,8 @@ func basicFlagInit() {
 	viper.BindPFlag(env.Mock, rootCmd.Flags().Lookup(env.Mock))
 	rootCmd.Flags().BoolP(env.StaticMiddleware, "i", false, "whether to use StaticMiddleware")
 	viper.BindPFlag(env.StaticMiddleware, rootCmd.Flags().Lookup(env.StaticMiddleware))
+	rootCmd.Flags().BoolP(env.QPSMiddleware, "q", false, "whether to use QPSMiddleware")
+	viper.BindPFlag(env.QPSMiddleware, rootCmd.Flags().Lookup(env.QPSMiddleware))
 }
 
 func policyFlagInit() {

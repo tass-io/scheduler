@@ -1,6 +1,8 @@
 package lsds
 
 import (
+	"time"
+
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/event/schedule"
@@ -9,7 +11,6 @@ import (
 	runnerlsds "github.com/tass-io/scheduler/pkg/runner/lsds"
 	"github.com/tass-io/scheduler/pkg/span"
 	"go.uber.org/zap"
-	"time"
 )
 
 const (
@@ -22,6 +23,9 @@ var (
 
 func init() {
 	lsdsmiddle = newLSDSMiddleware()
+}
+
+func Register() {
 	middleware.Register(LSDSMiddlewareSource, lsdsmiddle, 2)
 }
 

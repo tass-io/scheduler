@@ -6,6 +6,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/schedule"
 	"github.com/tass-io/scheduler/pkg/tools/common"
+	"github.com/tass-io/scheduler/pkg/workflow"
 	"go.uber.org/zap"
 )
 
@@ -26,9 +27,9 @@ var (
 	sh *ScheduleHandler
 )
 
-func init() {
+func Initial() {
 	sh = newScheduleHandler()
-	event.Register(ScheduleSource, sh, 1)
+	workflow.GetManagerIns().RegisterEvent(ScheduleSource, sh, 1, true)
 }
 
 type ScheduleEvent struct {
@@ -47,25 +48,30 @@ func newNoneScheduleEvent(functionName string) *ScheduleEvent {
 	}
 }
 
-func (event *ScheduleEvent) Merge(target *ScheduleEvent) {
+func (event *ScheduleEvent) Merge(target *ScheduleEvent) bool {
+	used := false
 	switch event.Trend {
 	case Increase:
 		{
 			if event.Target < target.Target {
 				event.Target = target.Target
+				used = true
 			}
 		}
 	case Decrease:
 		{
 			if event.Target > target.Target {
 				event.Target = target.Target
+				used = true
 			}
 		}
 	case None:
 		{
 			_ = common.DeepCopy(event, target)
+			used = true
 		}
 	}
+	return used
 }
 
 // scoreBoard will store different Source suggestions for the function
@@ -84,16 +90,12 @@ func newScoreBoard(functionName string) scoreBoard {
 }
 
 // scoreBoard will see all event and make a decision
-func (board *scoreBoard) Decide(orders []event.Source) *ScheduleEvent {
+func (board *scoreBoard) Decide(functionName string, orders []event.Source) *ScheduleEvent {
 	board.lock.Lock()
 	defer board.lock.Unlock()
 	zap.S().Debugw("board before decide", "wishes", board.bestWishes)
-	origin := &ScheduleEvent{}
-	err := common.DeepCopy(origin, board.bestWishes)
-	if err != nil {
-		zap.S().Errorw("scoreboard decide deep copy error", "error", err)
-		return nil
-	}
+	origin := newNoneScheduleEvent(functionName)
+	usedList := []event.Source{}
 	zap.S().Debugw("board get orders", "orders", orders)
 	for _, order := range orders {
 		event, existed := board.scores[order]
@@ -101,8 +103,18 @@ func (board *scoreBoard) Decide(orders []event.Source) *ScheduleEvent {
 			continue
 		}
 		zap.S().Debugw("scoreboard handle source with event", "source", order, "event", event)
-		origin.Merge(&event)
+		if used := origin.Merge(&event); used {
+			zap.S().Debugw("scoreboard use event", "event", event, "result", origin)
+			usedList = append(usedList, event.Source)
+		}
 	}
+
+	for _, source := range usedList {
+		if event.NeedDelete(source) {
+			delete(board.scores, source)
+		}
+	}
+
 	*board.bestWishes = *origin
 	zap.S().Debugw("board after decide", "wishes", board.bestWishes)
 	return origin
@@ -157,6 +169,7 @@ func (sh *ScheduleHandler) Start() error {
 		for e := range sh.upstream {
 			zap.S().Debugw("schedule handler get event", "event", e)
 			board, existed := sh.scoreboard[e.FunctionName]
+			// channel serialized, do not worry
 			if !existed {
 				sh.lock.Lock()
 				sh.scoreboard[e.FunctionName] = newScoreBoard(e.FunctionName)
@@ -168,7 +181,7 @@ func (sh *ScheduleHandler) Start() error {
 			if sh.orders == nil {
 				sh.orders = event.Orders()
 			}
-			decision := board.Decide(sh.orders)
+			decision := board.Decide(e.FunctionName, sh.orders)
 			zap.S().Debugw("schedule handler get decision", "decision", decision)
 			schedule.GetScheduler().Refresh(decision.FunctionName, decision.Target)
 		}

@@ -4,7 +4,7 @@
 
 ## Event 简介
 
-首先 Event 必须实现 `event.Handler`，其中的 Start 函数将会在 Manager 完成初始化之后被调用，目前各个 event 的调用顺序并没有进行配置，完全随机。
+首先 Event 必须实现 `event.Handler`，其中的 Start 函数将会在 Manager 完成初始化之后被调用，目前 Event 的注册在 Middleware 注册之前，Event 可以控制注册顺序，只需要在 `initial.Initial` 中进行修改即可，与 Middleware 注册不同的是，Event 的注册多一个参数 `delete`，该参数主要用于 `Decide` 函数中，当一个 event 的意见被采纳之后，时候选择删除该 event ，例如对于冷启动的 event，属于一次性消费类型，可以删除，但是对于 qps 的事件，在其还没更新的时候，可以不进行删除，这个值的设定主要取决于该 event 是否是一个长期意见，需要持续考虑。
 
 Event 主要强调异步操作和随时产生，异步操作在于 event 最终的产生效力是异步的，随时产生是在于可以在整个程序的每一个地方都能进行 event 的添加。
 

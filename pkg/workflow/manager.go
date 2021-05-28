@@ -3,18 +3,16 @@ package workflow
 import (
 	"context"
 	"errors"
-	"github.com/spf13/viper"
-	"github.com/tass-io/scheduler/pkg/env"
+	"sync"
+
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/middleware"
-	"github.com/tass-io/scheduler/pkg/middleware/static"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
-	"sync"
 )
 
 // unlike lsds and other things, Manager should not lazy start
@@ -46,29 +44,28 @@ func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
 	return m.events[source]
 }
 
-func middlewareInject() {
-	if viper.GetBool(env.StaticMiddleware) {
-		static.Register()
-	}
+// help function for event upstream, most of times will use like `GetManagerIns().GetMiddlewareBySource(source)`
+func (m *Manager) GetMiddlewareBySource(source middleware.Source) middleware.Handler {
+	return m.middlewares[source]
 }
 
 // NewManager will use path to init workflow from file
 func NewManager() *Manager {
-	middlewareInject()
 	m := &Manager{
 		ctx:             context.Background(),
 		runner:          helper.GetMasterRunner(),
 		stopCh:          make(chan struct{}),
-		events:          event.Events(),
+		events:          nil,
 		middlewareOrder: nil,
-		middlewares:     middleware.Middlewares(),
+		middlewares:     nil,
 	}
-	m.start()
 	return m
 }
 
-// Start will watch Workflow related CRD
-func (m *Manager) start() {
+// Start will start events and
+func (m *Manager) Start() {
+	m.middlewares = middleware.Middlewares()
+	m.events = event.Events()
 	err := m.startEvents()
 	if err != nil {
 		panic(err)
@@ -123,4 +120,12 @@ func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string,
 		FunctionName: "",
 	}
 	return m.handleWorkflow(parameters, sp)
+}
+
+func (m *Manager) RegisterEvent(source event.Source, handler event.Handler, order int, delete bool) {
+	event.Register(source, handler, order, delete)
+}
+
+func (m *Manager) RegisterMiddleware(source middleware.Source, handler middleware.Handler, order int) {
+	middleware.Register(source, handler, order)
 }
