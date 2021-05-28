@@ -60,6 +60,7 @@ var WithInjectData = func(objects *[]runtime.Object) {
 
 }
 
+// NewStringPtr returns a string pointer for the given string
 func NewStringPtr(val string) *string {
 	ptr := new(string)
 	*ptr = val
@@ -85,6 +86,9 @@ func wrapObjects(objs []runtime.Object) []runtime.Object {
 	return result
 }
 
+// Prepare prepares environment of k8s client
+// If it's local, it thes local Workflow and Workflowruntime files and use a fake Client
+// If not local, use real k8s client.
 func Prepare() {
 	if local := viper.GetBool(env.Local); local {
 		objects := []runtime.Object{}
@@ -135,10 +139,16 @@ func Prepare() {
 	InitFunctionInformer()
 }
 
+// GetSelfName returns the suffix of the Pod
+// The Pod name exists in the hostname of the container
+// If the pod name is workflow-sample-76f8774575-rhqw4, the selfName is 76f8774575-rhqw4.
 var GetSelfName = func() string {
 	return selfName
 }
 
+// GetWorkflowName returns the workflow name
+// The name comes from the prefix of the Pod
+// If the pod name is workflow-sample-76f8774575-rhqw4, the workflowName is workflow-sample.
 var GetWorkflowName = func() string {
 	return workflowName
 }
@@ -147,11 +157,14 @@ var GetPatchClientIns = func() dynamic.Interface {
 	return dynamicClient
 }
 
-// todo get namespace from file
+// TODO: get namespace from file
+// GetSelfNamespace returns the namespace of the Pod
 var GetSelfNamespace = func() string {
 	return "default"
 }
 
+// generateWorkflowObjectsByFile generates a Workflow object by file
+// this method is used when using the local environment, a parser for local files are needed
 func generateWorkflowObjectsByFile(fileName string, objects *[]runtime.Object) error {
 	filebytes, err := ioutil.ReadFile(fileName)
 	if err != nil {
@@ -170,6 +183,7 @@ func generateWorkflowObjectsByFile(fileName string, objects *[]runtime.Object) e
 		}
 		ust := obj.(*unstructured.Unstructured)
 		workflow := new(serverlessv1alpha1.Workflow)
+		// transfer Unstructured to a typed object
 		err = runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), workflow)
 		if err != nil {
 			return err
@@ -181,6 +195,8 @@ func generateWorkflowObjectsByFile(fileName string, objects *[]runtime.Object) e
 	return err
 }
 
+// generateWorkflowRuntimeObjectsByFile generates a WorkflowRuntime object by file
+// this method is used when using the local environment, a parser for local files are needed
 func generateWorkflowRuntimeObjectsByFile(fileName string, objects *[]runtime.Object) error {
 	filebytes, err := ioutil.ReadFile(fileName)
 	if err != nil {
@@ -285,14 +301,14 @@ func GetWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) 
 		return nil, false, nil
 	}
 	var wf *serverlessv1alpha1.Workflow
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case *serverlessv1alpha1.Workflow:
 		{
-			wf = obj.(*serverlessv1alpha1.Workflow)
+			wf = obj
 		}
 	case *unstructured.Unstructured:
 		{
-			ust := obj.(*unstructured.Unstructured)
+			ust := obj
 			wf = &serverlessv1alpha1.Workflow{}
 			_ = runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wf)
 		}
@@ -311,14 +327,14 @@ func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime,
 		return nil, false, nil
 	}
 	var wfrt *serverlessv1alpha1.WorkflowRuntime
-	switch obj.(type) {
+	switch obj := obj.(type) {
 	case *serverlessv1alpha1.WorkflowRuntime:
 		{
-			wfrt = obj.(*serverlessv1alpha1.WorkflowRuntime)
+			wfrt = obj
 		}
 	case *unstructured.Unstructured:
 		{
-			ust := obj.(*unstructured.Unstructured)
+			ust := obj
 			wfrt = &serverlessv1alpha1.WorkflowRuntime{}
 			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
 		}
@@ -338,14 +354,14 @@ func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) 
 		return nil, false, nil
 	}
 	var function *serverlessv1alpha1.Function
-	switch obj.(type) {
-	case *serverlessv1alpha1.WorkflowRuntime:
+	switch obj := obj.(type) {
+	case *serverlessv1alpha1.Function:
 		{
-			function = obj.(*serverlessv1alpha1.Function)
+			function = obj
 		}
 	case *unstructured.Unstructured:
 		{
-			ust := obj.(*unstructured.Unstructured)
+			ust := obj
 			function = &serverlessv1alpha1.Function{}
 			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
 		}
@@ -353,6 +369,8 @@ func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) 
 
 	return function, true, nil
 }
+
+// patchRuntime sends the workflow patch payloads to ApiServer
 func patchRuntime(workflowName string, patchBytes []byte) error {
 	zap.S().Debugw("patch Runtime", "patch", patchBytes)
 	result, err := dynamicClient.Resource(WorkflowRuntimeResources).Namespace(GetSelfNamespace()).Patch(
@@ -368,7 +386,8 @@ func patchRuntime(workflowName string, patchBytes []byte) error {
 	return err
 }
 
-// Help Function for Sync patch
+// generatePatchWorkflowRuntime is a helper function for Sync patch
+// it generates a wfrt template bytes
 func generatePatchWorkflowRuntime(runtimes serverlessv1alpha1.ProcessRuntimes) []byte {
 	pwfrt := serverlessv1alpha1.WorkflowRuntime{
 		Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
@@ -385,7 +404,7 @@ func generatePatchWorkflowRuntime(runtimes serverlessv1alpha1.ProcessRuntimes) [
 	return result
 }
 
-// Patch the WorkflowRuntime to apiserver
+// Sync patch the WorkflowRuntime to apiserver
 func Sync(info map[string]int) {
 	processes := serverlessv1alpha1.ProcessRuntimes{}
 	for key, num := range info {
