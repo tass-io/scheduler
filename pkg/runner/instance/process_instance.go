@@ -80,8 +80,8 @@ func NewProcessInstance(functionName string) *processInstance {
 		uuid:            xid.New().String(),
 		lock:            &sync.Mutex{},
 		functionName:    functionName,
-		cpu:             function.Spec.Resource.Cpu,
-		memory:          function.Spec.Resource.Memory,
+		cpu:             function.Spec.Resource.ResourceCPU,
+		memory:          function.Spec.Resource.ResourceMemory,
 		environment:     string(function.Spec.Environment),
 		responseMapping: make(map[string]chan map[string]interface{}, 10),
 	}

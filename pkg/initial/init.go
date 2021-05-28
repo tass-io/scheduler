@@ -53,6 +53,8 @@ func codePrepareAndExec(code string, functionName string, environment string) {
 func codePrepare(code string) {
 	pid := os.Getpid()
 	directoryPath := fmt.Sprintf(env.TassFileRoot+"%d", pid)
+	// clean up first
+	os.RemoveAll(directoryPath)
 	codePath := directoryPath + "/code"
 	codeZipPath := codePath + "/code.zip"
 	err := os.MkdirAll(directoryPath, 0777)
@@ -202,14 +204,6 @@ func unzip(src string, dest string) ([]string, error) {
 
 func init() {
 	InitCmd.Flags().StringVarP(&funcName, "name", "n", "", "Name of the function")
-	InitCmd.Flags().StringP(env.RedisIp, "I", "10.0.0.96", "redis ip to init function")
-	viper.BindPFlag(env.RedisIp, InitCmd.Flags().Lookup(env.RedisIp))
-	InitCmd.Flags().StringP(env.RedisPort, "P", "30285", "redis port to init function")
-	viper.BindPFlag(env.RedisPort, InitCmd.Flags().Lookup(env.RedisPort))
-	InitCmd.Flags().StringP(env.RedisPassword, "S", "", "redis password to init function")
-	viper.BindPFlag(env.RedisPassword, InitCmd.Flags().Lookup(env.RedisPassword))
-	InitCmd.Flags().Int32P(env.DefaultDb, "D", 0, "redis default db to init function")
-	viper.BindPFlag(env.DefaultDb, InitCmd.Flags().Lookup(env.DefaultDb))
 	InitCmd.Flags().StringP(env.Environment, "E", "JavaScript", "function run environment/language required")
 	viper.BindPFlag(env.Environment, InitCmd.Flags().Lookup(env.Environment))
 }

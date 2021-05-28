@@ -5,6 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+	"sync"
+
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/pkg/env"
@@ -13,10 +18,6 @@ import (
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
-	"io/ioutil"
-	"net/http"
-	"strings"
-	"sync"
 )
 
 var InvalidTargetError error = errors.New("no valid target")
@@ -25,8 +26,8 @@ var InvalidTargetError error = errors.New("no valid target")
 type Policy func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string
 
 var (
-	lsds                     *LSDS
-	once                     = &sync.Once{}
+	lsds *LSDS
+	once = &sync.Once{}
 )
 
 func LDSinit() {
@@ -43,18 +44,18 @@ func GetLSDSIns() *LSDS {
 // and get other Local Scheduler info for remote request
 type LSDS struct {
 	runner.Runner
-	ctx             context.Context
-	stopCh          chan struct{}
-	lock            sync.Locker
-	workflowName    string
-	selfName        string
-	policies        map[string]Policy
+	ctx          context.Context
+	stopCh       chan struct{}
+	lock         sync.Locker
+	workflowName string
+	selfName     string
+	policies     map[string]Policy
 }
 
 var SimplePolicy Policy = func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string {
 	var target string
 	max := 0
-	for i, instance := range runtime.Status.Instances {
+	for i, instance := range runtime.Spec.Status.Instances {
 		if i == selfName {
 			continue
 		}
@@ -66,7 +67,7 @@ var SimplePolicy Policy = func(functionName string, selfName string, runtime *se
 		}
 	}
 	if target != "" {
-		return runtime.Status.Instances[target].Status.PodIP
+		return *runtime.Spec.Status.Instances[target].Status.PodIP
 	}
 	return ""
 }
@@ -80,8 +81,8 @@ func NewLSDS(ctx context.Context) *LSDS {
 		policies: map[string]Policy{
 			"simple": SimplePolicy,
 		},
-		workflowName:    k8sutils.GetWorkflowName(),
-		selfName:        k8sutils.GetSelfName(),
+		workflowName: k8sutils.GetWorkflowName(),
+		selfName:     k8sutils.GetSelfName(),
 	}
 	lsds.start()
 	return lsds
@@ -172,7 +173,8 @@ func (l *LSDS) Stats() runner.InstanceStatus {
 	if !existed {
 		return nil
 	}
-	selfStatus, existed := wfrt.Status.Instances[l.selfName]
+	zap.S().Debugw("get workflow runtime", "wfrt", wfrt, "selfName", l.selfName)
+	selfStatus, existed := wfrt.Spec.Status.Instances[l.selfName]
 	if !existed {
 		return nil
 	}
