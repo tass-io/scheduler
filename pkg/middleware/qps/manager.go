@@ -41,7 +41,7 @@ func GetQPSMiddleware() *QPSMiddleware {
 
 func (qps *QPSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
 	functionName := sp.FunctionName
-	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(2000))
+	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(1000))
 	mgr := mgrRaw.(*QPSManager)
 	mgr.Inc()
 	zap.S().Debugw("qps handler inc", "functionName", functionName)
@@ -59,5 +59,6 @@ func (qps *QPSMiddleware) GetStat() map[string]int64 {
 		stats[key.(string)] = mgr.Get()
 		return true
 	})
+	zap.S().Debugw("get stats at QPSMiddleware", "stats", stats)
 	return stats
 }

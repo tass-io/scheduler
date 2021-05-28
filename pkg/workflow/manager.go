@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/tass-io/scheduler/pkg/event"
+	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
@@ -30,7 +31,7 @@ type Manager struct {
 	ctx             context.Context
 	runner          runner.Runner
 	stopCh          chan struct{}
-	events          map[event.Source]event.Handler
+	events          map[source.Source]event.Handler
 	middlewareOrder []middleware.Source
 	middlewares     map[middleware.Source]middleware.Handler
 }
@@ -40,7 +41,7 @@ func GetManagerIns() *Manager {
 }
 
 // help function for event upstream, most of times will use like `GetManagerIns().GetEventHandlerBySource(source)`
-func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
+func (m *Manager) GetEventHandlerBySource(source source.Source) event.Handler {
 	return m.events[source]
 }
 
@@ -74,11 +75,12 @@ func (m *Manager) Start() {
 
 func (m *Manager) startEvents() error {
 	errstr := ""
-	for _, h := range m.events {
+	for src, h := range m.events {
 		err := h.Start()
 		if err != nil {
 			errstr += ";" + err.Error()
 		}
+		zap.S().Debugf("%s event starts with error %v\n", src, err)
 	}
 	if errstr != "" {
 		return errors.New(errstr)
@@ -120,12 +122,4 @@ func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string,
 		FunctionName: "",
 	}
 	return m.handleWorkflow(parameters, sp)
-}
-
-func (m *Manager) RegisterEvent(source event.Source, handler event.Handler, order int, delete bool) {
-	event.Register(source, handler, order, delete)
-}
-
-func (m *Manager) RegisterMiddleware(source middleware.Source, handler middleware.Handler, order int) {
-	middleware.Register(source, handler, order)
 }

@@ -212,3 +212,7 @@ func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[
 func (i *processInstance) getWaitNum() int {
 	return len(i.responseMapping)
 }
+
+func (i *processInstance) HasRequests() bool {
+	return len(i.responseMapping) > 0
+}

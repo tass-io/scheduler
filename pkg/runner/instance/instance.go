@@ -12,4 +12,5 @@ type Instance interface {
 	Release()
 	IsRunning() bool
 	Start() error
+	HasRequests() bool
 }

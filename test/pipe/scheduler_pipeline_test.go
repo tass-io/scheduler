@@ -36,6 +36,10 @@ func (p *PipeMockInstance) Start() error {
 	return nil
 }
 
+func (p *PipeMockInstance) HasRequests() bool {
+	return false
+}
+
 func TestSchedulerPipeline(t *testing.T) {
 	fnscheduler.NewInstance = func(functionName string) instance.Instance {
 		return &PipeMockInstance{}

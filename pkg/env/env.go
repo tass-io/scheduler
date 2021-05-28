@@ -20,4 +20,5 @@ const (
 	QPSMiddleware           = "QPSMiddleware"
 	InstanceScorePolicy     = "InstanceScorePolicy"
 	CreatePolicy            = "CreatePolicy"
+	TTL                     = "TTL"
 )

@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/event/schedule"
+	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	runnerlsds "github.com/tass-io/scheduler/pkg/runner/lsds"
@@ -44,11 +45,11 @@ func (lsds *LSDSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (
 	// todo use retry
 	if !existed || instanceNum == 0 {
 		// create event and wait a period of time
-		event := schedule.ScheduleEvent{
+		event := source.ScheduleEvent{
 			FunctionName: sp.FunctionName,
 			Target:       1,
-			Trend:        schedule.Increase,
-			Source:       schedule.ScheduleSource,
+			Trend:        source.Increase,
+			Source:       source.ScheduleSource,
 		}
 		zap.S().Infow("create event at lsds", "event", event)
 		schedule.GetScheduleHandlerIns().AddEvent(event)

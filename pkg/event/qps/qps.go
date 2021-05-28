@@ -4,20 +4,19 @@ import (
 	"time"
 
 	"github.com/tass-io/scheduler/pkg/event"
-	"github.com/tass-io/scheduler/pkg/event/schedule"
+	"github.com/tass-io/scheduler/pkg/event/source"
+	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/middleware/qps"
-	"github.com/tass-io/scheduler/pkg/workflow"
 	"go.uber.org/zap"
 )
 
 var (
 	qpsHandler *QPSHandler
-	QPSSource  event.Source = "QPS"
 )
 
 func Initial() {
 	qpsHandler = newQPSHandler()
-	workflow.GetManagerIns().RegisterEvent(QPSSource, qpsHandler, 2, false)
+	_ = qpsHandler.Start()
 }
 
 // QPSHandler
@@ -40,14 +39,15 @@ func (handler *QPSHandler) AddEvent(e interface{}) {
 	panic("do not use QPSHandler.AddEvent")
 }
 
-func (handler *QPSHandler) GetSource() event.Source {
-	return QPSSource
+func (handler *QPSHandler) GetSource() source.Source {
+	return source.QPSSource
 }
 
 func (handler *QPSHandler) Start() error {
 	go func() {
-		middlewareRaw := workflow.GetManagerIns().GetMiddlewareBySource(qps.QPSMiddlewareSource)
+		middlewareRaw := middleware.FindMiddlewareBySource(qps.QPSMiddlewareSource)
 		if middlewareRaw == nil {
+			zap.S().Errorw("middleware QPS not")
 			return
 		}
 		middleware := middlewareRaw.(*qps.QPSMiddleware)
@@ -68,24 +68,23 @@ func (handler *QPSHandler) Start() error {
 				if metrics == 0 {
 					target = 0
 				}
-				zap.S().Debugw("qps get before and target", "before", before, "target", target)
-				var trend schedule.Trend
+				var trend source.Trend
 				if target == before {
 					continue
 				} else if target > before {
-					trend = schedule.Increase
+					trend = source.Increase
 				} else if target < before {
-					trend = schedule.Decrease
+					trend = source.Decrease
 				}
 				handler.qpsMap[functionName] = target
-				event := schedule.ScheduleEvent{
+				e := source.ScheduleEvent{
 					FunctionName: functionName,
 					Target:       int(target),
 					Trend:        trend,
-					Source:       QPSSource,
+					Source:       source.QPSSource,
 				}
-				zap.S().Debugw("QPS add event", "event", event)
-				schedule.GetScheduleHandlerIns().AddEvent(event)
+				zap.S().Debugw("QPS add event", "event", e)
+				event.FindEventHandlerBySource(source.MetricsSource).AddEvent(e)
 			}
 		}
 	}()

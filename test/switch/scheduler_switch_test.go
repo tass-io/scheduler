@@ -39,6 +39,10 @@ func (s *switchMockInstance) Start() error {
 	return nil
 }
 
+func (s *switchMockInstance) HasRequests() bool {
+	return false
+}
+
 func TestSchedulerSwitch(t *testing.T) {
 	testcases := []struct {
 		skipped      bool

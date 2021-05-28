@@ -4,23 +4,10 @@ import (
 	"sync"
 
 	"github.com/tass-io/scheduler/pkg/event"
+	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/schedule"
-	"github.com/tass-io/scheduler/pkg/tools/common"
-	"github.com/tass-io/scheduler/pkg/workflow"
+	"github.com/tass-io/scheduler/pkg/tools/register"
 	"go.uber.org/zap"
-)
-
-// Trend is a type that claims what the operation expects to be done.
-// It's wrapped in a ScheduleEvent to show the meaning of this event.
-// For example, a ScheduleEvent that Trend is "Increase" and Target is 2
-// means that you wanna increase the function instance to 2
-type Trend string
-
-const (
-	None           Trend        = "None" // None for init
-	Increase       Trend        = "Increase"
-	Decrease       Trend        = "Decrease"
-	ScheduleSource event.Source = "source"
 )
 
 var (
@@ -29,73 +16,46 @@ var (
 
 func Initial() {
 	sh = newScheduleHandler()
-	workflow.GetManagerIns().RegisterEvent(ScheduleSource, sh, 1, true)
+	register.Register(func(fucntionName string, target int, trend, src string) {
+		event := source.ScheduleEvent{
+			FunctionName: fucntionName,
+			Target:       target,
+			Trend:        source.Trend(trend),
+			Source:       source.Source(src),
+		}
+		sh.AddEvent(event)
+	})
+	event.Register(source.ScheduleSource, sh, 1, true)
 }
 
-type ScheduleEvent struct {
-	FunctionName string
-	Target       int
-	Trend        Trend
-	Source       event.Source
-}
+// Source -> cold start 1
+// METRICS
 
-func newNoneScheduleEvent(functionName string) *ScheduleEvent {
-	return &ScheduleEvent{
-		FunctionName: functionName,
-		Target:       0,
-		Trend:        None,
-		Source:       ScheduleSource,
-	}
-}
-
-func (event *ScheduleEvent) Merge(target *ScheduleEvent) bool {
-	used := false
-	switch event.Trend {
-	case Increase:
-		{
-			if event.Target < target.Target {
-				event.Target = target.Target
-				used = true
-			}
-		}
-	case Decrease:
-		{
-			if event.Target > target.Target {
-				event.Target = target.Target
-				used = true
-			}
-		}
-	case None:
-		{
-			_ = common.DeepCopy(event, target)
-			used = true
-		}
-	}
-	return used
-}
+// TTL 2
+// QPS 3
 
 // scoreBoard will store different Source suggestions for the function
 type scoreBoard struct {
 	lock       sync.Locker
-	bestWishes *ScheduleEvent
-	scores     map[event.Source]ScheduleEvent
+	bestWishes *source.ScheduleEvent
+	scores     map[source.Source]source.ScheduleEvent
 }
 
 func newScoreBoard(functionName string) scoreBoard {
 	return scoreBoard{
 		lock:       &sync.Mutex{},
-		bestWishes: newNoneScheduleEvent(functionName),
-		scores:     make(map[event.Source]ScheduleEvent, 10),
+		bestWishes: source.NewNoneScheduleEvent(functionName),
+		scores:     make(map[source.Source]source.ScheduleEvent, 10),
 	}
 }
 
 // scoreBoard will see all event and make a decision
-func (board *scoreBoard) Decide(functionName string, orders []event.Source) *ScheduleEvent {
+func (board *scoreBoard) Decide(functionName string, orders []source.Source) *source.ScheduleEvent {
 	board.lock.Lock()
 	defer board.lock.Unlock()
 	zap.S().Debugw("board before decide", "wishes", board.bestWishes)
-	origin := newNoneScheduleEvent(functionName)
-	usedList := []event.Source{}
+	origin := source.NewNoneScheduleEvent(functionName)
+	usedList := []source.Source{}
 	zap.S().Debugw("board get orders", "orders", orders)
 	for _, order := range orders {
 		event, existed := board.scores[order]
@@ -114,13 +74,13 @@ func (board *scoreBoard) Decide(functionName string, orders []event.Source) *Sch
 			delete(board.scores, source)
 		}
 	}
-
-	*board.bestWishes = *origin
+	origin.Merge(board.bestWishes)
+	board.bestWishes = origin
 	zap.S().Debugw("board after decide", "wishes", board.bestWishes)
 	return origin
 }
 
-func (board *scoreBoard) Update(e ScheduleEvent) {
+func (board *scoreBoard) Update(e source.ScheduleEvent) {
 	board.lock.Lock()
 	board.scores[e.Source] = e
 	board.lock.Unlock() // no defer, performance not will for the hot code and just 3 line code
@@ -131,8 +91,8 @@ func (board *scoreBoard) Update(e ScheduleEvent) {
 type ScheduleHandler struct {
 	event.Handler
 	lock       sync.Locker
-	upstream   chan ScheduleEvent
-	orders     []event.Source
+	upstream   chan source.ScheduleEvent
+	orders     []source.Source
 	scoreboard map[string]scoreBoard
 }
 
@@ -140,7 +100,7 @@ func newScheduleHandler() *ScheduleHandler {
 	return &ScheduleHandler{
 		lock:       &sync.Mutex{},
 		orders:     nil,
-		upstream:   make(chan ScheduleEvent, 1000),
+		upstream:   make(chan source.ScheduleEvent, 1000),
 		scoreboard: make(map[string]scoreBoard, 10),
 	}
 }
@@ -150,15 +110,15 @@ var GetScheduleHandlerIns = func() event.Handler {
 }
 
 func (sh *ScheduleHandler) AddEvent(e interface{}) {
-	se, ok := e.(ScheduleEvent)
+	se, ok := e.(source.ScheduleEvent)
 	if !ok {
 		zap.S().Errorw("schedule handler add event convert error", "event", e)
 	}
 	sh.upstream <- se
 }
 
-func (sh *ScheduleHandler) GetSource() event.Source {
-	return ScheduleSource
+func (sh *ScheduleHandler) GetSource() source.Source {
+	return source.ScheduleSource
 }
 
 // Start will create go routine to handle upstream ScheduleEvent.

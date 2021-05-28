@@ -14,6 +14,7 @@ import (
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
 	middlewareinitial "github.com/tass-io/scheduler/pkg/middleware/initial"
+	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"github.com/tass-io/scheduler/pkg/workflow"
@@ -27,9 +28,10 @@ var (
 		Long:  "scheduler",
 		Run: func(cmd *cobra.Command, args []string) {
 			k8sutils.Prepare()
+			fnscheduler.FunctionSchedulerInit()
 			workflow.ManagerInit()
-			eventinitial.Initial()
 			middlewareinitial.Initial()
+			eventinitial.Initial()
 			workflow.GetManagerIns().Start()
 			r := gin.Default()
 			schttp.RegisterRoute(r)
@@ -89,6 +91,8 @@ func basicFlagInit() {
 	viper.BindPFlag(env.StaticMiddleware, rootCmd.Flags().Lookup(env.StaticMiddleware))
 	rootCmd.Flags().BoolP(env.QPSMiddleware, "q", false, "whether to use QPSMiddleware")
 	viper.BindPFlag(env.QPSMiddleware, rootCmd.Flags().Lookup(env.QPSMiddleware))
+	rootCmd.Flags().DurationP(env.TTL, "T", 20*time.Second, "set process default ttl")
+	viper.BindPFlag(env.TTL, rootCmd.Flags().Lookup(env.TTL))
 }
 
 func policyFlagInit() {

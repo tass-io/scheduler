@@ -60,7 +60,7 @@ func TestQPSScaleUpAndDown(t *testing.T) {
 			continue
 		}
 
-		Convey("use http request test scheduler", t, func(c C) {
+		Convey("use http request test scheduler with request", t, func(c C) {
 			go func() {
 				cmd.SetArgs(testcase.args)
 				err := cmd.Execute()
@@ -78,8 +78,14 @@ func TestQPSScaleUpAndDown(t *testing.T) {
 				So(fmt.Sprintf("%v", resp.Result), ShouldResemble, fmt.Sprintf("%v", expect))
 			}
 
-			time.Sleep(3 * time.Second) // the sleep time depends on qps refresh time
+			time.Sleep(4 * time.Second) // the sleep time depends on qps refresh time
 			stats := fnscheduler.GetFunctionScheduler().Stats()
+			for _, stat := range stats {
+				So(stat, ShouldNotEqual, 0)
+			}
+			time.Sleep(20 * time.Second)
+			stats = fnscheduler.GetFunctionScheduler().Stats()
+			t.Logf("stats after 20 seconds %v\n", stats)
 			for _, stat := range stats {
 				So(stat, ShouldEqual, 0)
 			}
