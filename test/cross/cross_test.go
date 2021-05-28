@@ -9,6 +9,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/pkg/dto"
+	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	"github.com/tass-io/scheduler/test"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,8 @@ const (
 )
 
 func GetSampleWorkflowRuntime() *serverlessv1alpha1.WorkflowRuntime {
+	replicas := new(int32)
+	*replicas = 2
 	return &serverlessv1alpha1.WorkflowRuntime{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       WorkflowRuntimeKind,
@@ -33,36 +36,36 @@ func GetSampleWorkflowRuntime() *serverlessv1alpha1.WorkflowRuntime {
 			Name:      "simple",
 			Namespace: "default",
 		},
-		Spec: serverlessv1alpha1.WorkflowRuntimeSpec{
-			Replicas: 2,
-		},
-		Status: serverlessv1alpha1.WorkflowRuntimeStatus{
-			Instances: serverlessv1alpha1.Instances{
-				"caller": {
-					Status: serverlessv1alpha1.InstanceStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.1:8080",
-					},
-					ProcessRuntimes: serverlessv1alpha1.ProcessRuntimes{
-						"simple_start": {
-							Number: 1,
+		Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
+			Replicas: replicas,
+			Status: serverlessv1alpha1.WfrtStatus{
+				Instances: serverlessv1alpha1.Instances{
+					"caller": {
+						Status: &serverlessv1alpha1.InstanceStatus{
+							HostIP: k8sutils.NewStringPtr("127.0.0.1"),
+							PodIP:  k8sutils.NewStringPtr("127.0.0.1:8080"),
 						},
-						"simple_mid": {
-							Number: 1,
+						ProcessRuntimes: serverlessv1alpha1.ProcessRuntimes{
+							"simple_start": {
+								Number: 1,
+							},
+							"simple_mid": {
+								Number: 1,
+							},
 						},
 					},
-				},
-				"callee": {
-					Status: serverlessv1alpha1.InstanceStatus{
-						HostIP: "127.0.0.1",
-						PodIP:  "127.0.0.1:9090",
-					},
-					ProcessRuntimes: serverlessv1alpha1.ProcessRuntimes{
-						"simple_branch_1": {
-							Number: 1,
+					"callee": {
+						Status: &serverlessv1alpha1.InstanceStatus{
+							HostIP: k8sutils.NewStringPtr("127.0.0.1"),
+							PodIP:  k8sutils.NewStringPtr("127.0.0.1:9090"),
 						},
-						"simple_branch_2": {
-							Number: 1,
+						ProcessRuntimes: serverlessv1alpha1.ProcessRuntimes{
+							"simple_branch_1": {
+								Number: 1,
+							},
+							"simple_branch_2": {
+								Number: 1,
+							},
 						},
 					},
 				},
@@ -188,7 +191,7 @@ func TestCross(t *testing.T) {
 		callee := exec.Command("./main", strings.Split(calleeParam, " ")...)
 		stdOutDump(callee, "./callee.log")
 		defer callee.Process.Kill()
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		// request the first one
 		request := dto.InvokeRequest{
 			WorkflowName: "simple",
