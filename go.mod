@@ -14,6 +14,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc
 	github.com/pelletier/go-toml v1.9.0 // indirect
+	github.com/prometheus/client_golang v1.10.0 // indirect
 	github.com/rs/xid v1.3.0
 	github.com/smartystreets/goconvey v1.6.4
 	github.com/spf13/afero v1.6.0 // indirect

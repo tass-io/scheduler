@@ -14,6 +14,7 @@ import (
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
 	middlewareinitial "github.com/tass-io/scheduler/pkg/middleware/initial"
+	_ "github.com/tass-io/scheduler/pkg/prom"
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
