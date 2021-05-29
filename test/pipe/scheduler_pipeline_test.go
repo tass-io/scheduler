@@ -146,7 +146,7 @@ func TestSchedulerPipeline(t *testing.T) {
 				err := cmd.Execute()
 				c.So(err, ShouldBeNil)
 			}()
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(1000 * time.Millisecond)
 			resp := &dto.InvokeResponse{}
 			status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.request, resp)
 			So(err, ShouldBeNil)

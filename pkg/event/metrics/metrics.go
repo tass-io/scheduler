@@ -98,7 +98,7 @@ func (handler *MetricsHandler) decide(functionName string) {
 			target = qps.Target
 		}
 		trend = source.Increase
-	} else {
+	} else if qps.Trend == source.Decrease {
 		// qps:Decrease, always take ttl?
 		trend = source.Decrease
 		target = ttl.Target

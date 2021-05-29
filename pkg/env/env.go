@@ -2,7 +2,7 @@ package env
 
 const (
 	LSDSWait                = "LSDSWait"
-	Policy                  = "policy"
+	RemoteCallPolicy        = "remoteCallpolicy"
 	Local                   = "local"
 	Port                    = "port"
 	WorkflowRuntimeFilePath = "workflowRuntimeFilePath"

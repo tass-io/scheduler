@@ -133,7 +133,7 @@ func TestLSDS_Policy(t *testing.T) {
 		Convey(testcase.caseName, t, func() {
 			viper.Set(env.WorkflowName, testcase.workflowName)
 			viper.Set(env.SelfName, testcase.selfName)
-			viper.Set(env.Policy, testcase.policyName)
+			viper.Set(env.RemoteCallPolicy, testcase.policyName)
 			// mock data
 			k8sutils.WithInjectData = testcase.withInjectData
 			k8sutils.Prepare()
@@ -271,7 +271,7 @@ func TestLSDS_Sync(t *testing.T) {
 		Convey(testcase.caseName, t, func() {
 			viper.Set(env.WorkflowName, testcase.workflowName)
 			viper.Set(env.SelfName, testcase.selfName)
-			viper.Set(env.Policy, testcase.policyName)
+			viper.Set(env.RemoteCallPolicy, testcase.policyName)
 			// mock data
 			k8sutils.WithInjectData = testcase.withInjectData
 			k8sutils.Prepare()
