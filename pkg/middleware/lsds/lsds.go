@@ -45,6 +45,8 @@ func (lsds *LSDSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (
 	// todo use retry
 	if !existed || instanceNum == 0 {
 		// create event and wait a period of time
+		// the scheduler tries to create an instance locally,
+		// if still fails, it then goes to LSDS
 		event := source.ScheduleEvent{
 			FunctionName: sp.FunctionName,
 			Target:       1,

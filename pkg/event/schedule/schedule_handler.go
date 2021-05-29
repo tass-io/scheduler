@@ -16,6 +16,9 @@ var (
 
 func Initial() {
 	sh = newScheduleHandler()
+	// NOTE: this is a helper register function,
+	// in order to avoid future modules causing "import cycles not allowed" error,
+	// they can still call this function.
 	register.Register(func(fucntionName string, target int, trend, src string) {
 		event := source.ScheduleEvent{
 			FunctionName: fucntionName,
@@ -25,6 +28,7 @@ func Initial() {
 		}
 		sh.AddEvent(event)
 	})
+
 	event.Register(source.ScheduleSource, sh, 1, true)
 }
 
@@ -49,7 +53,10 @@ func newScoreBoard(functionName string) scoreBoard {
 	}
 }
 
-// scoreBoard will see all event and make a decision
+// scoreBoard will see all event and make a decision.
+// It iterates over the input oders which have been sorted,
+// in each order, it takes a related item and do the merge action.
+// Finally, it decides the final "bestWish".
 func (board *scoreBoard) Decide(functionName string, orders []source.Source) *source.ScheduleEvent {
 	board.lock.Lock()
 	defer board.lock.Unlock()
@@ -80,6 +87,7 @@ func (board *scoreBoard) Decide(functionName string, orders []source.Source) *so
 	return origin
 }
 
+// Update updates a new schedule event in a scoreboard
 func (board *scoreBoard) Update(e source.ScheduleEvent) {
 	board.lock.Lock()
 	board.scores[e.Source] = e
