@@ -7,7 +7,10 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
+	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
+	"github.com/tass-io/scheduler/pkg/runner/ttl"
+	"github.com/tass-io/scheduler/pkg/schedule"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/errorutils"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
@@ -15,7 +18,6 @@ import (
 )
 
 var (
-	once              = &sync.Once{}
 	fs                *FunctionScheduler
 	canCreatePolicies = map[string]func() bool{
 		"default": DefaultCanCreatePolicy,
@@ -28,7 +30,6 @@ func DefaultCanCreatePolicy() bool {
 
 // For global get FunctionScheduler
 func GetFunctionScheduler() *FunctionScheduler {
-	once.Do(FunctionSchedulerInit)
 	return fs
 }
 
@@ -39,6 +40,12 @@ func FunctionSchedulerInit() {
 		}
 	}
 	fs = NewFunctionScheduler()
+	schedule.Register(func() schedule.Scheduler {
+		return fs
+	})
+	helper.Register(func() runner.Runner {
+		return fs
+	})
 	go fs.sync()
 }
 
@@ -55,6 +62,7 @@ type set struct {
 	sync.Locker
 	functionName string
 	instances    []instance.Instance
+	ttl          *ttl.TTLManager
 }
 
 func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
@@ -141,6 +149,7 @@ func (s *set) Scale(target int, functionName string) {
 		for _, targetIndex := range targetIndexes {
 			ins := s.instances[targetIndex]
 			ins.Release()
+			s.ttl.Release(ins)
 		}
 	} else if l < target {
 		// scale up
@@ -155,6 +164,7 @@ func (s *set) Scale(target int, functionName string) {
 					continue
 				}
 				s.instances = append(s.instances, newIns)
+				s.ttl.Append(newIns)
 			}
 		}
 	}
@@ -165,6 +175,7 @@ func newSet(functionName string) *set {
 		Locker:       &sync.Mutex{},
 		functionName: functionName,
 		instances:    []instance.Instance{},
+		ttl:          ttl.NewTTLManager(functionName),
 	}
 }
 
@@ -179,23 +190,22 @@ func NewFunctionScheduler() *FunctionScheduler {
 
 func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 	zap.S().Debugw("refresh")
+	fs.Lock()
 	ins, existed := fs.instances[functionName]
 	if !existed {
-		fs.Lock()
 		fs.instances[functionName] = newSet(functionName)
 		ins = fs.instances[functionName]
-		fs.Unlock()
 	}
+	fs.Unlock()
 	ins.Scale(target, functionName)
-	fs.instances[functionName] = ins
 	fs.trigger <- struct{}{}
 }
 
 // Sync Function Scheduler info to api server via k8sutils
 func (fs *FunctionScheduler) sync() {
 	for _ = range fs.trigger {
-		syncMap := make(map[string]int, len(fs.instances))
 		fs.Lock()
+		syncMap := make(map[string]int, len(fs.instances))
 		for functionName, ins := range fs.instances {
 			syncMap[functionName] = len(ins.instances)
 		}
@@ -248,8 +258,10 @@ var NewInstance = func(functionName string) instance.Instance {
 
 func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	stats := runner.InstanceStatus{}
+	fs.Lock()
 	for functionName, s := range fs.instances {
 		stats[functionName] = s.Stats()
 	}
+	fs.Unlock()
 	return stats
 }

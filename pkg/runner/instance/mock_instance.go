@@ -3,13 +3,15 @@ package instance
 import "github.com/tass-io/scheduler/pkg/tools/common"
 
 type mockInstance struct {
-	functionName string
-	released     bool
+	functionName  string
+	released      bool
+	handleRequest bool
 }
 
 func (m *mockInstance) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
 	output, err := common.CopyMap(parameters)
 	output[m.functionName] = m.functionName
+	m.handleRequest = true
 	return output, err
 }
 
@@ -29,9 +31,14 @@ func (m *mockInstance) Start() error {
 	return nil
 }
 
+func (m *mockInstance) HasRequests() bool {
+	return !m.handleRequest
+}
+
 func NewMockInstance(functionName string) *mockInstance {
 	return &mockInstance{
-		functionName: functionName,
-		released:     false,
+		functionName:  functionName,
+		released:      false,
+		handleRequest: false,
 	}
 }

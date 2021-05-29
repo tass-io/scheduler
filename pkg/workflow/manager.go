@@ -3,18 +3,17 @@ package workflow
 import (
 	"context"
 	"errors"
-	"github.com/spf13/viper"
-	"github.com/tass-io/scheduler/pkg/env"
+	"sync"
+
 	"github.com/tass-io/scheduler/pkg/event"
+	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/middleware"
-	"github.com/tass-io/scheduler/pkg/middleware/static"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
-	"sync"
 )
 
 // unlike lsds and other things, Manager should not lazy start
@@ -32,7 +31,7 @@ type Manager struct {
 	ctx             context.Context
 	runner          runner.Runner
 	stopCh          chan struct{}
-	events          map[event.Source]event.Handler
+	events          map[source.Source]event.Handler
 	middlewareOrder []middleware.Source
 	middlewares     map[middleware.Source]middleware.Handler
 }
@@ -42,33 +41,32 @@ func GetManagerIns() *Manager {
 }
 
 // help function for event upstream, most of times will use like `GetManagerIns().GetEventHandlerBySource(source)`
-func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
+func (m *Manager) GetEventHandlerBySource(source source.Source) event.Handler {
 	return m.events[source]
 }
 
-func middlewareInject() {
-	if viper.GetBool(env.StaticMiddleware) {
-		static.Register()
-	}
+// help function for event upstream, most of times will use like `GetManagerIns().GetMiddlewareBySource(source)`
+func (m *Manager) GetMiddlewareBySource(source middleware.Source) middleware.Handler {
+	return m.middlewares[source]
 }
 
 // NewManager will use path to init workflow from file
 func NewManager() *Manager {
-	middlewareInject()
 	m := &Manager{
 		ctx:             context.Background(),
 		runner:          helper.GetMasterRunner(),
 		stopCh:          make(chan struct{}),
-		events:          event.Events(),
+		events:          nil,
 		middlewareOrder: nil,
-		middlewares:     middleware.Middlewares(),
+		middlewares:     nil,
 	}
-	m.start()
 	return m
 }
 
-// Start will watch Workflow related CRD
-func (m *Manager) start() {
+// Start will start events and
+func (m *Manager) Start() {
+	m.middlewares = middleware.Middlewares()
+	m.events = event.Events()
 	err := m.startEvents()
 	if err != nil {
 		panic(err)
@@ -77,11 +75,12 @@ func (m *Manager) start() {
 
 func (m *Manager) startEvents() error {
 	errstr := ""
-	for _, h := range m.events {
+	for src, h := range m.events {
 		err := h.Start()
 		if err != nil {
 			errstr += ";" + err.Error()
 		}
+		zap.S().Debugf("%s event starts with error %v\n", src, err)
 	}
 	if errstr != "" {
 		return errors.New(errstr)

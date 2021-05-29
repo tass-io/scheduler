@@ -7,6 +7,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/pkg/event"
+	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/schedule"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"go.uber.org/zap"
@@ -26,54 +27,54 @@ func TestScheduleHandler(t *testing.T) {
 	testcases := []struct {
 		caseName      string
 		skipped       bool
-		upstreams     []ScheduleEvent
-		orders        func() []event.Source
+		upstreams     []source.ScheduleEvent
+		orders        func() []source.Source
 		mockScheduler func() schedule.Scheduler
 		exceptResult  map[string]int
 	}{
 		{
 			caseName: "test single function with single-source event",
 			skipped:  false,
-			upstreams: []ScheduleEvent{
+			upstreams: []source.ScheduleEvent{
 				{
 					FunctionName: "a",
 					Target:       2,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "First",
 				},
 				{
 					FunctionName: "a",
 					Target:       1,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "First",
 				},
 			},
-			orders: func() []event.Source {
-				return []event.Source{"First"}
+			orders: func() []source.Source {
+				return []source.Source{"First"}
 			},
 			exceptResult: map[string]int{
-				"a": 2,
+				"a": 1,
 			},
 		},
 		{
 			caseName: "test single function with different-order event",
 			skipped:  false,
-			upstreams: []ScheduleEvent{
+			upstreams: []source.ScheduleEvent{
 				{
 					FunctionName: "a",
 					Target:       2,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "First",
 				},
 				{
 					FunctionName: "a",
 					Target:       1,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "Second",
 				},
 			},
-			orders: func() []event.Source {
-				return []event.Source{"First", "Second"}
+			orders: func() []source.Source {
+				return []source.Source{"First", "Second"}
 			},
 			exceptResult: map[string]int{
 				"a": 2,
@@ -82,22 +83,22 @@ func TestScheduleHandler(t *testing.T) {
 		{
 			caseName: "test single function with different-order-different-trend event",
 			skipped:  false,
-			upstreams: []ScheduleEvent{
+			upstreams: []source.ScheduleEvent{
 				{
 					FunctionName: "a",
 					Target:       1,
-					Trend:        Decrease,
+					Trend:        source.Decrease,
 					Source:       "First",
 				},
 				{
 					FunctionName: "a",
 					Target:       2,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "Second",
 				},
 			},
-			orders: func() []event.Source {
-				return []event.Source{"First", "Second"}
+			orders: func() []source.Source {
+				return []source.Source{"First", "Second"}
 			},
 			exceptResult: map[string]int{
 				"a": 1,
@@ -106,28 +107,28 @@ func TestScheduleHandler(t *testing.T) {
 		{
 			caseName: "test single function with same-source different-order-different-trend event",
 			skipped:  false,
-			upstreams: []ScheduleEvent{
+			upstreams: []source.ScheduleEvent{
 				{
 					FunctionName: "a",
 					Target:       1,
-					Trend:        Decrease,
+					Trend:        source.Decrease,
 					Source:       "First",
 				},
 				{
 					FunctionName: "a",
 					Target:       3,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "Second",
 				},
 				{
 					FunctionName: "a",
 					Target:       2,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "Second",
 				},
 			},
-			orders: func() []event.Source {
-				return []event.Source{"First", "Second"}
+			orders: func() []source.Source {
+				return []source.Source{"First", "Second"}
 			},
 			exceptResult: map[string]int{
 				"a": 1,
@@ -136,34 +137,34 @@ func TestScheduleHandler(t *testing.T) {
 		{
 			caseName: "test single function with same-source mercy",
 			skipped:  false,
-			upstreams: []ScheduleEvent{
+			upstreams: []source.ScheduleEvent{
 				{
 					FunctionName: "a",
 					Target:       1,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "First",
 				},
 				{
 					FunctionName: "a",
 					Target:       3,
-					Trend:        Increase,
+					Trend:        source.Increase,
 					Source:       "Second",
 				},
 				{
 					FunctionName: "b",
 					Target:       3,
-					Trend:        Decrease,
+					Trend:        source.Decrease,
 					Source:       "First",
 				},
 				{
 					FunctionName: "b",
 					Target:       1,
-					Trend:        Decrease,
+					Trend:        source.Decrease,
 					Source:       "Second",
 				},
 			},
-			orders: func() []event.Source {
-				return []event.Source{"First", "Second"}
+			orders: func() []source.Source {
+				return []source.Source{"First", "Second"}
 			},
 			exceptResult: map[string]int{
 				"a": 3,
@@ -175,6 +176,7 @@ func TestScheduleHandler(t *testing.T) {
 		if testcase.skipped {
 			continue
 		}
+		t.Log(testcase.caseName)
 		Convey(testcase.caseName, t, func() {
 			event.Orders = testcase.orders
 			fake := &FakeScheduler{stats: make(map[string]int)}

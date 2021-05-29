@@ -1,26 +1,30 @@
 package event
 
-import "sort"
+import (
+	"sort"
+
+	"github.com/tass-io/scheduler/pkg/event/source"
+)
 
 var (
 	// handlers will record all Handlers has registered
-	handlers    = make(map[Source]Handler)
+	handlers = make(map[source.Source]Handler)
 	// orderOrigin will record all Handlers in different level
 	orderOrigin = make(map[int][]Handler)
+	// deleted store the policy about Decide
+	// if a event has used, whether the board should delete it
+	deleted = make(map[source.Source]bool)
 )
-
-// Source show the ScheduleEvent's source, ScheduleHandler has a priority table to
-type Source string
 
 // event Handler for async handle like cold start
 type Handler interface {
 	AddEvent(interface{})
-	GetSource() Source
+	GetSource() source.Source
 	Start() error
 }
 
 // HandlerRegister point
-func Register(source Source, handler Handler, order int) {
+func Register(source source.Source, handler Handler, order int, delete bool) {
 	handlers[source] = handler
 	level, existed := orderOrigin[order]
 	if !existed {
@@ -28,15 +32,16 @@ func Register(source Source, handler Handler, order int) {
 	}
 	level = append(level, handler)
 	orderOrigin[order] = level
+	deleted[source] = delete
 }
 
-var Events = func() map[Source]Handler {
+var Events = func() map[source.Source]Handler {
 	return handlers
 }
 
-var Orders = func() []Source {
+var Orders = func() []source.Source {
 	keys := make([]int, 0, len(orderOrigin))
-	handlers := make([]Source, 0, len(orderOrigin))
+	handlers := make([]source.Source, 0, len(orderOrigin))
 	for key := range orderOrigin {
 		keys = append(keys, key)
 	}
@@ -48,4 +53,12 @@ var Orders = func() []Source {
 		}
 	}
 	return handlers
+}
+
+func NeedDelete(source source.Source) bool {
+	return deleted[source]
+}
+
+func FindEventHandlerBySource(src source.Source) Handler {
+	return handlers[src]
 }

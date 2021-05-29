@@ -10,9 +10,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
+	eventinitial "github.com/tass-io/scheduler/pkg/event/initial"
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
-	_ "github.com/tass-io/scheduler/pkg/middleware/lsds"
+	middlewareinitial "github.com/tass-io/scheduler/pkg/middleware/initial"
+	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"github.com/tass-io/scheduler/pkg/workflow"
@@ -26,7 +28,11 @@ var (
 		Long:  "scheduler",
 		Run: func(cmd *cobra.Command, args []string) {
 			k8sutils.Prepare()
+			fnscheduler.FunctionSchedulerInit()
 			workflow.ManagerInit()
+			middlewareinitial.Initial()
+			eventinitial.Initial()
+			workflow.GetManagerIns().Start()
 			r := gin.Default()
 			schttp.RegisterRoute(r)
 			server := &http.Server{
@@ -69,8 +75,8 @@ func basicFlagInit() {
 	viper.BindPFlag(env.Local, rootCmd.Flags().Lookup(env.Local))
 	rootCmd.Flags().StringP(env.Port, "a", "8080", "the http port local scheduler exposed")
 	viper.BindPFlag(env.Port, rootCmd.Flags().Lookup(env.Port))
-	rootCmd.Flags().StringP(env.Policy, "p", "simple", "policy name to use")
-	viper.BindPFlag(env.Policy, rootCmd.Flags().Lookup(env.Policy))
+	rootCmd.Flags().String(env.RemoteCallPolicy, "simple", "policy name to use")
+	viper.BindPFlag(env.RemoteCallPolicy, rootCmd.Flags().Lookup(env.RemoteCallPolicy))
 	rootCmd.Flags().StringP(env.SelfName, "s", "ubuntu", "if local is true, it is used to set selfName")
 	viper.BindPFlag(env.SelfName, rootCmd.Flags().Lookup(env.SelfName))
 	rootCmd.Flags().StringP(env.WorkflowPath, "w", "./workflow.yaml", "if local is true, it is used to init workflow by file")
@@ -83,6 +89,10 @@ func basicFlagInit() {
 	viper.BindPFlag(env.Mock, rootCmd.Flags().Lookup(env.Mock))
 	rootCmd.Flags().BoolP(env.StaticMiddleware, "i", false, "whether to use StaticMiddleware")
 	viper.BindPFlag(env.StaticMiddleware, rootCmd.Flags().Lookup(env.StaticMiddleware))
+	rootCmd.Flags().BoolP(env.QPSMiddleware, "q", false, "whether to use QPSMiddleware")
+	viper.BindPFlag(env.QPSMiddleware, rootCmd.Flags().Lookup(env.QPSMiddleware))
+	rootCmd.Flags().DurationP(env.TTL, "T", 20*time.Second, "set process default ttl")
+	viper.BindPFlag(env.TTL, rootCmd.Flags().Lookup(env.TTL))
 }
 
 func policyFlagInit() {

@@ -59,6 +59,7 @@ var SimplePolicy Policy = func(functionName string, selfName string, runtime *se
 		if i == selfName {
 			continue
 		}
+		zap.S().Debugw("get instance", "selfName", selfName, "instance", instance.ProcessRuntimes)
 		if t, existed := instance.ProcessRuntimes[functionName]; existed {
 			if max < t.Number {
 				max = t.Number
@@ -104,8 +105,9 @@ func (l *LSDS) chooseTarget(functionName string) (ip string) {
 		zap.S().Warnw("workflowruntime not found", "functionName", functionName, "workflowName", l.workflowName)
 		return ""
 	}
-	TargetPolicy := viper.GetString(env.Policy)
+	TargetPolicy := viper.GetString(env.RemoteCallPolicy)
 	ip = l.policies[TargetPolicy](functionName, l.selfName, wfrt)
+	zap.S().Debugw("choose target get wfrt", "wfrt", wfrt, "function", functionName, "ip", ip)
 	return
 }
 
