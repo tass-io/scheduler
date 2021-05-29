@@ -55,9 +55,8 @@ func (event *ScheduleEvent) Merge(target *ScheduleEvent) bool {
 		}
 	case Decrease:
 		{
-			// 2 > 0
 			if event.Target > target.Target {
-				event.Target = target.Target // QPS 0
+				event.Target = target.Target
 				used = true
 			}
 		}

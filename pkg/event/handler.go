@@ -39,6 +39,7 @@ var Events = func() map[source.Source]Handler {
 	return handlers
 }
 
+// Orders returns a slice of Source in increasing order
 var Orders = func() []source.Source {
 	keys := make([]int, 0, len(orderOrigin))
 	handlers := make([]source.Source, 0, len(orderOrigin))
