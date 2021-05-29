@@ -2,20 +2,21 @@ package middleware
 
 import (
 	"fmt"
-	"github.com/tass-io/scheduler/pkg/span"
 	"sort"
+
+	"github.com/tass-io/scheduler/pkg/span"
 )
 
 type Source string
 
 type Decision string
+
 var (
 	// handlers will record all Handlers has registered
-	handlers    = make(map[Source]Handler)
+	handlers = make(map[Source]Handler)
 	// orderOrigin will record all Handlers in different level
 	orderOrigin = make(map[int][]Handler)
 )
-
 
 const (
 	Abort Decision = "Abort"
@@ -59,4 +60,8 @@ var Orders = func() []Source {
 		}
 	}
 	return handlers
+}
+
+func FindMiddlewareBySource(src Source) Handler {
+	return handlers[src]
 }
