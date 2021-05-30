@@ -120,8 +120,8 @@ func (l *LSDS) start() {
 func WorkflowRequest(parameters map[string]interface{}, target string, sp span.Span) (dto.InvokeResponse, error) {
 	client := &http.Client{}
 	invokeRequest := dto.InvokeRequest{
-		WorkflowName: sp.WorkflowName,
-		FlowName:     sp.FlowName,
+		WorkflowName: sp.GetWorkflowName(),
+		FlowName:     sp.GetFlowName(),
 		Parameters:   parameters,
 	}
 	reqByte, err := json.Marshal(invokeRequest)
@@ -153,7 +153,7 @@ func WorkflowRequest(parameters map[string]interface{}, target string, sp span.S
 
 // find a suitable pod to send http request with
 func (l *LSDS) Run(parameters map[string]interface{}, span span.Span) (result map[string]interface{}, err error) {
-	target := l.chooseTarget(span.FunctionName)
+	target := l.chooseTarget(span.GetFunctionName())
 	if target == "" {
 		return nil, InvalidTargetError
 	}

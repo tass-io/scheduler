@@ -40,7 +40,7 @@ func GetQPSMiddleware() *QPSMiddleware {
 }
 
 func (qps *QPSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
-	functionName := sp.FunctionName
+	functionName := sp.GetFunctionName()
 	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(1000))
 	mgr := mgrRaw.(*QPSManager)
 	mgr.Inc()

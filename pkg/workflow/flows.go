@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"errors"
+
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/common"
@@ -28,13 +29,10 @@ func (m *Manager) parallelConditions(para map[string]interface{}, wf *serverless
 	flow := wf.Spec.Spec[target]
 	for _, next := range nexts {
 		// think about all next is like a new workflow
-		newSp := span.Span{
-			WorkflowName: wf.Name,
-			FlowName:     flow.Name,
-		}
+		newSp := span.NewSpan(wf.Name, flow.Name, "")
 		cond := findConditionByName(next, &flow)
 		p := NewCondPromise(m.executeCondition, next)
-		zap.S().Debugw("call condition with parameter", "flow", newSp.FlowName, "parameters", para, "target", target)
+		zap.S().Debugw("call condition with parameter", "flow", newSp.GetFlowName(), "parameters", para, "target", target)
 		p.Run(cond, wf, target, para)
 		promises = append(promises, p)
 	}
@@ -56,19 +54,16 @@ func (m *Manager) parallelConditions(para map[string]interface{}, wf *serverless
 }
 
 // parallelFlowsWithSpan just handle Flow.Outputs and Condition.Flows, they are the same logic
-func (m *Manager) parallelFlowsWithSpan(para map[string]interface{}, wf *serverlessv1alpha1.Workflow, nexts []int, sp span.Span) (map[string]interface{}, error) {
+func (m *Manager) parallelFlowsWithSpan(para map[string]interface{}, wf *serverlessv1alpha1.Workflow, nexts []int, sp *span.Span) (map[string]interface{}, error) {
 	if len(nexts) == 0 {
 		return nil, nil
 	}
 	promises := []*FlowPromise{}
 	for _, next := range nexts {
 		// think about all next is like a new workflow
-		newSp := span.Span{
-			WorkflowName: sp.WorkflowName,
-			FlowName:     wf.Spec.Spec[next].Name,
-		}
-		p := NewFlowPromise(m.executeSpec, newSp.FlowName)
-		zap.S().Debugw("call function with parameter", "flow", newSp.FlowName, "parameters", para)
+		newSp := span.NewSpan(sp.GetWorkflowName(), wf.Spec.Spec[next].Name, "")
+		p := NewFlowPromise(m.executeSpec, newSp.GetFlowName())
+		zap.S().Debugw("call function with parameter", "flow", newSp.GetFlowName(), "parameters", para)
 		p.Run(para, wf, newSp)
 		promises = append(promises, p)
 	}
@@ -90,21 +85,19 @@ func (m *Manager) parallelFlowsWithSpan(para map[string]interface{}, wf *serverl
 }
 
 func (m *Manager) parallelFlows(para map[string]interface{}, wf *serverlessv1alpha1.Workflow, nexts []int) (map[string]interface{}, error) {
-	sp := span.Span{
-		WorkflowName: wf.Name,
-	}
+	sp := span.NewSpan(wf.Name, "", "")
 	return m.parallelFlowsWithSpan(para, wf, nexts, sp)
 }
 
 // executeSpec is the main function about workflow control, it handle the main flow path
-func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp span.Span) (map[string]interface{}, error) {
-	if sp.FunctionName == "" {
-		index, err := findFlowByName(wf, sp.FlowName)
+func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp *span.Span) (map[string]interface{}, error) {
+	if sp.GetFunctionName() == "" {
+		index, err := findFlowByName(wf, sp.GetFlowName())
 		if err != nil {
 			zap.S().Errorw("fill in function name error", "err", err)
 			return nil, err
 		}
-		sp.FunctionName = wf.Spec.Spec[index].Function
+		sp.SetFunctionName(wf.Spec.Spec[index].Function)
 	}
 	zap.S().Debugw("executeSpec start", "parameters", parameters)
 	para, err := common.CopyMap(parameters)
@@ -112,7 +105,7 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 		zap.S().Errorw("copy map error", "err", err, "para", para)
 		return nil, err
 	}
-	target, err := findFlowByName(wf, sp.FlowName)
+	target, err := findFlowByName(wf, sp.GetFlowName())
 	if err != nil {
 		zap.S().Debugw("executeSpec findFlowByName error", "err", err, "span", sp)
 		return nil, err
@@ -147,13 +140,9 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 // middleware will inject there.
 func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, index int) (map[string]interface{}, error) {
 	flow := wf.Spec.Spec[index]
-	sp := span.Span{
-		WorkflowName: wf.Name,
-		FlowName:     flow.Name,
-		FunctionName: flow.Function,
-	}
+	sp := span.NewSpan(wf.Name, flow.Name, flow.Function)
 	zap.S().Info("run middleware")
-	midResult, err := m.middleware(parameters, &sp)
+	midResult, err := m.middleware(parameters, sp)
 	if err != nil {
 		return nil, err
 	}

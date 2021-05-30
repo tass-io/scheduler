@@ -16,7 +16,6 @@ var (
 )
 
 type Runner interface {
-	Run(parameters map[string]interface{}, span span.Span) (result map[string]interface{}, err error)
+	Run(parameters map[string]interface{}, span *span.Span) (result map[string]interface{}, err error)
 	Stats() InstanceStatus
 }
-

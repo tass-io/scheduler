@@ -223,15 +223,16 @@ func (fs *FunctionScheduler) canCreate() bool {
 
 // FunctionScheduler.Run will choose a target instance to run
 // now with middleware and events, fs run will be simplified
-func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span span.Span) (result map[string]interface{}, err error) {
+func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span *span.Span) (result map[string]interface{}, err error) {
 	fs.Lock()
-	target, existed := fs.instances[span.FunctionName]
+	functionName := span.GetFunctionName()
+	target, existed := fs.instances[functionName]
 	if !existed {
 		// cold start, create target and create process
-		target = newSet(span.FunctionName)
+		target = newSet(functionName)
 	}
 	// take care of the lock order, the set lock is before fs unlock
-	fs.instances[span.FunctionName] = target
+	fs.instances[functionName] = target
 	fs.Unlock()
 	return target.Invoke(parameters)
 }

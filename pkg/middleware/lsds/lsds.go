@@ -41,12 +41,12 @@ func newLSDSMiddleware() *LSDSMiddleware {
 func (lsds *LSDSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
 	stats := helper.GetMasterRunner().Stats() // use runner api instead of workflow api to reduce coupling
 	zap.S().Infow("get master runner stats at lsds", "stats", stats)
-	instanceNum, existed := stats[sp.FunctionName]
+	instanceNum, existed := stats[sp.GetFunctionName()]
 	// todo use retry
 	if !existed || instanceNum == 0 {
 		// create event and wait a period of time
 		event := source.ScheduleEvent{
-			FunctionName: sp.FunctionName,
+			FunctionName: sp.GetFunctionName(),
 			Target:       1,
 			Trend:        source.Increase,
 			Source:       source.ScheduleSource,
@@ -56,7 +56,7 @@ func (lsds *LSDSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (
 		time.Sleep(viper.GetDuration(env.LSDSWait))
 		stats = helper.GetMasterRunner().Stats()
 		zap.S().Infow("get master runner stats at lsds", "stats", stats)
-		instanceNum, existed = stats[sp.FunctionName]
+		instanceNum, existed = stats[sp.GetFunctionName()]
 		if !existed || instanceNum == 0 {
 			result, err := runnerlsds.GetLSDSIns().Run(body, *sp)
 			if err != nil {
