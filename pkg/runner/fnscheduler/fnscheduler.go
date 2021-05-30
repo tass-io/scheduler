@@ -223,7 +223,7 @@ func (fs *FunctionScheduler) canCreate() bool {
 
 // FunctionScheduler.Run will choose a target instance to run
 // now with middleware and events, fs run will be simplified
-func (fs *FunctionScheduler) Run(parameters map[string]interface{}, span *span.Span) (result map[string]interface{}, err error) {
+func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
 	fs.Lock()
 	functionName := span.GetFunctionName()
 	target, existed := fs.instances[functionName]

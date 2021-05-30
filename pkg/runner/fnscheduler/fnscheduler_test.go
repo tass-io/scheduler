@@ -75,7 +75,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 			FunctionSchedulerInit()
 			fs := GetFunctionScheduler()
 			fs.instances = testcase.instanceInject
-			_, err := fs.Run(nil, testcase.span)
+			_, err := fs.Run(testcase.span, nil)
 			So(err, ShouldResemble, testcase.expect)
 		})
 	}
@@ -173,7 +173,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			So(stats, ShouldResemble, testcase.excepts)
 			time.Sleep(1 * time.Second)
 			for functionName, e := range testcase.runTargets {
-				_, err := fs.Run(nil, span.NewSpan("", functionName, functionName))
+				_, err := fs.Run(span.NewSpan("", functionName, functionName), nil)
 				So(err, ShouldResemble, e)
 			}
 			k8sstats := ls.Stats()

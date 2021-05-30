@@ -38,7 +38,10 @@ func newLSDSMiddleware() *LSDSMiddleware {
 	return &LSDSMiddleware{}
 }
 
-func (lsds *LSDSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
+func (lsds *LSDSMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+	lsdsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
+	lsdsSpan.Start("lsds")
+	defer lsdsSpan.Finish()
 	stats := helper.GetMasterRunner().Stats() // use runner api instead of workflow api to reduce coupling
 	zap.S().Infow("get master runner stats at lsds", "stats", stats)
 	instanceNum, existed := stats[sp.GetFunctionName()]
@@ -58,7 +61,7 @@ func (lsds *LSDSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (
 		zap.S().Infow("get master runner stats at lsds", "stats", stats)
 		instanceNum, existed = stats[sp.GetFunctionName()]
 		if !existed || instanceNum == 0 {
-			result, err := runnerlsds.GetLSDSIns().Run(body, *sp)
+			result, err := runnerlsds.GetLSDSIns().Run(sp, body)
 			if err != nil {
 				zap.S().Errorw("lsds middleware run error", "err", err)
 				return nil, middleware.Abort, err

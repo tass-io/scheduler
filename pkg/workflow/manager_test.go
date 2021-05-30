@@ -26,7 +26,7 @@ type SimpleFakeRunner struct {
 }
 
 // SimpleFakeRunner will 'register' all function will be call, which indexes the function by span.FlowName
-func (r *SimpleFakeRunner) Run(parameters map[string]interface{}, sp *span.Span) (result map[string]interface{}, err error) {
+func (r *SimpleFakeRunner) Run(sp *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
 	switch sp.GetFlowName() {
 	case "simple_start":
 		{
@@ -433,7 +433,7 @@ func TestManager(t *testing.T) {
 				k8sutils.Prepare()
 				mgr := NewManager()
 				time.Sleep(500 * time.Millisecond)
-				result, err := mgr.Invoke(testcase.parameters, testcase.sp.GetWorkflowName(), testcase.sp.GetFlowName())
+				result, err := mgr.Invoke(testcase.sp, testcase.parameters)
 				So(err, ShouldBeNil)
 				So(result, ShouldResemble, testcase.expect)
 			})

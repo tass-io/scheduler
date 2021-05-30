@@ -21,7 +21,7 @@ var (
 )
 
 // parallelFlowsWithSpan just handle Flow.Outputs and Condition.Flows, they are the same logic
-func (m *Manager) parallelConditions(para map[string]interface{}, wf *serverlessv1alpha1.Workflow, target int, nexts []string) (map[string]interface{}, error) {
+func (m *Manager) parallelConditions(sp *span.Span, para map[string]interface{}, wf *serverlessv1alpha1.Workflow, target int, nexts []string) (map[string]interface{}, error) {
 	if len(nexts) == 0 {
 		return nil, nil
 	}
@@ -29,11 +29,12 @@ func (m *Manager) parallelConditions(para map[string]interface{}, wf *serverless
 	flow := wf.Spec.Spec[target]
 	for _, next := range nexts {
 		// think about all next is like a new workflow
-		newSp := span.NewSpan(wf.Name, flow.Name, "")
+		newSp := span.NewSpanFromSpanSibling(sp)
 		cond := findConditionByName(next, &flow)
 		p := NewCondPromise(m.executeCondition, next)
 		zap.S().Debugw("call condition with parameter", "flow", newSp.GetFlowName(), "parameters", para, "target", target)
-		p.Run(cond, wf, target, para)
+		newSp.Start(next)
+		p.Run(newSp, cond, wf, target, para)
 		promises = append(promises, p)
 	}
 
@@ -54,16 +55,17 @@ func (m *Manager) parallelConditions(para map[string]interface{}, wf *serverless
 }
 
 // parallelFlowsWithSpan just handle Flow.Outputs and Condition.Flows, they are the same logic
-func (m *Manager) parallelFlowsWithSpan(para map[string]interface{}, wf *serverlessv1alpha1.Workflow, nexts []int, sp *span.Span) (map[string]interface{}, error) {
+func (m *Manager) parallelFlowsWithSpan(sp *span.Span, para map[string]interface{}, wf *serverlessv1alpha1.Workflow, nexts []int) (map[string]interface{}, error) {
 	if len(nexts) == 0 {
 		return nil, nil
 	}
 	promises := []*FlowPromise{}
 	for _, next := range nexts {
-		// think about all next is like a new workflow
-		newSp := span.NewSpan(sp.GetWorkflowName(), wf.Spec.Spec[next].Name, "")
+		newSp := span.NewSpanFromSpanSibling(sp)
+		newSp.SetFlowName(wf.Spec.Spec[next].Name)
 		p := NewFlowPromise(m.executeSpec, newSp.GetFlowName())
 		zap.S().Debugw("call function with parameter", "flow", newSp.GetFlowName(), "parameters", para)
+		newSp.Start(newSp.GetFlowName())
 		p.Run(para, wf, newSp)
 		promises = append(promises, p)
 	}
@@ -84,13 +86,12 @@ func (m *Manager) parallelFlowsWithSpan(para map[string]interface{}, wf *serverl
 	return finalResult, nil
 }
 
-func (m *Manager) parallelFlows(para map[string]interface{}, wf *serverlessv1alpha1.Workflow, nexts []int) (map[string]interface{}, error) {
-	sp := span.NewSpan(wf.Name, "", "")
-	return m.parallelFlowsWithSpan(para, wf, nexts, sp)
+func (m *Manager) parallelFlows(sp *span.Span, para map[string]interface{}, wf *serverlessv1alpha1.Workflow, nexts []int) (map[string]interface{}, error) {
+	return m.parallelFlowsWithSpan(sp, para, wf, nexts)
 }
 
 // executeSpec is the main function about workflow control, it handle the main flow path
-func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp *span.Span) (map[string]interface{}, error) {
+func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow) (map[string]interface{}, error) {
 	if sp.GetFunctionName() == "" {
 		index, err := findFlowByName(wf, sp.GetFlowName())
 		if err != nil {
@@ -110,13 +111,14 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 		zap.S().Debugw("executeSpec findFlowByName error", "err", err, "span", sp)
 		return nil, err
 	}
-	result, err := m.executeRunFunction(para, wf, target)
+	// enter in rootspan if not from promise
+	result, err := m.executeRunFunction(sp, para, wf, target)
 	if err != nil {
 		zap.S().Errorw("executeRunFunction error", "err", err)
 		return nil, err
 	}
 	// pay attention !!! here may change result
-	nexts, err := m.findNext(&result, wf, target) // has serveral next functions
+	nexts, err := m.findNext(sp, &result, wf, target) // has serveral next functions
 	if err != nil {
 		zap.S().Errorw("findNext error", "err", err)
 		return nil, err
@@ -126,7 +128,8 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 		return result, nil
 	}
 
-	finalResult, err := m.parallelFlowsWithSpan(result, wf, nexts, sp)
+	// enter with flow level span
+	finalResult, err := m.parallelFlowsWithSpan(sp, result, wf, nexts)
 	if err != nil {
 		return nil, err
 	}
@@ -138,19 +141,30 @@ func (m *Manager) executeSpec(parameters map[string]interface{}, wf *serverlessv
 
 // executeRunFunction Run function without other logic
 // middleware will inject there.
-func (m *Manager) executeRunFunction(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, index int) (map[string]interface{}, error) {
-	flow := wf.Spec.Spec[index]
-	sp := span.NewSpan(wf.Name, flow.Name, flow.Function)
-	zap.S().Info("run middleware")
-	midResult, err := m.middleware(parameters, sp)
+func (m *Manager) executeRunFunction(sp *span.Span, parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, index int) (map[string]interface{}, error) {
+	middlewareSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
+	middlewareSpan.Start(middlewareSpan.GetFunctionName() + "-middleware")
+	midResult, decision, err := m.middleware(middlewareSpan, parameters)
+	middlewareSpan.Finish()
 	if err != nil {
+		sp.Finish()
 		return nil, err
 	}
 	zap.S().Infow("get middleware result", "result", midResult)
-	if midResult != nil {
-		return midResult, nil
+	switch decision {
+	case middleware.Abort:
+		{
+			return midResult, nil
+		}
+	case middleware.Next:
+		{
+			// no thing to do
+		}
 	}
-	return m.runner.Run(parameters, sp)
+	functionSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
+	functionSpan.Start(sp.GetFunctionName() + "Function")
+	defer functionSpan.Finish()
+	return m.runner.Run(sp, parameters)
 }
 
 // find the start flow name of a Workflow
@@ -178,7 +192,7 @@ func findFlowByName(wf *serverlessv1alpha1.Workflow, name string) (int, error) {
 }
 
 // execute switch logic and return the next flows index
-func (m *Manager) findNext(result *map[string]interface{}, wf *serverlessv1alpha1.Workflow, target int) ([]int, error) {
+func (m *Manager) findNext(sp *span.Span, result *map[string]interface{}, wf *serverlessv1alpha1.Workflow, target int) ([]int, error) {
 	now := wf.Spec.Spec[target]
 	var err error
 	switch now.Statement {
@@ -193,13 +207,17 @@ func (m *Manager) findNext(result *map[string]interface{}, wf *serverlessv1alpha
 				}
 				nexts = append(nexts, n)
 			}
+			sp.Finish() // direct finish here
 			return nexts, nil
 		}
 	case serverlessv1alpha1.Switch:
 		{
+			sp.Finish()
+			conditionSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
+			// conditionSpan.Start("conditions")
 			zap.S().Debugw("in switch with conditions", now.Conditions)
 			rootcond := findRootCondition(&now)
-			*result, err = m.executeCondition(rootcond, wf, target, *result)
+			*result, err = m.executeCondition(conditionSpan, rootcond, wf, target, *result)
 			zap.S().Debugw("in switch with get new result", "result", result)
 			if err != nil {
 				return nil, err
@@ -223,26 +241,26 @@ func (m *Manager) findNext(result *map[string]interface{}, wf *serverlessv1alpha
 	}
 }
 
-// execute conditions use m.executeCondition
-func (m *Manager) executeConditions(conditions []*serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) (map[string]interface{}, error) {
-	para, _ := common.CopyMap(functionResult)
-	if conditions == nil || len(conditions) == 0 {
-		return para, nil
-	}
-	var err error
-	for _, condition := range conditions {
-		zap.S().Debugw("condition execute with parameters", "condition", condition, "para", functionResult)
-		para, err = m.executeCondition(condition, wf, target, para)
-		if err != nil {
-			zap.S().Errorw("execute condition error", "err", err)
-		}
-	}
-	zap.S().Debugw("executeConditions with return value", "value", para)
-	return para, nil
-}
+// // execute conditions use m.executeCondition
+// func (m *Manager) executeConditions(sp *span.Span, conditions []*serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) (map[string]interface{}, error) {
+// 	para, _ := common.CopyMap(functionResult)
+// 	if conditions == nil || len(conditions) == 0 {
+// 		return para, nil
+// 	}
+// 	var err error
+// 	for _, condition := range conditions {
+// 		zap.S().Debugw("condition execute with parameters", "condition", condition, "para", functionResult)
+// 		para, err = m.executeCondition(sp, condition, wf, target, para)
+// 		if err != nil {
+// 			zap.S().Errorw("execute condition error", "err", err)
+// 		}
+// 	}
+// 	zap.S().Debugw("executeConditions with return value", "value", para)
+// 	return para, nil
+// }
 
 // handle all about a condition
-func (m *Manager) executeCondition(condition *serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) (map[string]interface{}, error) {
+func (m *Manager) executeCondition(sp *span.Span, condition *serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) (map[string]interface{}, error) {
 	branch := executeConditionLogic(condition, functionResult)
 	var next *serverlessv1alpha1.Next
 	if branch {
@@ -252,11 +270,10 @@ func (m *Manager) executeCondition(condition *serverlessv1alpha1.Condition, wf *
 	}
 	// parallel execute flows and conditions
 	mergedResult := map[string]interface{}{}
-	conditionsResult, err := m.parallelConditions(functionResult, wf, target, next.Conditions)
+	conditionsResult, err := m.parallelConditions(sp, functionResult, wf, target, next.Conditions)
 	if err != nil {
 		zap.S().Errorw("error at parallel conditions", "err", err)
 	} else if conditionsResult != nil {
-
 		mergedResult["conditions"] = conditionsResult
 	}
 	// execute condition.Flows
@@ -270,7 +287,7 @@ func (m *Manager) executeCondition(condition *serverlessv1alpha1.Condition, wf *
 		flowsNum = append(flowsNum, i)
 	}
 	zap.S().Debugw("after conditions flows", "flows", flowsNum)
-	flowsResult, err := m.parallelFlows(functionResult, wf, flowsNum)
+	flowsResult, err := m.parallelFlows(sp, functionResult, wf, flowsNum)
 	if err != nil {
 		zap.S().Errorw("error at parallel flow", "err", err)
 	} else if flowsResult != nil {
@@ -429,7 +446,7 @@ func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool
 }
 
 // execute middleware action
-func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) (map[string]interface{}, error) {
+func (m *Manager) middleware(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 	if m.middlewareOrder == nil {
 		m.middlewareOrder = middleware.Orders()
 	}
@@ -440,10 +457,10 @@ func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) (map[st
 			continue
 		} else {
 			zap.S().Infow("run middleware", "source", source)
-			result, decision, err := mid.Handle(body, sp)
+			result, decision, err := mid.Handle(sp, body)
 			if err != nil {
 				zap.S().Errorw("middleware error", "middleware", mid.GetSource(), "err", err)
-				return nil, err
+				return nil, middleware.Abort, err
 			}
 			zap.S().Infow("middleware result", "result", result, "decision", decision)
 			switch decision {
@@ -454,12 +471,12 @@ func (m *Manager) middleware(body map[string]interface{}, sp *span.Span) (map[st
 				}
 			case middleware.Abort:
 				{
-					return result, nil
+					return result, middleware.Abort, nil
 				}
 			}
 		}
 	}
-	return nil, nil
+	return nil, middleware.Next, nil
 }
 
 func findConditionByName(name string, flow *serverlessv1alpha1.Flow) *serverlessv1alpha1.Condition {

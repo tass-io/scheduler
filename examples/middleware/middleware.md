@@ -24,6 +24,8 @@ demo middleware 有两次机会进行注册，第一次机会即在`init()`函�
 
 demo middleware 这里为了能正常运行，这里考虑的是直接返回，并且 register 的 order 为 0。
 
+如果你想在 middleware 中使用 span 进行时间的测算或是其他方面的工作，建议使用`span.NewSpanFromTheSameFlowSpanAsParent(sp)` 创建新的 span，在合适的阶段进行`Start("{middleware-name}")` 和 `Finish()`
+
 ## 实验
 
 运行`build.sh`以完成构建，之后运行`main -l -w "./config/workflow.yaml"`，通过启动的日志可以查询到 demo middleware 已经完成了初始化和注册，同时可以看到 LSDS 这个中间件因为是 common middleware，所以他的注册是更靠后的。
