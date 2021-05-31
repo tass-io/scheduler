@@ -16,6 +16,9 @@ var (
 
 func Initial() {
 	sh = newScheduleHandler()
+	// NOTE: this is a helper register function,
+	// in order to avoid future modules causing "import cycles not allowed" error,
+	// they can still call this function.
 	register.Register(func(fucntionName string, target int, trend, src string) {
 		event := source.ScheduleEvent{
 			FunctionName: fucntionName,
@@ -25,6 +28,7 @@ func Initial() {
 		}
 		sh.AddEvent(event)
 	})
+
 	event.Register(source.ScheduleSource, sh, 1, true)
 }
 
@@ -34,11 +38,14 @@ func Initial() {
 // TTL 2
 // QPS 3
 
-// scoreBoard will store different Source suggestions for the function
+// scoreBoard stores different Source suggestions for the function and the function expected status
 type scoreBoard struct {
-	lock       sync.Locker
+	lock sync.Locker
+	// bestWishes is the merged status of the schedule event,
+	// which is the expected status for the Function
 	bestWishes *source.ScheduleEvent
-	scores     map[source.Source]source.ScheduleEvent
+	// scores stores different Source suggestions for the Function
+	scores map[source.Source]source.ScheduleEvent
 }
 
 func newScoreBoard(functionName string) scoreBoard {
@@ -49,7 +56,10 @@ func newScoreBoard(functionName string) scoreBoard {
 	}
 }
 
-// scoreBoard will see all event and make a decision
+// scoreBoard will see all event and make a decision.
+// It iterates over the input oders which have been sorted,
+// in each order, it takes a related item and do the merge action.
+// Finally, it decides the final "bestWish".
 func (board *scoreBoard) Decide(functionName string, orders []source.Source) *source.ScheduleEvent {
 	board.lock.Lock()
 	defer board.lock.Unlock()
@@ -80,10 +90,11 @@ func (board *scoreBoard) Decide(functionName string, orders []source.Source) *so
 	return origin
 }
 
+// Update updates a new schedule event in a scoreboard
 func (board *scoreBoard) Update(e source.ScheduleEvent) {
 	board.lock.Lock()
 	board.scores[e.Source] = e
-	board.lock.Unlock() // no defer, performance not will for the hot code and just 3 line code
+	board.lock.Unlock()
 }
 
 // ScheduleHandler will handle all upstream Event for schedule process
@@ -99,8 +110,12 @@ type ScheduleHandler struct {
 func newScheduleHandler() *ScheduleHandler {
 	return &ScheduleHandler{
 		lock:       &sync.Mutex{},
+		// orders records the current Source items in an increasing order
 		orders:     nil,
+		// upstream recieves all upstream ScheduleEvent
 		upstream:   make(chan source.ScheduleEvent, 1000),
+		// scoreboard records scoreBoards for functions in a workflow.
+		// the key is the function name
 		scoreboard: make(map[string]scoreBoard, 10),
 	}
 }

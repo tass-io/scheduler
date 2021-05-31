@@ -39,6 +39,7 @@ func GetQPSMiddleware() *QPSMiddleware {
 	return qpsmiddle
 }
 
+// Handle records metrics when a request comes
 func (qps *QPSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
 	functionName := sp.FunctionName
 	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(1000))
@@ -52,6 +53,7 @@ func (qps *QPSMiddleware) GetSource() middleware.Source {
 	return QPSMiddlewareSource
 }
 
+// GetStat returns the qps number of each function
 func (qps *QPSMiddleware) GetStat() map[string]int64 {
 	stats := map[string]int64{}
 	qps.qpsManagers.Range(func(key, value interface{}) bool {
