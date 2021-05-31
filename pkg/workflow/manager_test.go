@@ -26,8 +26,8 @@ type SimpleFakeRunner struct {
 }
 
 // SimpleFakeRunner will 'register' all function will be call, which indexes the function by span.FlowName
-func (r *SimpleFakeRunner) Run(parameters map[string]interface{}, sp span.Span) (result map[string]interface{}, err error) {
-	switch sp.FlowName {
+func (r *SimpleFakeRunner) Run(sp *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
+	switch sp.GetFlowName() {
 	case "simple_start":
 		{
 			return map[string]interface{}{"b": "c"}, nil
@@ -91,7 +91,7 @@ func TestManager(t *testing.T) {
 			skipped        bool
 			newRunner      func() runner.Runner
 			withInjectData func(objects *[]runtime.Object)
-			sp             span.Span
+			sp             *span.Span
 			parameters     map[string]interface{}
 			expect         map[string]interface{}
 		}{
@@ -143,10 +143,7 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				sp: span.Span{
-					FlowName:     "",
-					WorkflowName: "simple",
-				},
+				sp:         span.NewSpan("simple", "", ""),
 				parameters: map[string]interface{}{"a": "b"},
 				expect:     map[string]interface{}{"simple_mid": map[string]interface{}{"simple_end": map[string]interface{}{"d": "e"}}},
 			},
@@ -206,10 +203,7 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				sp: span.Span{
-					FlowName:     "",
-					WorkflowName: "simple",
-				},
+				sp:         span.NewSpan("simple", "", ""),
 				parameters: map[string]interface{}{"a": "b"},
 				expect:     map[string]interface{}{"simple_mid": map[string]interface{}{"simple_branch_1": map[string]interface{}{"branch_1": "branch_1"}, "simple_branch_2": map[string]interface{}{"branch_2": "branch_2"}}},
 			},
@@ -283,10 +277,7 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				sp: span.Span{
-					FlowName:     "",
-					WorkflowName: "condition",
-				},
+				sp:         span.NewSpan("condition", "", ""),
 				parameters: map[string]interface{}{"a": "b"},
 				expect: map[string]interface{}{
 					"condition_mid": map[string]interface{}{
@@ -396,10 +387,7 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				sp: span.Span{
-					FlowName:     "",
-					WorkflowName: "condition",
-				},
+				sp:         span.NewSpan("condition", "", ""),
 				parameters: map[string]interface{}{"a": "b"},
 				expect: map[string]interface{}{
 					"condition_mid": map[string]interface{}{
@@ -445,7 +433,7 @@ func TestManager(t *testing.T) {
 				k8sutils.Prepare()
 				mgr := NewManager()
 				time.Sleep(500 * time.Millisecond)
-				result, err := mgr.Invoke(testcase.parameters, testcase.sp.WorkflowName, testcase.sp.FlowName)
+				result, err := mgr.Invoke(testcase.sp, testcase.parameters)
 				So(err, ShouldBeNil)
 				So(result, ShouldResemble, testcase.expect)
 			})

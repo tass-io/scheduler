@@ -21,4 +21,5 @@ const (
 	InstanceScorePolicy     = "InstanceScorePolicy"
 	CreatePolicy            = "CreatePolicy"
 	TTL                     = "TTL"
+	TraceAgentHostPort      = "TraceAgentHostPort"
 )

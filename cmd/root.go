@@ -14,9 +14,11 @@ import (
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
 	middlewareinitial "github.com/tass-io/scheduler/pkg/middleware/initial"
+	_ "github.com/tass-io/scheduler/pkg/prom"
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	_ "github.com/tass-io/scheduler/pkg/tools/log"
+	"github.com/tass-io/scheduler/pkg/trace"
 	"github.com/tass-io/scheduler/pkg/workflow"
 	"go.uber.org/zap"
 )
@@ -27,6 +29,7 @@ var (
 		Short: "scheduler",
 		Long:  "scheduler",
 		Run: func(cmd *cobra.Command, args []string) {
+			trace.TraceInit()
 			k8sutils.Prepare()
 			fnscheduler.FunctionSchedulerInit()
 			workflow.ManagerInit()
@@ -93,6 +96,8 @@ func basicFlagInit() {
 	viper.BindPFlag(env.QPSMiddleware, rootCmd.Flags().Lookup(env.QPSMiddleware))
 	rootCmd.Flags().DurationP(env.TTL, "T", 20*time.Second, "set process default ttl")
 	viper.BindPFlag(env.TTL, rootCmd.Flags().Lookup(env.TTL))
+	rootCmd.Flags().String(env.TraceAgentHostPort, "106.15.225.249:6831", "set jaeger target")
+	viper.BindPFlag(env.TraceAgentHostPort, rootCmd.Flags().Lookup(env.TraceAgentHostPort))
 }
 
 func policyFlagInit() {

@@ -96,33 +96,34 @@ func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, 
 }
 
 // handleWorkflow is the core function at manager, it will execute Workflow defined logic, call runner.Run and return the final result
-func (m *Manager) handleWorkflow(parameters map[string]interface{}, sp span.Span) (map[string]interface{}, error) {
-	workflow, existed, err := m.getWorkflowByName(sp.WorkflowName)
+func (m *Manager) handleWorkflow(sp *span.Span, parameters map[string]interface{}) (map[string]interface{}, error) {
+	// sp is root as parent
+	workflowName := sp.GetWorkflowName()
+	workflow, existed, err := m.getWorkflowByName(sp.GetWorkflowName())
 	if err != nil {
 		return nil, err
 	}
 	if !existed {
-		zap.S().Errorw("workflow not found", "workflowname", sp.WorkflowName)
+		zap.S().Errorw("workflow not found", "workflowname", workflowName)
 		return nil, ErrWorkflowNotFound
 	}
-	if sp.FlowName == "" {
-		sp.FlowName, sp.FunctionName, err = findStart(workflow)
+	if sp.GetFlowName() == "" {
+		flowName, functionName, err := findStart(workflow)
+		sp.SetFlowName(flowName)
+		sp.SetFunctionName(functionName)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return m.executeSpec(parameters, workflow, sp)
+	sp.Start("")
+	// flow level span here
+	return m.executeSpec(sp, parameters, workflow) // Start and Finish not symmetric
 }
 
 func (m *Manager) GetRunner() runner.Runner {
 	return m.runner
 }
 
-func (m *Manager) Invoke(parameters map[string]interface{}, workflowName string, flowName string) (result map[string]interface{}, err error) {
-	sp := span.Span{
-		WorkflowName: workflowName,
-		FlowName:     flowName,
-		FunctionName: "",
-	}
-	return m.handleWorkflow(parameters, sp)
+func (m *Manager) Invoke(sp *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
+	return m.handleWorkflow(sp, parameters)
 }

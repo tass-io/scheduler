@@ -33,7 +33,7 @@ func newDemoMiddleware() *DemoMiddleware {
 	return &DemoMiddleware{}
 }
 
-func (demo *DemoMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
+func (demo *DemoMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 	return map[string]interface{}{"demo": "demo"}, middleware.Abort, nil
 }
 
