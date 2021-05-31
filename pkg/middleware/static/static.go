@@ -35,13 +35,16 @@ func GetStaticMiddleware() *StaticMiddleware {
 	return staticmiddle
 }
 
-func (static *StaticMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
+func (static *StaticMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+	staticSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
+	staticSpan.Start("static")
+	defer staticSpan.Finish()
 	stats := runnerlsds.GetLSDSIns().Stats() // use runner api instead of workflow api to reduce coupling
 	zap.S().Infow("get master runner stats at static", "stats", stats)
-	instanceNum, existed := stats[sp.FunctionName]
+	instanceNum, existed := stats[sp.GetFunctionName()]
 	// todo use retry
 	if !existed || instanceNum == 0 {
-		result, err := runnerlsds.GetLSDSIns().Run(body, *sp)
+		result, err := runnerlsds.GetLSDSIns().Run(sp, body)
 		if err != nil {
 			zap.S().Errorw("static middleware run error", "err", err)
 			return nil, middleware.Abort, err

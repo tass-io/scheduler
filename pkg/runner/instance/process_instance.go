@@ -160,7 +160,9 @@ func (i *processInstance) handleCmdExit() {
 	err := i.cmd.Wait()
 	if err != nil {
 		zap.S().Errorw("processInstance cmd exit error", "processInstance", i.uuid, "err", err)
+		i.cleanUp()
 	}
+
 }
 
 // Send SIGTERM to process and trigger clean up

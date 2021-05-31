@@ -35,7 +35,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 		caseName       string
 		skipped        bool
 		instanceInject map[string]*set
-		span           span.Span
+		span           *span.Span
 		expect         error
 	}{
 		{
@@ -49,11 +49,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 					},
 				},
 			},
-			span: span.Span{
-				WorkflowName: "test",
-				FlowName:     "a",
-				FunctionName: "a",
-			},
+			span:   span.NewSpan("test", "a", "a"),
 			expect: nil,
 		},
 		{
@@ -67,11 +63,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 					},
 				},
 			},
-			span: span.Span{
-				WorkflowName: "test",
-				FlowName:     "b",
-				FunctionName: "b",
-			},
+			span:   span.NewSpan("test", "b", "b"),
 			expect: errorutils.NewNoInstanceError("b"),
 		},
 	}
@@ -83,7 +75,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 			FunctionSchedulerInit()
 			fs := GetFunctionScheduler()
 			fs.instances = testcase.instanceInject
-			_, err := fs.Run(nil, testcase.span)
+			_, err := fs.Run(testcase.span, nil)
 			So(err, ShouldResemble, testcase.expect)
 		})
 	}
@@ -181,7 +173,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			So(stats, ShouldResemble, testcase.excepts)
 			time.Sleep(1 * time.Second)
 			for functionName, e := range testcase.runTargets {
-				_, err := fs.Run(nil, span.Span{WorkflowName: "", FlowName: functionName, FunctionName: functionName})
+				_, err := fs.Run(span.NewSpan("", functionName, functionName), nil)
 				So(err, ShouldResemble, e)
 			}
 			k8sstats := ls.Stats()

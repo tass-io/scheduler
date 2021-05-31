@@ -5,8 +5,17 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/tass-io/scheduler/pkg/http/controller"
 )
+
+func prometheusHandler() gin.HandlerFunc {
+	h := promhttp.Handler()
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
+}
 
 func RegisterRoute(r *gin.Engine) {
 	r.Use(cors.New(cors.Config{
@@ -25,4 +34,5 @@ func RegisterRoute(r *gin.Engine) {
 			workflowRoute.POST("/", controller.Invoke)
 		}
 	}
+	r.GET("/metrics", prometheusHandler())
 }

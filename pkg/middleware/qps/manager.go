@@ -40,12 +40,15 @@ func GetQPSMiddleware() *QPSMiddleware {
 }
 
 // Handle records metrics when a request comes
-func (qps *QPSMiddleware) Handle(body map[string]interface{}, sp *span.Span) (map[string]interface{}, middleware.Decision, error) {
-	functionName := sp.FunctionName
+func (qps *QPSMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+	qpsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
+	qpsSpan.Start("qps")
+	functionName := qpsSpan.GetFunctionName()
 	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(1000))
 	mgr := mgrRaw.(*QPSManager)
 	mgr.Inc()
 	zap.S().Debugw("qps handler inc", "functionName", functionName)
+	qpsSpan.Finish()
 	return nil, middleware.Next, nil
 }
 
