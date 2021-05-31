@@ -21,6 +21,7 @@ func Initial() {
 
 // QPSHandler
 type QPSHandler struct {
+	// qpsMap is a statistics of function and number of calls
 	qpsMap map[string]int64
 }
 
@@ -43,6 +44,10 @@ func (handler *QPSHandler) GetSource() source.Source {
 	return source.QPSSource
 }
 
+// Start starts a QPSHandler.
+// QPSHandler consider the performance impact, so when the request goes to QPSMiddleware,
+// it only does some info records and does nothing on events adding.
+// Instead, QPSHandler pulls the QPSMiddleware periodly and sends events to MetricsHandler
 func (handler *QPSHandler) Start() error {
 	go func() {
 		middlewareRaw := middleware.FindMiddlewareBySource(qps.QPSMiddlewareSource)
