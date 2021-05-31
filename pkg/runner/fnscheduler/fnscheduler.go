@@ -28,18 +28,21 @@ func DefaultCanCreatePolicy() bool {
 	return true
 }
 
-// For global get FunctionScheduler
+// GetFunctionScheduler returns a FunctionScheduler pointer
+// this is for global get FunctionScheduler
 func GetFunctionScheduler() *FunctionScheduler {
 	return fs
 }
 
+// FunctionSchedulerInit inits a new FunctionScheduler,
+// it also prepares environments of the function scheduler
 func FunctionSchedulerInit() {
 	if viper.GetBool(env.Mock) {
 		NewInstance = func(functionName string) instance.Instance {
 			return instance.NewMockInstance(functionName)
 		}
 	}
-	fs = NewFunctionScheduler()
+	fs = newFunctionScheduler()
 	schedule.Register(func() schedule.Scheduler {
 		return fs
 	})
@@ -57,6 +60,7 @@ type FunctionScheduler struct {
 	trigger   chan struct{}
 }
 
+// set is the status of the function and its instances
 // todo take care of terminated instances clean
 type set struct {
 	sync.Locker
@@ -65,6 +69,9 @@ type set struct {
 	ttl          *ttl.TTLManager
 }
 
+// Invoke is a set-level invocation
+// it finds a lowest latency process to run the function
+// if no available processes, it returns en error
 func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
 	if s.stats() > 0 {
 		// warm start, try to find a lowest latency process to work
@@ -87,10 +94,7 @@ func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{},
 				// after the choose, the process Released
 				// the process will return instance.InstanceNotServiceErr to describe this case.
 				// todo thinking about the request is unlucky to retry at the fourth time.
-				if err == instance.InstanceNotServiceErr {
-					return true
-				}
-				return false
+				return err == instance.InstanceNotServiceErr
 			}),
 			retry.Attempts(3),
 		)
@@ -100,6 +104,7 @@ func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{},
 	}
 }
 
+// stats returns the alive number of instances
 func (s *set) stats() int {
 	alive := 0
 	for _, ins := range s.instances {
@@ -179,7 +184,9 @@ func newSet(functionName string) *set {
 	}
 }
 
-func NewFunctionScheduler() *FunctionScheduler {
+// newFunctionScheduler inits a new FunctionScheduler.
+// By default, the capacity of process instances is 10 and the trigger channel length is 100
+func newFunctionScheduler() *FunctionScheduler {
 	// todo context architecture
 	return &FunctionScheduler{
 		Locker:    &sync.Mutex{},
@@ -201,9 +208,9 @@ func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 	fs.trigger <- struct{}{}
 }
 
-// Sync Function Scheduler info to api server via k8sutils
+// sync syncs Function Scheduler intances info to api server via k8sutils
 func (fs *FunctionScheduler) sync() {
-	for _ = range fs.trigger {
+	for range fs.trigger {
 		fs.Lock()
 		syncMap := make(map[string]int, len(fs.instances))
 		for functionName, ins := range fs.instances {
@@ -237,14 +244,14 @@ func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interfac
 	return target.Invoke(parameters)
 }
 
-// choose target by instance score
+// ChooseTargetInstance chooses a target instance which has the lowest score
 func ChooseTargetInstance(instances []instance.Instance) (target instance.Instance) {
-	max := runner.SCORE_MAX
+	min := runner.SCORE_MAX
 	for _, item := range instances {
 		if item.IsRunning() {
 			score := item.Score()
-			if max > score {
-				max = score
+			if min > score {
+				min = score
 				target = item
 			}
 		}
@@ -257,6 +264,8 @@ var NewInstance = func(functionName string) instance.Instance {
 	return instance.NewProcessInstance(functionName)
 }
 
+// Stats records the instances status that fnscheduler manages.
+// it returns a map which the key is function name and the value is process instance number
 func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	stats := runner.InstanceStatus{}
 	fs.Lock()

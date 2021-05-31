@@ -24,8 +24,10 @@ const (
 	TTLSource      Source = "TTL"
 )
 
+// ScheduleEvent is a resource schedule event sent by different middleware
 type ScheduleEvent struct {
 	FunctionName string
+	// Target is the expected number of the process
 	Target       int
 	Trend        Trend
 	Source       Source
@@ -40,6 +42,8 @@ func NewNoneScheduleEvent(functionName string) *ScheduleEvent {
 	}
 }
 
+// Merge is a helper function to merge two schedule events,
+// it assumes that the priorty of event is always higher than or equal to the priorty of target.
 func (event *ScheduleEvent) Merge(target *ScheduleEvent) bool {
 	if target == nil || target.Trend == None {
 		return false
@@ -55,9 +59,8 @@ func (event *ScheduleEvent) Merge(target *ScheduleEvent) bool {
 		}
 	case Decrease:
 		{
-			// 2 > 0
 			if event.Target > target.Target {
-				event.Target = target.Target // QPS 0
+				event.Target = target.Target
 				used = true
 			}
 		}

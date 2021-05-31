@@ -17,9 +17,11 @@ func Initial() {
 	event.Register(source.MetricsSource, metricsHandler, 2, false)
 }
 
-// MetricsHandler
+// MetricsHandler is the handler for metrics events.
 type MetricsHandler struct {
 	channel        chan source.ScheduleEvent
+	// metricsSources is the map of functions,
+	// each function has a map of ScheduleEvent for different source
 	metricsSources map[string]map[source.Source]source.ScheduleEvent
 }
 
@@ -34,7 +36,6 @@ func newMetricsHandler() *MetricsHandler {
 	}
 }
 
-// noone will use it, because the handler will poll middleware QPSMiddleware
 func (handler *MetricsHandler) AddEvent(e interface{}) {
 	event := e.(source.ScheduleEvent)
 	handler.channel <- event
@@ -44,6 +45,9 @@ func (handler *MetricsHandler) GetSource() source.Source {
 	return source.MetricsSource
 }
 
+// Starts starts a MetricsHandler
+// When a metric event is received, the handler first updates the event for the coming function,
+// and then makes a decision.
 func (handler *MetricsHandler) Start() error {
 	go func() {
 		for e := range handler.channel {
@@ -60,6 +64,7 @@ func (handler *MetricsHandler) Start() error {
 	return nil
 }
 
+// decide considers the qps and ttl events both, and sends a final decision to ScheduleHandler
 func (handler *MetricsHandler) decide(functionName string) {
 	sources := handler.metricsSources[functionName]
 	qps, qpsexisted := sources[source.QPSSource]
@@ -89,9 +94,9 @@ func (handler *MetricsHandler) decide(functionName string) {
 		return
 	}
 
-	// ttl always Decrease
+	// the target of ttl is always Decrease
 	if qps.Trend == source.Increase {
-		// qps:Increase ttl:Decrease, take qps and the ttl target higer
+		// when qps is Increase and ttl is Decrease, take the higher Target
 		if ttl.Target > qps.Target {
 			target = ttl.Target
 		} else {
@@ -99,7 +104,7 @@ func (handler *MetricsHandler) decide(functionName string) {
 		}
 		trend = source.Increase
 	} else if qps.Trend == source.Decrease {
-		// qps:Decrease, always take ttl?
+		// when qps is Decrease, always takes ttl Target
 		trend = source.Decrease
 		target = ttl.Target
 	}

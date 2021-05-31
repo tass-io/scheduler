@@ -24,7 +24,7 @@ func ManagerInit() {
 var (
 	manager               *Manager
 	once                  = &sync.Once{}
-	WorkflowNotFoundError = errors.New("workflow not found")
+	ErrWorkflowNotFound = errors.New("workflow not found")
 )
 
 type Manager struct {
@@ -63,7 +63,8 @@ func NewManager() *Manager {
 	return m
 }
 
-// Start will start events and
+// Start links all middleware and events to the manager itsself,
+// it then starts all events handlers
 func (m *Manager) Start() {
 	m.middlewares = middleware.Middlewares()
 	m.events = event.Events()
@@ -73,6 +74,7 @@ func (m *Manager) Start() {
 	}
 }
 
+// startEvents iterates the event handlers and starts them
 func (m *Manager) startEvents() error {
 	errstr := ""
 	for src, h := range m.events {
@@ -88,6 +90,7 @@ func (m *Manager) startEvents() error {
 	return nil
 }
 
+// getWorkflowByName get workflow by name via k8s apiserver
 func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) {
 	return k8sutils.GetWorkflowByName(name)
 }
@@ -102,7 +105,7 @@ func (m *Manager) handleWorkflow(sp *span.Span, parameters map[string]interface{
 	}
 	if !existed {
 		zap.S().Errorw("workflow not found", "workflowname", workflowName)
-		return nil, WorkflowNotFoundError
+		return nil, ErrWorkflowNotFound
 	}
 	if sp.GetFlowName() == "" {
 		flowName, functionName, err := findStart(workflow)

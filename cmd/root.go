@@ -119,10 +119,18 @@ func initPersistentFlagInit() {
 	viper.BindPFlag(env.DefaultDb, rootCmd.PersistentFlags().Lookup(env.DefaultDb))
 }
 
-func init() {
+func flagsInit() {
 	basicFlagInit()
 	policyFlagInit()
 	initPersistentFlagInit()
+}
+
+func commandsInit() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(initial.InitCmd)
+}
+
+func init() {
+	flagsInit()
+	commandsInit()
 }

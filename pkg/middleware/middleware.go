@@ -46,6 +46,7 @@ var Middlewares = func() map[Source]Handler {
 	return handlers
 }
 
+// Orders returns a slice of Source in increasing order
 var Orders = func() []Source {
 	keys := make([]int, 0, len(orderOrigin))
 	handlers := make([]Source, 0, len(orderOrigin))
