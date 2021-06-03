@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Invoke is called when a http request is received
 func Invoke(c *gin.Context) {
 	var request dto.InvokeRequest
 	if err := c.BindJSON(&request); err != nil {
@@ -21,11 +22,10 @@ func Invoke(c *gin.Context) {
 	}
 
 	var root opentracing.Span
-
 	spanContext, err := trace.GetSpanContextFromHeaders(request.WorkflowName, c.Request.Header)
 	if err != nil {
 		if err == opentracing.ErrSpanContextNotFound {
-			// the first
+			// when the workflow executes the first Flow, it has no span context
 			root = opentracing.GlobalTracer().StartSpan(request.WorkflowName)
 			spanContext = root.Context()
 		} else {

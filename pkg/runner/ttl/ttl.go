@@ -37,6 +37,7 @@ func (ttl *TTLManager) Append(ins instance.Instance) {
 	ttl.append <- ins
 }
 
+// TODO: When a request comes, update the timer
 func (ttl *TTLManager) start(ins instance.Instance) {
 	ttl.timers[ins] = time.NewTimer(viper.GetDuration(env.TTL))
 	go func() {
@@ -61,6 +62,11 @@ func NewTTLManager(functionName string) *TTLManager {
 				{
 					if ins.IsRunning() && ins.HasRequests() {
 						ttl.timers[ins].Reset(viper.GetDuration(env.TTL))
+						go func() {
+							timer := ttl.timers[ins]
+							<-timer.C
+							ttl.timeout <- ins
+						}()
 						continue
 					}
 					zap.S().Infow("clean up timer")
