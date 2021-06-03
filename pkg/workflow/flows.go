@@ -90,7 +90,7 @@ func (m *Manager) parallelFlows(sp *span.Span, para map[string]interface{}, wf *
 	return m.parallelFlowsWithSpan(sp, para, wf, nexts)
 }
 
-// executeSpec is the main function about workflow control, it handle the main flow path
+// executeSpec is the main function about workflow control, it handles the main flow path
 func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow) (map[string]interface{}, error) {
 	if sp.GetFunctionName() == "" {
 		index, err := findFlowByName(wf, sp.GetFlowName())
@@ -139,8 +139,8 @@ func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{}, 
 	return finalResult, err
 }
 
-// executeRunFunction Run function without other logic
-// middleware will inject there.
+// executeRunFunction runs function without other logic,
+// middleware injects here.
 func (m *Manager) executeRunFunction(sp *span.Span, parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, index int) (map[string]interface{}, error) {
 	middlewareSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
 	middlewareSpan.Start(middlewareSpan.GetFunctionName() + "-middleware")
@@ -158,7 +158,7 @@ func (m *Manager) executeRunFunction(sp *span.Span, parameters map[string]interf
 		}
 	case middleware.Next:
 		{
-			// no thing to do
+			// now nothing to do
 		}
 	}
 	functionSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
@@ -167,7 +167,8 @@ func (m *Manager) executeRunFunction(sp *span.Span, parameters map[string]interf
 	return m.runner.Run(sp, parameters)
 }
 
-// find the start flow name of a Workflow
+// findStart finds the start flow name of a Workflow,
+// it returns the flow name and its function name
 func findStart(wf *serverlessv1alpha1.Workflow) (string, string, error) {
 	for _, flow := range wf.Spec.Spec {
 		if flow.Role == serverlessv1alpha1.Start {
@@ -445,7 +446,12 @@ func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool
 	}
 }
 
-// execute middleware action
+// middleware executes all middleware actions and make a decision.
+// It contais the following steps:
+// 1. Order all the registered middlewares in a increasing order;
+// 2. For each middleware, it does the middleware.Handle function;
+// 3. If the decision is NEXT, it continues to iterate the middleware stream;
+// 4. If the decision is ABORT, it breaks the middleware stream and returns the result directly.
 func (m *Manager) middleware(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 	if m.middlewareOrder == nil {
 		m.middlewareOrder = middleware.Orders()
