@@ -70,7 +70,7 @@ type set struct {
 }
 
 // Invoke is a set-level invocation
-// it finds a lowest latency process to run the function
+// it finds a lowest score process to run the function
 // if no available processes, it returns en error
 func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
 	if s.stats() > 0 {
@@ -94,7 +94,7 @@ func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{},
 				// after the choose, the process Released
 				// the process will return instance.InstanceNotServiceErr to describe this case.
 				// todo thinking about the request is unlucky to retry at the fourth time.
-				return err == instance.InstanceNotServiceErr
+				return err == instance.ErrInstanceNotService
 			}),
 			retry.Attempts(3),
 		)
@@ -115,6 +115,7 @@ func (s *set) stats() int {
 	return alive
 }
 
+// Stats is the public method of the stats
 func (s *set) Stats() int {
 	s.Lock()
 	defer s.Unlock()
@@ -235,6 +236,9 @@ func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interfac
 	functionName := span.GetFunctionName()
 	target, existed := fs.instances[functionName]
 	if !existed {
+		// when the Function comes to this method, it has gone through the middleware
+		// so here if there is no funcionName map, it just means that this is the first HTTP request.
+		// The middleware has sent a Event for this Function, no matter it is created successfully or not.
 		// cold start, create target and create process
 		target = newSet(functionName)
 	}

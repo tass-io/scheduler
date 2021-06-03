@@ -18,7 +18,7 @@ import (
 )
 
 // processInstance Status will be updated by FunctionScheduler
-// first it will patch to apiserver, and then change local status, finally it will send SIGTERM to process
+// first it patches to apiserver, and then changes local status, finally it sends SIGTERM to process
 type Status int32
 
 const (
@@ -35,28 +35,35 @@ var (
 	}
 )
 
+// defaultPolicyfunc is a naive policy to calculate the score,
+// the longer the process instance lives, the higher the score is.
 func defaultPolicyfunc(i *processInstance) int {
 	now := time.Now().Unix()
 	birthday := i.startTime.Unix() // happy birthday for LittleDrizzle. He wrote this line at the birthday (smddx)
 	return int(now - birthday)
 }
 
+// processInstance records the status of the process instance.
 type processInstance struct {
-	startTime       time.Time
-	uuid            string
-	lock            sync.Locker
-	functionName    string
-	Status          Status
-	cpu             string // todo we thought about implementing resource limitation either at instance create
-	memory          string
-	environment     string
-	producer        *Producer
-	consumer        *Consumer
+	startTime    time.Time
+	uuid         string
+	lock         sync.Locker
+	functionName string
+	Status       Status
+	cpu          string // todo we thought about implementing resource limitation either at instance create
+	memory       string
+	environment  string
+	producer     *Producer
+	consumer     *Consumer
+	// each invocation generates a unique id when invoked,
+	// this field is a temporary place to store the value of the function result.
+	// The key of the map is the request id.
 	responseMapping map[string]chan map[string]interface{}
 	cmd             *exec.Cmd
 }
 
-// todo
+// Score returns the score of the Process.
+// The scheduler chooses the process which has the minimum score as the target
 func (i *processInstance) Score() int {
 	if i.Status != Running {
 		return runner.SCORE_MAX
@@ -95,7 +102,7 @@ func newPipe() (*os.File, *os.File, error) {
 	return read, write, nil
 }
 
-// processInstance start will init and start producer/consumer, and start the real work process
+// Start inits and starts producer/consumer, and starts the real work process
 func (i *processInstance) Start() (err error) {
 	i.lock.Lock()
 	defer i.lock.Unlock()
@@ -133,7 +140,9 @@ func (i *processInstance) startListen() {
 // start function process and use pipe create connection
 // todo customize the command
 func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
-	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName, viper.GetString(env.RedisIp), viper.GetString(env.RedisPort), viper.GetString(env.RedisPassword), i.environment)
+	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName,
+		viper.GetString(env.RedisIp), viper.GetString(env.RedisPort),
+		viper.GetString(env.RedisPassword), i.environment)
 	cmd := exec.Command(binary, strings.Split(initParam, " ")...)
 	// It is different from docker, we do not create mount namespace and network namespace
 	cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -167,7 +176,7 @@ func (i *processInstance) handleCmdExit() {
 
 // Send SIGTERM to process and trigger clean up
 // Process Release step
-/* 1. send SIGTERM to function process
+/*  1. send SIGTERM to function process
  *  2. close main request channel
  *  3. when function process get eof about request, set noNewInfo true
  *  4. when function process has no requests handling, function process Wrapper.requestMap is empty.
@@ -195,10 +204,11 @@ func (i *processInstance) cleanUp() {
 }
 
 // Invoke will generate a functionRequest and will block until the function return the result
+// Invoke is a process-level invoke
 func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[string]interface{}, err error) {
 	if i.Status != Running {
 		zap.S().Infow("process instance Invoke", "status", i.Status)
-		return nil, InstanceNotServiceErr
+		return nil, ErrInstanceNotService
 	}
 	i.lock.Lock()
 	id := xid.New().String()

@@ -34,6 +34,8 @@ func NewSpan(workflowName string, flowName string, functioName string) *Span {
 	}
 }
 
+// NewSpanFromTheSameFlowSpanAsParent returns a new Span which is the input Span is the parent.
+// As these two Span are in the same Workflow, they have the same root Span.
 func NewSpanFromTheSameFlowSpanAsParent(sp *Span) *Span {
 	var parent opentracing.SpanContext
 	if sp.sp != nil {
@@ -52,13 +54,15 @@ func NewSpanFromTheSameFlowSpanAsParent(sp *Span) *Span {
 	}
 }
 
+// NewSpanFromSpanSibling returns a new Span which is in the same level as the input Span.
 func NewSpanFromSpanSibling(sp *Span) *Span {
 	return &Span{
 		workflowName: sp.workflowName,
 		root:         sp.root,
-		parent:       sp.root,
-		startOnce:    &sync.Once{},
-		finishOnce:   &sync.Once{},
+		// FIXME: Can this be `sp.parent` ?
+		parent:     sp.root,
+		startOnce:  &sync.Once{},
+		finishOnce: &sync.Once{},
 	}
 }
 

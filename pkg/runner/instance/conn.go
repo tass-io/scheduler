@@ -12,23 +12,30 @@ import (
 	"go.uber.org/zap"
 )
 
-/*
-
-                   Instance model
-                    |          ^
-functionRequest     |          |   functionResponse
-                    v          |
-                 producer   consumer
-                    |           ^
-    bytes	        |           |     bytes
-                    |           ----------------------|
-                    |----------------------------> process
-
-*/
+// The data stream of the instance model:
+//
+//           |   +-----------------------------+    ^
+//           |   |       Instance Model        |    |
+//           |   +-----+-----------------------+    |
+//           |         |                  ^         |
+//           |         |                  |         |
+//           |         v                  |         |
+//           |   +----------+       +-----+----+    |
+//           |   | producer |       | consumer |    |
+//   request |   +----------+       +----------+    | response
+//           |         |                  ^         |
+//           |         |                  |         |
+//           |         |            bytes |         |
+//           |         |                  |         |
+//           |         |            +-----+----+    |
+//           |         +----------->| process  |    |
+//           v              bytes   +----------+    |
+//
 
 var (
-	// split byte just for functionRequest package delimiter
-	// `{"a": "b"}littledrizzle{"a": "c"}` maybe in the pipe, so to split two request, we need a delimiter
+	// splitByte is just for functionRequest package delimiter.
+	// For example, `{"a": "b"}littledrizzle{"a": "c"}` maybe in the pipe,
+	// so to split two request, we need a delimiter.
 	splitByte = []byte("littledrizzle")
 )
 
@@ -74,6 +81,7 @@ func (c *Consumer) GetChannel() chan interface{} {
 	return c.responseChannel
 }
 
+// NewConsumer creates a new consumer data structure cantains a channel and an unnamed pipe
 func NewConsumer(f *os.File, demo interface{}) *Consumer {
 	return &Consumer{
 		f:               f,
@@ -82,7 +90,7 @@ func NewConsumer(f *os.File, demo interface{}) *Consumer {
 	}
 }
 
-// consumer Start will get function response and send it to the channel
+// consumer Start gets the function response and sends it to the channel
 func (c *Consumer) Start() {
 	go func() {
 		typ := reflect.TypeOf(c.demo)
@@ -106,10 +114,10 @@ func (c *Consumer) Start() {
 			}
 			s := string(data[:n])
 			s = tail + s
-			tail = ""
 			pkg := strings.Split(s, string(splitByte))
 			if len(pkg) == 0 {
-				// take care of `{"s":"b"}`
+				// when the case is only one response,
+				// for example, `{"hello":"world"}`
 				pkg = append(pkg, s)
 			}
 			for _, item := range pkg {
@@ -146,14 +154,7 @@ func (c *Consumer) Terminate() {
 	c.f.Close()
 }
 
-func (p *Producer) GetChannel() chan interface{} {
-	return p.requestChannel
-}
-
-func (p *Producer) NoNewInfo() bool {
-	return p.startRoutineExited
-}
-
+// NewProducer creates a new consumer data structure cantains a channel and an unnamed pipe
 func NewProducer(f *os.File, demo interface{}) *Producer {
 	return &Producer{
 		f:                  f,
@@ -163,7 +164,7 @@ func NewProducer(f *os.File, demo interface{}) *Producer {
 	}
 }
 
-// producer will listen channel and get request, write to pipe
+// producer listens the channel and gets a request, writes the data to pipe
 func (p *Producer) Start() {
 	go func() {
 		for req := range p.requestChannel {
@@ -172,6 +173,7 @@ func (p *Producer) Start() {
 			if err != nil {
 				zap.S().Errorw("producer marshal error", "err", err)
 			}
+			// add delimiter
 			reqByte = append(reqByte, splitByte...)
 			n, err := p.f.Write(reqByte)
 			if err != nil || n != len(reqByte) {
@@ -186,4 +188,12 @@ func (p *Producer) Start() {
 
 func (p *Producer) Terminate() {
 	close(p.requestChannel)
+}
+
+func (p *Producer) GetChannel() chan interface{} {
+	return p.requestChannel
+}
+
+func (p *Producer) NoNewInfo() bool {
+	return p.startRoutineExited
 }
