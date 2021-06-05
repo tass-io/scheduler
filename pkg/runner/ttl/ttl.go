@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// TTLManager is a center to records all instances live time for a specific function
 type TTLManager struct {
 	sync.Locker
 	functionName string
@@ -20,6 +21,7 @@ type TTLManager struct {
 	append       chan instance.Instance
 }
 
+// clean stops the clock for an instance
 func (ttl *TTLManager) clean(ins instance.Instance) {
 	ttl.Lock()
 	defer ttl.Unlock()
@@ -29,14 +31,19 @@ func (ttl *TTLManager) clean(ins instance.Instance) {
 	}
 }
 
+// Release tries releasing an instance,
+// the TTLManager checks the status of the instance, if it's busy,
+// the instance will not be released
 func (ttl *TTLManager) Release(ins instance.Instance) {
 	ttl.timeout <- ins
 }
 
+// Append appends a new instance clock in the TTLManager
 func (ttl *TTLManager) Append(ins instance.Instance) {
 	ttl.append <- ins
 }
 
+// start starts the instance clock in the TTLManager
 // TODO: When a request comes, update the timer
 func (ttl *TTLManager) start(ins instance.Instance) {
 	ttl.timers[ins] = time.NewTimer(viper.GetDuration(env.TTL))
@@ -47,6 +54,8 @@ func (ttl *TTLManager) start(ins instance.Instance) {
 	}()
 }
 
+// NewTTLManager initializes a new TTLManager and starts it
+// it gets messages from timeout channel and append channel and sends events
 func NewTTLManager(functionName string) *TTLManager {
 	ttl := &TTLManager{
 		Locker:       &sync.Mutex{},
@@ -85,8 +94,9 @@ func NewTTLManager(functionName string) *TTLManager {
 					event.FindEventHandlerBySource(source.MetricsSource).AddEvent(source.ScheduleEvent{
 						FunctionName: functionName,
 						Target:       len(ttl.timers),
-						Trend:        source.Decrease,
-						Source:       source.TTLSource,
+						// NOTE: ttl never does Increase action
+						Trend:  source.Decrease,
+						Source: source.TTLSource,
 					})
 				}
 			}

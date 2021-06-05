@@ -7,42 +7,48 @@ import (
 	"github.com/tass-io/scheduler/pkg/span"
 )
 
+// Source indicates the source of an event
 type Source string
 
+// Decision is the action a function takes
 type Decision string
-
-var (
-	// handlers will record all Handlers has registered
-	handlers = make(map[Source]Handler)
-	// orderOrigin will record all Handlers in different level
-	orderOrigin = make(map[int][]Handler)
-)
 
 const (
 	Abort Decision = "Abort"
 	Next  Decision = "Next"
 )
 
-// Handler for synchronous handle like update span info
+var (
+	// handlers records all Middleware Handler has registered
+	handlers = make(map[Source]MiddlewareHandler)
+	// orderOrigin is an inverted map that record all middleware Handlers in different level
+	orderOrigin = make(map[int][]MiddlewareHandler)
+)
+
+// MiddlewareHandler for synchronous handle like update span info
 // todo define pointcut
-type Handler interface {
+type MiddlewareHandler interface {
 	Handle(*span.Span, map[string]interface{}) (map[string]interface{}, Decision, error)
 	GetSource() Source
 }
 
-func Register(source Source, handler Handler, order int) {
+// Register registers a handler by the given source
+// It registers:
+// 1. Source and middleware hander function in handlers map
+// 2. Put handler into the orderOrigin map according to the input "order"
+func Register(source Source, handler MiddlewareHandler, order int) {
 	fmt.Printf("register %s with order %d\n", source, order)
 	handlers[source] = handler
 	level, existed := orderOrigin[order]
 	if !existed {
-		level = []Handler{}
+		level = []MiddlewareHandler{}
 	}
 	level = append(level, handler)
 	orderOrigin[order] = level
 }
 
-var Middlewares = func() map[Source]Handler {
-
+// Middleware return all middleware handlers 
+var Middlewares = func() map[Source]MiddlewareHandler {
 	return handlers
 }
 
@@ -63,6 +69,7 @@ var Orders = func() []Source {
 	return handlers
 }
 
-func FindMiddlewareBySource(src Source) Handler {
+// FindMiddlewareBySource returns a middleware handler by source
+func FindMiddlewareBySource(src Source) MiddlewareHandler {
 	return handlers[src]
 }

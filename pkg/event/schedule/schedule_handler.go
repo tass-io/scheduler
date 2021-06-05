@@ -18,7 +18,7 @@ func Initial() {
 	sh = newScheduleHandler()
 	// NOTE: this is a helper register function,
 	// in order to avoid future modules causing "import cycles not allowed" error,
-	// they can still call this function.
+	// they can still call the registered function.
 	register.Register(func(fucntionName string, target int, trend, src string) {
 		event := source.ScheduleEvent{
 			FunctionName: fucntionName,
@@ -32,13 +32,8 @@ func Initial() {
 	event.Register(source.ScheduleSource, sh, 1, true)
 }
 
-// Source -> cold start 1
-// METRICS
-
-// TTL 2
-// QPS 3
-
-// scoreBoard stores different Source suggestions for the function and the function expected status
+// scoreBoard stores different Source suggestions for the function and the function expected status.
+// scoreBoard is a function-level object
 type scoreBoard struct {
 	lock sync.Locker
 	// bestWishes is the merged status of the schedule event,
@@ -48,6 +43,7 @@ type scoreBoard struct {
 	scores map[source.Source]source.ScheduleEvent
 }
 
+// newScoreBoard returns a new ScoreBoard object.
 func newScoreBoard(functionName string) scoreBoard {
 	return scoreBoard{
 		lock:       &sync.Mutex{},
@@ -56,7 +52,7 @@ func newScoreBoard(functionName string) scoreBoard {
 	}
 }
 
-// scoreBoard will see all event and make a decision.
+// scoreBoard records recent events and makes a decision.
 // It iterates over the input oders which have been sorted,
 // in each order, it takes a related item and do the merge action.
 // Finally, it decides the final "bestWish".
@@ -100,30 +96,35 @@ func (board *scoreBoard) Update(e source.ScheduleEvent) {
 // ScheduleHandler will handle all upstream Event for schedule process
 // all other handlers must convert their events to ScheduleEvent
 type ScheduleHandler struct {
-	event.Handler
+	event.EventHandler
 	lock       sync.Locker
 	upstream   chan source.ScheduleEvent
 	orders     []source.Source
 	scoreboard map[string]scoreBoard
 }
 
+// newScheduleHandler returns a new scheduler handler for a specific Function.
+// ScheduleHandler is the final handler in events, ScheduleHandler is a function-level function.
 func newScheduleHandler() *ScheduleHandler {
 	return &ScheduleHandler{
-		lock:       &sync.Mutex{},
+		lock: &sync.Mutex{},
 		// orders records the current Source items in an increasing order
-		orders:     nil,
+		orders: nil,
 		// upstream recieves all upstream ScheduleEvent
-		upstream:   make(chan source.ScheduleEvent, 1000),
+		upstream: make(chan source.ScheduleEvent, 1000),
 		// scoreboard records scoreBoards for functions in a workflow.
 		// the key is the function name
 		scoreboard: make(map[string]scoreBoard, 10),
 	}
 }
 
-var GetScheduleHandlerIns = func() event.Handler {
+// GetScheduleHandlerIns returns a scheduler handler for a Function
+var GetScheduleHandlerIns = func() event.EventHandler {
 	return sh
 }
 
+// AddEvent add a scheduler event for the ScheduleHandler
+// All kinds of events finally go to ScheduleHandler
 func (sh *ScheduleHandler) AddEvent(e interface{}) {
 	se, ok := e.(source.ScheduleEvent)
 	if !ok {
@@ -132,12 +133,13 @@ func (sh *ScheduleHandler) AddEvent(e interface{}) {
 	sh.upstream <- se
 }
 
+// GetSource returns Schedule Source
 func (sh *ScheduleHandler) GetSource() source.Source {
 	return source.ScheduleSource
 }
 
-// Start will create go routine to handle upstream ScheduleEvent.
-// store new upstream ScheduleEvent and trigger a Decide
+// Start creates a goroutine to handle upstream ScheduleEvent,
+// it stores new upstream ScheduleEvent and triggers a Decide
 func (sh *ScheduleHandler) Start() error {
 	zap.S().Debug("schedule handler start")
 	go func() {

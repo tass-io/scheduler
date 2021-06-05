@@ -9,14 +9,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/http/controller"
 )
 
-func prometheusHandler() gin.HandlerFunc {
-	h := promhttp.Handler()
-
-	return func(c *gin.Context) {
-		h.ServeHTTP(c.Writer, c.Request)
-	}
-}
-
+// RegisterRoute registers http routes
 func RegisterRoute(r *gin.Engine) {
 	r.Use(cors.New(cors.Config{
 		AllowMethods:     []string{"PUT", "POST", "GET", "DELETE"},
@@ -35,4 +28,12 @@ func RegisterRoute(r *gin.Engine) {
 		}
 	}
 	r.GET("/metrics", prometheusHandler())
+}
+
+func prometheusHandler() gin.HandlerFunc {
+	h := promhttp.Handler()
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
 }

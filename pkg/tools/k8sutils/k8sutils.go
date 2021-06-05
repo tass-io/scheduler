@@ -153,6 +153,7 @@ var GetWorkflowName = func() string {
 	return workflowName
 }
 
+// GetPatchClientIns returns the dynamicClient instance
 var GetPatchClientIns = func() dynamic.Interface {
 	return dynamicClient
 }
@@ -290,6 +291,7 @@ func InitFunctionInformer() {
 	go functionInformer.Run(make(<-chan struct{}))
 }
 
+// GetWorkflowByName returns a workflow instance by the input name
 func GetWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) {
 	zap.S().Debugw("get workflow name", "name", name, "keys", workflowInformer.GetStore().ListKeys())
 	key := GetSelfNamespace() + "/" + name
@@ -316,6 +318,7 @@ func GetWorkflowByName(name string) (*serverlessv1alpha1.Workflow, bool, error) 
 	return wf, true, nil
 }
 
+// GetWorkflowRuntimeByName returns a WorkflowRuntime instance by the input name
 func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime, bool, error) {
 	zap.S().Debugw("get workflowruntime name", "name", name, "keys", workflowRuntimeInformer.GetStore().ListKeys())
 	key := GetSelfNamespace() + "/" + name
@@ -343,6 +346,7 @@ func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime,
 	return wfrt, true, nil
 }
 
+// GetFunctionByName returns a Function instance by the input name
 func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) {
 	zap.S().Debugw("get workflowruntime name", "name", name, "keys", workflowRuntimeInformer.GetStore().ListKeys())
 	key := GetSelfNamespace() + "/" + name

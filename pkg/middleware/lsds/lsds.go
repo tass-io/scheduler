@@ -19,25 +19,31 @@ const (
 )
 
 var (
+	// lsdsmiddle is the basic middleware for local scheduler
+	// lsds is the short name for "local scheduler discovery service"
 	lsdsmiddle *LSDSMiddleware
 )
 
+// init initializes the lsds middleware
 func init() {
 	lsdsmiddle = newLSDSMiddleware()
 }
 
+// Register registers the lsds middleware as a priority of 2
 func Register() {
 	middleware.Register(LSDSMiddlewareSource, lsdsmiddle, 2)
 }
 
-// LSDSMiddleware will check fs status and use some policy to handle request, which make the request have chance to redirect to other Local Scheduler
-type LSDSMiddleware struct {
-}
+// LSDSMiddleware checks fs status and uses some policies to handle requests,
+// which make the requests have a chance to redirect to other Local Scheduler
+type LSDSMiddleware struct{}
 
+// newLSDSMiddleware return a lsds middleware
 func newLSDSMiddleware() *LSDSMiddleware {
 	return &LSDSMiddleware{}
 }
 
+// Handle receives a request and does lsds middleware logic
 func (lsds *LSDSMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 	lsdsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
 	lsdsSpan.Start("lsds")
@@ -74,6 +80,7 @@ func (lsds *LSDSMiddleware) Handle(sp *span.Span, body map[string]interface{}) (
 	return nil, middleware.Next, nil
 }
 
+// GetSource returns the middleware source
 func (lsds *LSDSMiddleware) GetSource() middleware.Source {
 	return LSDSMiddlewareSource
 }

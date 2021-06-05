@@ -183,7 +183,7 @@ func TestScheduleHandler(t *testing.T) {
 			schedule.GetScheduler = func() schedule.Scheduler {
 				return fake
 			}
-			GetScheduleHandlerIns = func() event.Handler {
+			GetScheduleHandlerIns = func() event.EventHandler {
 				return newScheduleHandler()
 			}
 			handlerIns := GetScheduleHandlerIns()

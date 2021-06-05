@@ -12,29 +12,38 @@ const (
 )
 
 var (
+	// staticmiddle is the static middleware that assumes some functions has been registered
+	// this middleware is a middleware to be convenient to test
 	staticmiddle *StaticMiddleware
 )
 
+// init initializes an instance of static middleware
 func init() {
 	staticmiddle = newStaticMiddleware()
 }
 
+// Register registers the static middleware as a priority of 1
 func Register() {
 	middleware.Register(StaticMiddlewareSource, staticmiddle, 1)
 }
 
-// StaticMiddleware will check fs status and use some policy to handle request, which make the request have chance to redirect to other Local Scheduler
-type StaticMiddleware struct {
-}
+// StaticMiddleware is a middleware to help testing
+type StaticMiddleware struct{}
 
+// newStaticMiddleware returns a new static middleware
 func newStaticMiddleware() *StaticMiddleware {
 	return &StaticMiddleware{}
 }
 
+// GetStaticMiddleware returns a static middleware instance
 func GetStaticMiddleware() *StaticMiddleware {
 	return staticmiddle
 }
 
+// Handle receives a request and does static middleware logic,
+// if it finds that the function not exists, it goes to lsds instance directly.
+// Because the piority of static middleware is higher than the piority of lsds middleware,
+// it can guarantee the function has been to other processes before the local execution.
 func (static *StaticMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 	staticSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
 	staticSpan.Start("static")
@@ -54,6 +63,7 @@ func (static *StaticMiddleware) Handle(sp *span.Span, body map[string]interface{
 	return nil, middleware.Next, nil
 }
 
+// GetSource returns the static middleware source
 func (static *StaticMiddleware) GetSource() middleware.Source {
 	return StaticMiddlewareSource
 }

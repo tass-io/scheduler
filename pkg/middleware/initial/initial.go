@@ -8,6 +8,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/middleware/static"
 )
 
+// Initial registers middleware of qps, static and lsds
 func Initial() {
 	if viper.GetBool(env.QPSMiddleware) {
 		qps.Register()
