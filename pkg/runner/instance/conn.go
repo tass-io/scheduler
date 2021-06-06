@@ -45,6 +45,7 @@ type FunctionRequest struct {
 	Parameters map[string]interface{} `json:"parameters"`
 }
 
+// NewFunctionRequest returns a new function request with unique id and parameters
 func NewFunctionRequest(id string, parameters map[string]interface{}) *FunctionRequest {
 	transfer, err := common.CopyMap(parameters)
 	if err != nil {
@@ -63,6 +64,7 @@ type FunctionResponse struct {
 	Result map[string]interface{}
 }
 
+// Producer waits for requests from request channel and put the data into the process
 type Producer struct {
 	f                  *os.File
 	demo               interface{}
@@ -70,15 +72,12 @@ type Producer struct {
 	startRoutineExited bool
 }
 
+// Consumer waits for responses and put the data into response channel
 type Consumer struct {
 	f               *os.File
 	demo            interface{}
 	responseChannel chan interface{}
 	noNewInfo       bool
-}
-
-func (c *Consumer) GetChannel() chan interface{} {
-	return c.responseChannel
 }
 
 // NewConsumer creates a new consumer data structure cantains a channel and an unnamed pipe
@@ -131,6 +130,10 @@ func (c *Consumer) Start() {
 					zap.S().Infow("consumer unmarshal error", "err", err, "item", item)
 					// take care of `{"s":"b"}littledrizzle{"n":`
 					// the item must be the last one
+					//
+					// NOTE: this case may never happen. In linux kernel implementation,
+					// a lock is required during read/write operations.
+					// Since all tests are passed, the code remains now.
 					tail = item
 					continue
 				}
@@ -144,12 +147,19 @@ func (c *Consumer) Start() {
 	}()
 }
 
+// GetChannel returns a consumer response channel
+func (c *Consumer) GetChannel() chan interface{} {
+	return c.responseChannel
+}
+
+// NoNewInfo returns wether the pipe have data waiting for dealing with in the response channel
 func (c *Consumer) NoNewInfo() bool {
 	return c.noNewInfo
 }
 
-// Consumer do nothing about Terminate
-// because the resp will get after kill desicion
+// Terminate closes the fd of the consumer response pipe
+// Consumer do nothing about channel when Terminate
+// because the resp will still be gotten after kill desicion
 func (c *Consumer) Terminate() {
 	c.f.Close()
 }
@@ -186,14 +196,17 @@ func (p *Producer) Start() {
 	}()
 }
 
+// Terminate closes producer request channel
 func (p *Producer) Terminate() {
 	close(p.requestChannel)
 }
 
+// GetChannel returns request producer channel
 func (p *Producer) GetChannel() chan interface{} {
 	return p.requestChannel
 }
 
+// NoNewInfo returns wether the producer channel is closed or not
 func (p *Producer) NoNewInfo() bool {
 	return p.startRoutineExited
 }

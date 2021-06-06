@@ -16,7 +16,10 @@ type FlowPromise struct {
 	err  error
 }
 
-func NewFlowPromise(f func(*span.Span, map[string]interface{}, *serverlessv1alpha1.Workflow) (map[string]interface{}, error), name string) *FlowPromise {
+// NewFlowPromise initializes a new FlowPromise
+func NewFlowPromise(f func(*span.Span, map[string]interface{},
+	*serverlessv1alpha1.Workflow) (map[string]interface{}, error), name string) *FlowPromise {
+
 	p := &FlowPromise{
 		f:    f,
 		name: name,
@@ -24,6 +27,7 @@ func NewFlowPromise(f func(*span.Span, map[string]interface{}, *serverlessv1alph
 	return p
 }
 
+// Run runs the function in FlowPromise and the result is recorded in res
 func (p *FlowPromise) Run(parameters map[string]interface{}, wf *serverlessv1alpha1.Workflow, sp *span.Span) {
 	p.wg.Add(1)
 	go func() {
@@ -32,6 +36,7 @@ func (p *FlowPromise) Run(parameters map[string]interface{}, wf *serverlessv1alp
 	}()
 }
 
+// GetResult waits for all Run functions
 func (p *FlowPromise) GetResult() (map[string]interface{}, error) {
 	p.wg.Wait()
 	return p.res, p.err
@@ -46,6 +51,7 @@ type CondPromise struct {
 	err  error
 }
 
+// NewCondPromise initializes a new CondPromise
 func NewCondPromise(f func(sp *span.Span, condition *serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) (map[string]interface{}, error), name string) *CondPromise {
 	p := &CondPromise{
 		f:    f,
@@ -54,6 +60,7 @@ func NewCondPromise(f func(sp *span.Span, condition *serverlessv1alpha1.Conditio
 	return p
 }
 
+// Run runs the function in CondPromise and the result is recorded in res
 func (p *CondPromise) Run(sp *span.Span, condition *serverlessv1alpha1.Condition, wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) {
 	p.wg.Add(1)
 	go func() {
@@ -62,6 +69,7 @@ func (p *CondPromise) Run(sp *span.Span, condition *serverlessv1alpha1.Condition
 	}()
 }
 
+// GetResult waits for all Run functions
 func (p *CondPromise) GetResult() (map[string]interface{}, error) {
 	p.wg.Wait()
 	return p.res, p.err

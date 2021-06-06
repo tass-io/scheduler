@@ -39,7 +39,8 @@ func Invoke(c *gin.Context) {
 		}
 	}()
 	zap.S().Debugw("get spanContext", "context", spanContext)
-	sp := span.NewSpan(request.WorkflowName, request.FlowName, "") // functionName can find in the Workflow model
+	// functionName can be found in the Workflow model
+	sp := span.NewSpan(request.WorkflowName, request.FlowName, "")
 	sp.SetRoot(spanContext)
 	sp.SetParent(spanContext)
 	result, err := workflow.GetManagerIns().Invoke(sp, request.Parameters)

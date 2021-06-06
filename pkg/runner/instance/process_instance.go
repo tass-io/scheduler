@@ -44,6 +44,7 @@ func defaultPolicyfunc(i *processInstance) int {
 }
 
 // processInstance records the status of the process instance.
+// this struct implements all methods in Instance interface
 type processInstance struct {
 	startTime    time.Time
 	uuid         string
@@ -72,6 +73,11 @@ func (i *processInstance) Score() int {
 	return policies[policyName](i)
 }
 
+// NewProcessInstance creates a new process status structure.
+// It contains the start time of the process, the unique uuid, function name and other information.
+// Note that the initialization of the process does not init a new process,
+// it only prepares useful information for the process.
+// Start function creates the real process.
 func NewProcessInstance(functionName string) *processInstance {
 	function, existed, err := k8sutils.GetFunctionByName(functionName)
 	if err != nil {
@@ -94,6 +100,7 @@ func NewProcessInstance(functionName string) *processInstance {
 	}
 }
 
+// newPipe creates a unnamed pipe and returns a read fd and write fd if no error.
 func newPipe() (*os.File, *os.File, error) {
 	read, write, err := os.Pipe()
 	if err != nil {
@@ -128,6 +135,7 @@ func (i *processInstance) Start() (err error) {
 	return
 }
 
+// startListen ranges the consumer channels and records the response data.
 func (i *processInstance) startListen() {
 	go func() {
 		for respRaw := range i.consumer.GetChannel() {
@@ -137,7 +145,7 @@ func (i *processInstance) startListen() {
 	}()
 }
 
-// start function process and use pipe create connection
+// startProcess starts function process and uses pipe to build a connection
 // todo customize the command
 func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
 	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName,
@@ -165,6 +173,7 @@ func (i *processInstance) startProcess(request *os.File, response *os.File, func
 	return
 }
 
+// handleCmdExit cleans the process when recieves a exit code
 func (i *processInstance) handleCmdExit() {
 	err := i.cmd.Wait()
 	if err != nil {
@@ -194,16 +203,17 @@ func (i *processInstance) Release() {
 	i.cleanUp()
 }
 
+// IsRunning returns wether a process is running
 func (i *processInstance) IsRunning() bool {
 	return i.Status == Running
 }
 
-// cleanUp will be used at processInstance exception or graceful shut down
+// cleanUp is used at processInstance exception or graceful shut down
 func (i *processInstance) cleanUp() {
 	i.producer.Terminate()
 }
 
-// Invoke will generate a functionRequest and will block until the function return the result
+// Invoke generates a functionRequest and is blocked until the function return the result
 // Invoke is a process-level invoke
 func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[string]interface{}, err error) {
 	if i.Status != Running {
@@ -221,10 +231,12 @@ func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[
 	return
 }
 
+// getWaitNum returns the number of response data waiting for dealing with in responseMapping
 func (i *processInstance) getWaitNum() int {
 	return len(i.responseMapping)
 }
 
+// HasRequests returns the number of requests working in process
 func (i *processInstance) HasRequests() bool {
 	return len(i.responseMapping) > 0
 }

@@ -1,10 +1,13 @@
 package schedule
 
-// Scheduler will adjust function instances num with upstream expectation
+// Scheduler adjusts function instances number with upstream events
 type Scheduler interface {
 	Refresh(functionName string, target int)
 }
 
+// GetScheduler returns a Scheduler
+// Note that the function scheduler implements runner.Runner and schedule.Scheduler interface,
+// This method is expected to be easy to change when testing
 var GetScheduler = func() Scheduler {
 	return nil
 }
