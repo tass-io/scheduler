@@ -29,7 +29,7 @@ func TraceInit() {
 
 	_, err := cfg.InitGlobalTracer("tass") // closer ignore here, Assuming it doesn't close until the pod gets killed
 	if err != nil {
-		panic(err)
+		zap.S().Panic(err)
 	}
 }
 

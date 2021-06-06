@@ -107,7 +107,7 @@ func (span *Span) SetParent(parent opentracing.SpanContext) {
 // Start starts a Span, use sync.Once to make sure it only start once
 func (span *Span) Start(name string) {
 	if span.sp != nil {
-		panic(span)
+		zap.S().Panic(span)
 	}
 
 	span.startOnce.Do(func() {

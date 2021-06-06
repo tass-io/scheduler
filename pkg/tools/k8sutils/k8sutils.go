@@ -75,7 +75,7 @@ func wrapObjects(objs []runtime.Object) []runtime.Object {
 		} else {
 			ustdata, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 			if err != nil {
-				panic(err)
+				zap.S().Panic(err)
 			}
 			ust := &unstructured.Unstructured{
 				Object: ustdata,
@@ -118,7 +118,7 @@ func Prepare() {
 		WithInjectData(&objects)
 		zap.S().Infow("get objects", "objects", objects)
 		if err := serverlessv1alpha1.AddToScheme(scheme); err != nil {
-			panic(err)
+			zap.S().Panic(err)
 		}
 		// objects = wrapObjects(objects)
 		for _, obj := range objects {
@@ -130,14 +130,14 @@ func Prepare() {
 		hostName, _ := os.Hostname()
 		sli := strings.Split(hostName, "-")
 		if len(sli) < 3 {
-			panic(sli)
+			zap.S().Panic(sli)
 		}
 		workflowName = strings.Join(sli[:len(sli)-2], "-")
 		selfName = strings.Join(sli[len(sli)-2:], "-")
 
 		config, err := rest.InClusterConfig()
 		if err != nil {
-			panic(err)
+			zap.S().Panic(err)
 		}
 		dynamicClient = dynamic.NewForConfigOrDie(config)
 

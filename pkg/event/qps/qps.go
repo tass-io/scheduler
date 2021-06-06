@@ -40,7 +40,7 @@ func newQPSHandler() *QPSHandler {
 
 // noone should use it, because the qps handler pulls the middleware QPSMiddleware periodly
 func (handler *QPSHandler) AddEvent(e interface{}) {
-	panic("do not use QPSHandler.AddEvent")
+	zap.S().Panic("do not use QPSHandler.AddEvent")
 }
 
 // GetSource returns QPSSource
