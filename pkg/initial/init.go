@@ -138,6 +138,7 @@ func codeExec(functionName string, environment string) {
 	default:
 		{
 			zap.S().Error("init exec with unsupport environment")
+			os.Exit(5)
 		}
 	}
 }

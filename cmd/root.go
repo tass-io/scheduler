@@ -58,7 +58,7 @@ var (
 				if err == http.ErrServerClosed {
 					zap.S().Info("Server closed under request")
 				} else {
-					zap.S().Error("Server closed unexpect")
+					zap.S().Errorw("Server closed unexpect", "err", err)
 				}
 			}
 		},
@@ -82,10 +82,12 @@ func basicFlagInit() {
 	viper.BindPFlag(env.RemoteCallPolicy, rootCmd.Flags().Lookup(env.RemoteCallPolicy))
 	rootCmd.Flags().StringP(env.SelfName, "s", "ubuntu", "if local is true, it is used to set selfName")
 	viper.BindPFlag(env.SelfName, rootCmd.Flags().Lookup(env.SelfName))
-	rootCmd.Flags().StringP(env.WorkflowPath, "w", "./workflow.yaml", "if local is true, it is used to init workflow by file")
+	rootCmd.Flags().StringP(env.WorkflowPath, "w", "./workflow.yaml", "if local is true, it is used to init Workflow by file")
 	viper.BindPFlag(env.WorkflowPath, rootCmd.Flags().Lookup(env.WorkflowPath))
-	rootCmd.Flags().StringP(env.WorkflowRuntimeFilePath, "r", "./workflowruntime.yaml", "if local is true, it is used to init workflow runtime by file")
+	rootCmd.Flags().StringP(env.WorkflowRuntimeFilePath, "r", "./workflowruntime.yaml", "if local is true, it is used to init WorkflowRuntime by file")
 	viper.BindPFlag(env.WorkflowRuntimeFilePath, rootCmd.Flags().Lookup(env.WorkflowRuntimeFilePath))
+	rootCmd.Flags().StringSliceP(env.FuntionsPath, "f", []string{}, "if local is true, it is used to init Function by file")
+	viper.BindPFlag(env.FuntionsPath, rootCmd.Flags().Lookup(env.FuntionsPath))
 	rootCmd.Flags().DurationP(env.LSDSWait, "t", 200*time.Millisecond, "lsds wait a period of time for instance start")
 	viper.BindPFlag(env.LSDSWait, rootCmd.Flags().Lookup(env.LSDSWait))
 	rootCmd.Flags().BoolP(env.Mock, "m", false, "whether to use mock instance")
