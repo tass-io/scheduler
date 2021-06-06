@@ -81,7 +81,7 @@ func (board *scoreBoard) Decide(functionName string, orders []source.Source) *so
 		}
 	}
 	origin.Merge(board.bestWishes)
-	board.bestWishes = origin
+	*board.bestWishes = *origin
 	zap.S().Debugw("board after decide", "wishes", board.bestWishes)
 	return origin
 }

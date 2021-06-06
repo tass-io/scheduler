@@ -53,7 +53,7 @@ func TestScheduleHandler(t *testing.T) {
 				return []source.Source{"First"}
 			},
 			exceptResult: map[string]int{
-				"a": 1,
+				"a": 2,
 			},
 		},
 		{
