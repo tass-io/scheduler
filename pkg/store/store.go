@@ -19,6 +19,7 @@ var (
 	once      = &sync.Once{}
 )
 
+// getrdb initializes a redis client
 func getrdb() *redis.Client {
 	once.Do(func() {
 		zap.S().Debugw("get redis config from viper", "addr", viper.GetString(env.RedisIp)+":"+viper.GetString(env.RedisPort))

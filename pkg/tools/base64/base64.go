@@ -7,12 +7,13 @@ import (
 	"os"
 )
 
+// EncodeUserCode encodes the user code into base64
 func EncodeUserCode(name string) (string, error) {
 	f, err := os.Open(name)
 	if err != nil {
 		return "", err
 	}
-	// Read entire JPG into byte slice.
+	// Read entire file into byte slice.
 	reader := bufio.NewReader(f)
 	content, err := ioutil.ReadAll(reader)
 	if err != nil {

@@ -24,6 +24,8 @@ type Span struct {
 	finishOnce   *sync.Once
 }
 
+// NewSpan returns a new span with the input function.
+// Note that you should set root and parent by yourself.
 func NewSpan(workflowName string, flowName string, functioName string) *Span {
 	return &Span{
 		workflowName: workflowName,
@@ -102,6 +104,7 @@ func (span *Span) SetParent(parent opentracing.SpanContext) {
 	span.parent = parent
 }
 
+// Start starts a Span, use sync.Once to make sure it only start once
 func (span *Span) Start(name string) {
 	if span.sp != nil {
 		panic(span)
@@ -119,7 +122,8 @@ func (span *Span) Start(name string) {
 	})
 }
 
-// luanlunlaide
+// StartFromRoot starts a Span,
+// this a special case that the span is child of the root
 func (span *Span) StartFromRoot(name string) {
 	spanName := name
 	if span.root == nil {
@@ -131,6 +135,7 @@ func (span *Span) StartFromRoot(name string) {
 	span.sp = opentracing.StartSpan(spanName, opentracing.ChildOf(span.root))
 }
 
+// Finish ends a span, use sync.Once to make sure it only finish once
 func (span *Span) Finish() {
 	if span.sp == nil {
 		// todo check
@@ -141,6 +146,7 @@ func (span *Span) Finish() {
 	})
 }
 
+// InjectRoot injects root span into http header
 func (span *Span) InjectRoot(header http.Header) {
 	if span.root == nil {
 		return

@@ -20,9 +20,9 @@ import (
 	"go.uber.org/zap"
 )
 
-var InvalidTargetError error = errors.New("no valid target")
+var ErrInvalidTarget error = errors.New("no valid target")
 
-// Policy will return the ip we choose to send request.
+// Policy returns the ip we choose to send request.
 type Policy func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string
 
 var (
@@ -30,18 +30,9 @@ var (
 	once = &sync.Once{}
 )
 
-func LDSinit() {
-	// todo context thinking
-	lsds = NewLSDS(context.Background())
-}
-
-func GetLSDSIns() *LSDS {
-	once.Do(LDSinit)
-	return lsds
-}
-
-// LSDS is the short of Local Scheduler Discovery Service, which maintains own information and sync to apiserver
-// and get other Local Scheduler info for remote request
+// LSDS is the short of Local Scheduler Discovery Service,
+// which maintains own information and syncs to apiserver
+// and gets other Local Scheduler info for remote request
 type LSDS struct {
 	runner.Runner
 	ctx          context.Context
@@ -52,7 +43,23 @@ type LSDS struct {
 	policies     map[string]Policy
 }
 
-var SimplePolicy Policy = func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string {
+// LSDSinit initializes a new lsds instance, which implements the runner.Runner interface
+func LSDSinit() {
+	// todo context thinking
+	lsds = NewLSDS(context.Background())
+}
+
+// GetLSDSIns returns a lsds instance
+func GetLSDSIns() *LSDS {
+	once.Do(LSDSinit)
+	return lsds
+}
+
+// SimplePolicy is the basic policy for lsds finds a new pod ip for the request.
+// SimplePolicy iterates all pods info in WorkflowRuntime and
+// chooses the pod which has the most processes of the input function
+var SimplePolicy Policy = func(
+	functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string {
 	var target string
 	max := 0
 	for i, instance := range runtime.Spec.Status.Instances {
@@ -73,6 +80,7 @@ var SimplePolicy Policy = func(functionName string, selfName string, runtime *se
 	return ""
 }
 
+// NewLSDS returns a new lsds instance
 // client is a parameter because we will use mockclient to test
 func NewLSDS(ctx context.Context) *LSDS {
 	lsds := &LSDS{
@@ -89,10 +97,12 @@ func NewLSDS(ctx context.Context) *LSDS {
 	return lsds
 }
 
+// getWorkflowRuntimeByName returns the WorkflowRuntime by the input name via k8s client
 func (l *LSDS) getWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime, bool, error) {
 	return k8sutils.GetWorkflowRuntimeByName(name)
 }
 
+// chooseTarget returns the chosen ip by policy that lsds will use to send a request
 func (l *LSDS) chooseTarget(functionName string) (ip string) {
 	l.lock.Lock()
 	defer l.lock.Unlock()
@@ -111,12 +121,12 @@ func (l *LSDS) chooseTarget(functionName string) (ip string) {
 	return
 }
 
-// LDS Start to watch other Local Scheduler Info
-// todo deprecated
+// start starts lsds to watch other Local Scheduler Info
+// FIXME: deprecated
 func (l *LSDS) start() {
 }
 
-// send request to other LocalScheduler
+// WorkflowRequest sends a request to other LocalScheduler
 func WorkflowRequest(sp *span.Span, parameters map[string]interface{}, target string) (dto.InvokeResponse, error) {
 	client := &http.Client{}
 	invokeRequest := dto.InvokeRequest{
@@ -134,6 +144,7 @@ func WorkflowRequest(sp *span.Span, parameters map[string]interface{}, target st
 		zap.S().Errorw("workflow request request error", "err", err)
 		return dto.InvokeResponse{}, err
 	}
+	// so the span has same level span in two local scheduler
 	sp.InjectRoot(req.Header)
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := client.Do(req)
@@ -152,11 +163,11 @@ func WorkflowRequest(sp *span.Span, parameters map[string]interface{}, target st
 	return invokeResp, nil
 }
 
-// find a suitable pod to send http request with
+// Run finds a suitable pod to send a http request
 func (l *LSDS) Run(sp *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
 	target := l.chooseTarget(sp.GetFunctionName())
 	if target == "" {
-		return nil, InvalidTargetError
+		return nil, ErrInvalidTarget
 	}
 	resp, err := WorkflowRequest(sp, parameters, target)
 	if err != nil {
@@ -166,7 +177,7 @@ func (l *LSDS) Run(sp *span.Span, parameters map[string]interface{}) (result map
 	return resp.Result, nil
 }
 
-// LSDS Stats will return own stats in the serverlessv1alpha1.WorkflowRuntime
+// Stats returns lsds own stats in the serverlessv1alpha1.WorkflowRuntime
 func (l *LSDS) Stats() runner.InstanceStatus {
 	wfrt, existed, err := l.getWorkflowRuntimeByName(l.workflowName)
 	if err != nil {

@@ -24,6 +24,8 @@ var (
 	}
 )
 
+// DefaultCanCreatePolicy is a policy to judge whether to create a new process or not
+// DefaultCanCreatePolicy always returns true
 func DefaultCanCreatePolicy() bool {
 	return true
 }
@@ -43,6 +45,8 @@ func FunctionSchedulerInit() {
 		}
 	}
 	fs = newFunctionScheduler()
+	// schedule.Register and helper.Register are all for decouple the logic
+	// so it can be easy to test
 	schedule.Register(func() schedule.Scheduler {
 		return fs
 	})
@@ -52,10 +56,11 @@ func FunctionSchedulerInit() {
 	go fs.sync()
 }
 
-// FunctionScheduler implements Runner and Scheduler
+// FunctionScheduler implements Runner and Scheduler interface
 type FunctionScheduler struct {
 	sync.Locker
 	runner.Runner
+	schedule.Scheduler
 	instances map[string]*set
 	trigger   chan struct{}
 }
@@ -122,6 +127,8 @@ func (s *set) Stats() int {
 	return s.stats()
 }
 
+// Scale reads the target and does process-level scaling.
+// It's called when Refresh
 func (s *set) Scale(target int, functionName string) {
 	s.Lock()
 	defer s.Unlock()
@@ -161,7 +168,6 @@ func (s *set) Scale(target int, functionName string) {
 		// scale up
 		for i := 0; i < target-l; i++ {
 			if fs.canCreate() {
-
 				newIns := NewInstance(functionName)
 				zap.S().Infow("function scheduler creates instance", "instance", newIns)
 				err := newIns.Start()
@@ -176,6 +182,7 @@ func (s *set) Scale(target int, functionName string) {
 	}
 }
 
+// newSet returns a new set for the input function
 func newSet(functionName string) *set {
 	return &set{
 		Locker:       &sync.Mutex{},
@@ -196,6 +203,9 @@ func newFunctionScheduler() *FunctionScheduler {
 	}
 }
 
+// Refresh refreshes information of instances and does scaling.
+// Everytime when ScheduleHandler recieves a new event for upstream,
+// it decides the status of the instance, and calls Refresh.
 func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 	zap.S().Debugw("refresh")
 	fs.Lock()
@@ -229,8 +239,8 @@ func (fs *FunctionScheduler) canCreate() bool {
 	return canCreatePolicies[viper.GetString(env.CreatePolicy)]()
 }
 
-// FunctionScheduler.Run will choose a target instance to run
-// now with middleware and events, fs run will be simplified
+// Run chooses a target instance to run
+// now with middleware and events, fs run can be simplified
 func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
 	fs.Lock()
 	functionName := span.GetFunctionName()
@@ -263,13 +273,14 @@ func ChooseTargetInstance(instances []instance.Instance) (target instance.Instan
 	return
 }
 
-// add test inject point here
+// NewInstance creates a new process instance.
+// This method is extracted as a helper function to mock instance creation in test injection.
 var NewInstance = func(functionName string) instance.Instance {
 	return instance.NewProcessInstance(functionName)
 }
 
 // Stats records the instances status that fnscheduler manages.
-// it returns a map which the key is function name and the value is process instance number
+// it returns a InstanceStatus map which the key is function name and the value is process number
 func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	stats := runner.InstanceStatus{}
 	fs.Lock()

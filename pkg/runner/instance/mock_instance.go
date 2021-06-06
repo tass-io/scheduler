@@ -2,6 +2,7 @@ package instance
 
 import "github.com/tass-io/scheduler/pkg/tools/common"
 
+// mockInstance mocks a process implementing the Instance interface
 type mockInstance struct {
 	functionName  string
 	released      bool

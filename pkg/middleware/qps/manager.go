@@ -13,28 +13,35 @@ const (
 )
 
 var (
+	// qpsmiddle is the middleware for statisticsis
 	qpsmiddle *QPSMiddleware
 )
 
+// init initializes the qps middleware
 func init() {
 	qpsmiddle = newQPSMiddleware()
 }
 
+// Register registers the qps middleware as a priority of 2
 func Register() {
 	middleware.Register(QPSMiddlewareSource, qpsmiddle, 3)
 }
 
-// StaticMiddleware will check fs status and use some policy to handle request, which make the request have chance to redirect to other Local Scheduler
+// qpsmiddle is the middleware for statisticsis,
+// it only does some statisticsis for different functions,
+// it does nothing about Event adding
 type QPSMiddleware struct {
 	qpsManagers sync.Map
 }
 
+// newQPSMiddleware returns a new QPS middleware
 func newQPSMiddleware() *QPSMiddleware {
 	return &QPSMiddleware{
 		qpsManagers: sync.Map{},
 	}
 }
 
+// GetQPSMiddleware returns the QPS middleware instance
 func GetQPSMiddleware() *QPSMiddleware {
 	return qpsmiddle
 }
@@ -52,11 +59,12 @@ func (qps *QPSMiddleware) Handle(sp *span.Span, body map[string]interface{}) (ma
 	return nil, middleware.Next, nil
 }
 
+// GetSource returns the QPS middleware source
 func (qps *QPSMiddleware) GetSource() middleware.Source {
 	return QPSMiddlewareSource
 }
 
-// GetStat returns the qps number of each function
+// GetStat returns the qps number of each function which is concurrency safe.
 func (qps *QPSMiddleware) GetStat() map[string]int64 {
 	stats := map[string]int64{}
 	qps.qpsManagers.Range(func(key, value interface{}) bool {

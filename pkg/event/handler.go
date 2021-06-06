@@ -7,39 +7,43 @@ import (
 )
 
 var (
-	// handlers will record all Handlers has registered
-	handlers = make(map[source.Source]Handler)
-	// orderOrigin will record all Handlers in different level
-	orderOrigin = make(map[int][]Handler)
-	// deleted store the policy about Decide
-	// if a event has used, whether the board should delete it
+	// handlers records all event Handlers has registered
+	handlers = make(map[source.Source]EventHandler)
+	// orderOrigin is an inverted map which records all event Handlers in different level
+	orderOrigin = make(map[int][]EventHandler)
+	// deleted stores the policy about Decide
+	// it indicates that if a event has been used, whether it should be delete by the board
 	deleted = make(map[source.Source]bool)
 )
 
-// event Handler for async handle like cold start
-type Handler interface {
+// EventHandler for async handle like cold start, scale up and down...
+type EventHandler interface {
 	AddEvent(interface{})
 	GetSource() source.Source
 	Start() error
 }
 
-// HandlerRegister point
-func Register(source source.Source, handler Handler, order int, delete bool) {
+// Register is the point for HandlerRegister
+// it registers:
+// 1. Source and hander function in handlers map
+// 2. Put handler into the orderOrigin map according to the input "order"
+func Register(source source.Source, handler EventHandler, order int, delete bool) {
 	handlers[source] = handler
 	level, existed := orderOrigin[order]
 	if !existed {
-		level = []Handler{}
+		level = []EventHandler{}
 	}
 	level = append(level, handler)
 	orderOrigin[order] = level
 	deleted[source] = delete
 }
 
-var Events = func() map[source.Source]Handler {
+// Events returns the handlers map that stores the Source and its handler
+var Events = func() map[source.Source]EventHandler {
 	return handlers
 }
 
-// Orders returns a slice of Source in increasing order
+// Orders returns a slice of Source in increasing order.
 var Orders = func() []source.Source {
 	keys := make([]int, 0, len(orderOrigin))
 	handlers := make([]source.Source, 0, len(orderOrigin))
@@ -56,10 +60,12 @@ var Orders = func() []source.Source {
 	return handlers
 }
 
+// NeedDelete returns whether the event(the kind is Source) should be deleted after using
 func NeedDelete(source source.Source) bool {
 	return deleted[source]
 }
 
-func FindEventHandlerBySource(src source.Source) Handler {
+// FindEventHandlerBySource returns the function handler for the given source
+func FindEventHandlerBySource(src source.Source) EventHandler {
 	return handlers[src]
 }

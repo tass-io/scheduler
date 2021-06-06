@@ -21,14 +21,11 @@ func Initial() {
 type MetricsHandler struct {
 	channel        chan source.ScheduleEvent
 	// metricsSources is the map of functions,
-	// each function has a map of ScheduleEvent for different source
+	// each function has a map of ScheduleEvent for different Source
 	metricsSources map[string]map[source.Source]source.ScheduleEvent
 }
 
-var GetMetricsHandlerIns = func() event.Handler {
-	return metricsHandler
-}
-
+// newMetricsHandler returns a new Metrics handler.
 func newMetricsHandler() *MetricsHandler {
 	return &MetricsHandler{
 		channel:        make(chan source.ScheduleEvent, 100),
@@ -36,11 +33,18 @@ func newMetricsHandler() *MetricsHandler {
 	}
 }
 
+// GetMetricsHandlerIns returns the current metrics handler
+var GetMetricsHandlerIns = func() event.EventHandler {
+	return metricsHandler
+}
+
+// AddEvent provides a way to add a metric event to trigger the metrics handler
 func (handler *MetricsHandler) AddEvent(e interface{}) {
 	event := e.(source.ScheduleEvent)
 	handler.channel <- event
 }
 
+// GetSource returns metrics source.
 func (handler *MetricsHandler) GetSource() source.Source {
 	return source.MetricsSource
 }
@@ -64,7 +68,7 @@ func (handler *MetricsHandler) Start() error {
 	return nil
 }
 
-// decide considers the qps and ttl events both, and sends a final decision to ScheduleHandler
+// decide considers the qps and ttl events both, and sends a final decision event to ScheduleHandler
 func (handler *MetricsHandler) decide(functionName string) {
 	sources := handler.metricsSources[functionName]
 	qps, qpsexisted := sources[source.QPSSource]

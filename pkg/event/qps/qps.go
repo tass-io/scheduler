@@ -19,35 +19,40 @@ func Initial() {
 	_ = qpsHandler.Start()
 }
 
-// QPSHandler
+// QPSHandler is a status of the current function calling status.
 type QPSHandler struct {
 	// qpsMap is a statistics of function and number of calls
+	// the key is the function name and the value is the number of calls
 	qpsMap map[string]int64
 }
 
-var GetQPSHandlerIns = func() event.Handler {
+// GetQPSHandlerIns returns a QPSHandler instance
+var GetQPSHandlerIns = func() event.EventHandler {
 	return qpsHandler
 }
 
+// newQPSHandler creates a new QPSHandler
 func newQPSHandler() *QPSHandler {
 	return &QPSHandler{
 		qpsMap: make(map[string]int64),
 	}
 }
 
-// noone will use it, because the handler will poll middleware QPSMiddleware
+// noone should use it, because the qps handler pulls the middleware QPSMiddleware periodly
 func (handler *QPSHandler) AddEvent(e interface{}) {
 	panic("do not use QPSHandler.AddEvent")
 }
 
+// GetSource returns QPSSource
 func (handler *QPSHandler) GetSource() source.Source {
 	return source.QPSSource
 }
 
 // Start starts a QPSHandler.
-// QPSHandler consider the performance impact, so when the request goes to QPSMiddleware,
-// it only does some info records and does nothing on events adding.
+// QPSHandler considers the performance impact, so when the request goes to QPSMiddleware,
+// it only does some info recording and does nothing on events adding.
 // Instead, QPSHandler pulls the QPSMiddleware periodly and sends events to MetricsHandler
+// By default, the pulling cycle is one second
 func (handler *QPSHandler) Start() error {
 	go func() {
 		middlewareRaw := middleware.FindMiddlewareBySource(qps.QPSMiddlewareSource)
