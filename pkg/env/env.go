@@ -7,6 +7,7 @@ const (
 	Port                    = "port"
 	WorkflowRuntimeFilePath = "workflowRuntimeFilePath"
 	WorkflowPath            = "workflowPath"
+	FuntionsPath            = "functionPath"
 	WorkflowName            = "workflowName"
 	SelfName                = "selfName"
 	Environment             = "Environment"

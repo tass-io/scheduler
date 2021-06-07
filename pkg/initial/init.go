@@ -39,8 +39,7 @@ var (
 func functionInit(functionName string) {
 	codeBase64, err := store.Get(k8sutils.GetSelfNamespace(), functionName)
 	if err != nil {
-		zap.S().Errorw("get function content error", "err", err)
-		panic(err)
+		zap.S().Panicw("get function content error", "err", err)
 	}
 	codePrepareAndExec(codeBase64, functionName, viper.GetString(env.Environment))
 }
@@ -59,39 +58,32 @@ func codePrepare(code string) {
 	codeZipPath := codePath + "/code.zip"
 	err := os.MkdirAll(directoryPath, 0777)
 	if err != nil {
-		zap.S().Errorw("code prepare mkdir all error", "err", err)
-		panic(err)
+		zap.S().Panicw("code prepare mkdir all error", "err", err)
 	}
 
 	err = os.Mkdir(codePath, 0777)
 	if err != nil {
-		zap.S().Errorw("code prepare mkdir error", "err", err)
-		panic(err)
+		zap.S().Panicw("code prepare mkdir error", "err", err)
 	}
 
 	dec, err := base64.StdEncoding.DecodeString(code)
 	if err != nil {
-		zap.S().Errorw("init base64 decode error", "err", err)
-		panic(err)
+		zap.S().Panicw("init base64 decode error", "err", err)
 	}
 	f, err := os.Create(codeZipPath)
 	if err != nil {
-		zap.S().Errorw("code prepare create error", "err", err)
-		panic(err)
+		zap.S().Panicw("code prepare create error", "err", err)
 	}
 	if _, err := f.Write(dec); err != nil {
-		zap.S().Errorw("init write error", "err", err)
-		panic(err)
+		zap.S().Panicw("init write error", "err", err)
 	}
 	if err := f.Sync(); err != nil {
-		zap.S().Errorw("init sync error", "err", err)
-		panic(err)
+		zap.S().Panicw("init sync error", "err", err)
 	}
 	_ = f.Close()
 	filepaths, err := unzip(codeZipPath, codePath)
 	if err != nil {
-		zap.S().Errorw("init unzip error", "err", err)
-		panic(err)
+		zap.S().Panicw("init unzip error", "err", err)
 	}
 	zap.S().Infow("unzip user code", "filepath", filepaths)
 }
@@ -138,6 +130,7 @@ func codeExec(functionName string, environment string) {
 	default:
 		{
 			zap.S().Error("init exec with unsupport environment")
+			os.Exit(5)
 		}
 	}
 }

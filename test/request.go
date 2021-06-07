@@ -17,7 +17,7 @@ func RequestJson(url string, method string, headers map[string]string, param int
 	req, err := http.NewRequest(method, url, strings.NewReader(string(jsonByte)))
 
 	if err != nil {
-		panic(err)
+		zap.S().Panic(err)
 	}
 	req.Header.Add("Content-Type", "application/json")
 	for key, val := range headers {
@@ -32,12 +32,12 @@ func RequestJson(url string, method string, headers map[string]string, param int
 
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		panic(err)
+		zap.S().Panic(err)
 	}
 	zap.S().Debugw("get body", "body", string(body))
 	err = json.Unmarshal(body, bodyStruct)
 	if err != nil {
-		panic(err)
+		zap.S().Panic(err)
 	}
 	return res.StatusCode, nil
 }

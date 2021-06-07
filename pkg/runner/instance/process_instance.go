@@ -14,6 +14,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"go.uber.org/zap"
 )
 
@@ -61,6 +62,7 @@ type processInstance struct {
 	// The key of the map is the request id.
 	responseMapping map[string]chan map[string]interface{}
 	cmd             *exec.Cmd
+	cleanOnce       *sync.Once
 }
 
 // Score returns the score of the Process.
@@ -97,6 +99,7 @@ func NewProcessInstance(functionName string) *processInstance {
 		memory:          function.Spec.Resource.ResourceMemory,
 		environment:     string(function.Spec.Environment),
 		responseMapping: make(map[string]chan map[string]interface{}, 10),
+		cleanOnce:       &sync.Once{},
 	}
 }
 
@@ -111,6 +114,7 @@ func newPipe() (*os.File, *os.File, error) {
 
 // Start inits and starts producer/consumer, and starts the real work process
 func (i *processInstance) Start() (err error) {
+	zap.S().Debugw("process start")
 	i.lock.Lock()
 	defer i.lock.Unlock()
 	i.Status = Init
@@ -193,6 +197,7 @@ func (i *processInstance) handleCmdExit() {
  *  6. when main consumer get eof about response, all things have been done.
  */
 func (i *processInstance) Release() {
+	zap.S().Debugw("instance release", "id", i.uuid)
 	i.lock.Lock()
 	defer i.lock.Unlock()
 	i.Status = Terminating
@@ -210,7 +215,9 @@ func (i *processInstance) IsRunning() bool {
 
 // cleanUp is used at processInstance exception or graceful shut down
 func (i *processInstance) cleanUp() {
-	i.producer.Terminate()
+	i.cleanOnce.Do(func() {
+		i.producer.Terminate()
+	})
 }
 
 // Invoke generates a functionRequest and is blocked until the function return the result

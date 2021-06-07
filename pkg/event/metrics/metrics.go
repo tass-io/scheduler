@@ -19,7 +19,7 @@ func Initial() {
 
 // MetricsHandler is the handler for metrics events.
 type MetricsHandler struct {
-	channel        chan source.ScheduleEvent
+	channel chan source.ScheduleEvent
 	// metricsSources is the map of functions,
 	// each function has a map of ScheduleEvent for different Source
 	metricsSources map[string]map[source.Source]source.ScheduleEvent
@@ -77,7 +77,7 @@ func (handler *MetricsHandler) decide(functionName string) {
 	trend := source.None
 
 	if !qpsexisted {
-		zap.S().Infow("metrics handler final desicion", "desicion", ttl)
+		zap.S().Infow("ttl handler ttl single final desicion", "desicion", ttl)
 		event.FindEventHandlerBySource(source.ScheduleSource).AddEvent(source.ScheduleEvent{
 			FunctionName: ttl.FunctionName,
 			Target:       ttl.Target,
@@ -88,7 +88,7 @@ func (handler *MetricsHandler) decide(functionName string) {
 	}
 
 	if !ttlexisted {
-		zap.S().Infow("metrics handler final desicion", "desicion", qps)
+		zap.S().Infow("metrics handler qps single final desicion", "desicion", qps)
 		event.FindEventHandlerBySource(source.ScheduleSource).AddEvent(source.ScheduleEvent{
 			FunctionName: qps.FunctionName,
 			Target:       qps.Target,

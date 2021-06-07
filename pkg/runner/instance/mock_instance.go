@@ -1,6 +1,10 @@
 package instance
 
-import "github.com/tass-io/scheduler/pkg/tools/common"
+import (
+	"github.com/tass-io/scheduler/pkg/tools/common"
+	_ "github.com/tass-io/scheduler/pkg/tools/log"
+	"go.uber.org/zap"
+)
 
 // mockInstance mocks a process implementing the Instance interface
 type mockInstance struct {
@@ -21,6 +25,7 @@ func (m *mockInstance) Score() int {
 }
 
 func (m *mockInstance) Release() {
+	zap.S().Debugw("instance mock release")
 	m.released = true
 }
 

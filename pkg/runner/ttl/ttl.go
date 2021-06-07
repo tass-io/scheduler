@@ -50,7 +50,7 @@ func (ttl *TTLManager) start(ins instance.Instance) {
 	go func() {
 		timer := ttl.timers[ins]
 		<-timer.C
-		ttl.timeout <- ins
+		ttl.Release(ins)
 	}()
 }
 
@@ -74,7 +74,7 @@ func NewTTLManager(functionName string) *TTLManager {
 						go func() {
 							timer := ttl.timers[ins]
 							<-timer.C
-							ttl.timeout <- ins
+							ttl.Release(ins)
 						}()
 						continue
 					}

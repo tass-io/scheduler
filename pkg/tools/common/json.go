@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/tidwall/gjson"
+	"go.uber.org/zap"
 )
 
 // GetValue returns the value of the body by target
@@ -33,7 +34,7 @@ func GetValue(body map[string]interface{}, target string, obj interface{}) {
 				*boolval = val.Bool()
 			}
 		default:
-			panic(obj)
+			zap.S().Panic(obj)
 		}
 	} else {
 		// constant
@@ -58,7 +59,7 @@ func GetValue(body map[string]interface{}, target string, obj interface{}) {
 				}
 			}
 		default:
-			panic(obj)
+			zap.S().Panic(obj)
 		}
 	}
 

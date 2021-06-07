@@ -77,7 +77,7 @@ func (m *Manager) Start() {
 	m.events = event.Events()
 	err := m.startEvents()
 	if err != nil {
-		panic(err)
+		zap.S().Panic(err)
 	}
 }
 
