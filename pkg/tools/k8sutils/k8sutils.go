@@ -75,7 +75,7 @@ func wrapObjects(objs []runtime.Object) []runtime.Object {
 		} else {
 			ustdata, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
 			if err != nil {
-				panic(err)
+				zap.S().Panic(err)
 			}
 			ust := &unstructured.Unstructured{
 				Object: ustdata,
@@ -103,13 +103,22 @@ func Prepare() {
 		if err != nil {
 			zap.S().Warnw("generate Workflow error", "err", err)
 		}
+		functionPaths := viper.GetStringSlice(env.FuntionsPath)
+		for _, functionPath := range functionPaths {
+			zap.S().Infow("get functions path", "path", functionPath)
+			err = generateFunctionObjectsByFile(functionPath, &objects)
+			if err != nil {
+				zap.S().Warnw("generate FunctionList error", "err", err)
+			}
+		}
 		if workflowName == "" {
 			workflowName = viper.GetString(env.WorkflowName)
 		}
+		zap.S().Infow("read object from file over")
 		WithInjectData(&objects)
 		zap.S().Infow("get objects", "objects", objects)
 		if err := serverlessv1alpha1.AddToScheme(scheme); err != nil {
-			panic(err)
+			zap.S().Panic(err)
 		}
 		// objects = wrapObjects(objects)
 		for _, obj := range objects {
@@ -121,14 +130,14 @@ func Prepare() {
 		hostName, _ := os.Hostname()
 		sli := strings.Split(hostName, "-")
 		if len(sli) < 3 {
-			panic(sli)
+			zap.S().Panic(sli)
 		}
 		workflowName = strings.Join(sli[:len(sli)-2], "-")
 		selfName = strings.Join(sli[len(sli)-2:], "-")
 
 		config, err := rest.InClusterConfig()
 		if err != nil {
-			panic(err)
+			zap.S().Panic(err)
 		}
 		dynamicClient = dynamic.NewForConfigOrDie(config)
 
@@ -226,6 +235,37 @@ func generateWorkflowRuntimeObjectsByFile(fileName string, objects *[]runtime.Ob
 	return err
 }
 
+// generateFunctionListObjectsByFile generates a FunctionList object by file
+// this method is used when using the local environment, a parser for local files are needed
+func generateFunctionObjectsByFile(fileName string, objects *[]runtime.Object) error {
+	filebytes, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		return err
+	}
+	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(filebytes), len(filebytes))
+	for {
+		var rawObj runtime.RawExtension
+		if err = decoder.Decode(&rawObj); err != nil {
+			zap.S().Errorw("runtime RawExtension Error", "err", err)
+			break
+		}
+		obj, _, err := yaml.NewDecodingSerializer(unstructured.UnstructuredJSONScheme).Decode(rawObj.Raw, nil, nil)
+		if err != nil {
+			return err
+		}
+		ust := obj.(*unstructured.Unstructured)
+		function := new(serverlessv1alpha1.Function)
+		// transfer Unstructured to a typed object
+		err = runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
+		if err != nil {
+			return err
+		}
+		zap.S().Debugw("get FunctionList", "function", function)
+		*objects = append(*objects, function)
+	}
+	return err
+}
+
 func CreateUnstructuredListWatch(ctx context.Context, namespace string, resource schema.GroupVersionResource) *cache.ListWatch {
 	return &cache.ListWatch{
 		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
@@ -250,19 +290,6 @@ func InitWorkflowRuntimeInformer() {
 		&serverlessv1alpha1.WorkflowRuntime{},
 		1*time.Second,
 	)
-	handlers := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			u := obj.(*unstructured.Unstructured)
-			zap.S().Infow("received add event!", "u", u)
-		},
-		UpdateFunc: func(oldObj, obj interface{}) {
-			zap.S().Info("received update event!")
-		},
-		DeleteFunc: func(obj interface{}) {
-			zap.S().Info("received update event!")
-		},
-	}
-	workflowRuntimeInformer.AddEventHandler(handlers)
 	// zap.S().Debug("in the lsds start listen")
 	go workflowRuntimeInformer.Run(make(<-chan struct{}))
 }
@@ -348,7 +375,7 @@ func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime,
 
 // GetFunctionByName returns a Function instance by the input name
 func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) {
-	zap.S().Debugw("get workflowruntime name", "name", name, "keys", workflowRuntimeInformer.GetStore().ListKeys())
+	zap.S().Debugw("get function name", "name", name, "keys", functionInformer.GetStore().ListKeys())
 	key := GetSelfNamespace() + "/" + name
 	obj, existed, err := functionInformer.GetStore().GetByKey(key)
 	if err != nil {

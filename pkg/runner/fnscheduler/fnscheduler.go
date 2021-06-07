@@ -134,6 +134,7 @@ func (s *set) Scale(target int, functionName string) {
 	defer s.Unlock()
 	l := len(s.instances)
 	if l > target {
+		zap.S().Debugw("set scale down", "function", s.functionName)
 		// scale down
 		// select the instances with the lowest scores
 		// get scores
@@ -161,15 +162,22 @@ func (s *set) Scale(target int, functionName string) {
 		}
 		for _, targetIndex := range targetIndexes {
 			ins := s.instances[targetIndex]
+			s.instances = append(s.instances[:targetIndex], s.instances[targetIndex+1:]...)
 			ins.Release()
+			zap.S().Debugw("fnscheduler release instance")
 			s.ttl.Release(ins)
 		}
 	} else if l < target {
+		zap.S().Debugw("set scale up", "function", s.functionName)
 		// scale up
 		for i := 0; i < target-l; i++ {
 			if fs.canCreate() {
 				newIns := NewInstance(functionName)
 				zap.S().Infow("function scheduler creates instance", "instance", newIns)
+				if newIns == nil {
+					zap.S().Warn("instance is nil")
+					return
+				}
 				err := newIns.Start()
 				if err != nil {
 					zap.S().Warnw("function scheduler start instance error", "err", err)

@@ -29,3 +29,4 @@ vendor/
 *.log
 # cross test file
 /test/cross/config/
+/test/isolate/config/

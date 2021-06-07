@@ -379,8 +379,9 @@ func compare(left interface{}, right interface{}, op serverlessv1alpha1.Operator
 			return compareBool(*leftValue, *rightValue, op)
 		}
 	default:
-		panic(op)
+		zap.S().Panic(op)
 	}
+	return false
 }
 
 // compareInt is a helper function for int comparaion,
