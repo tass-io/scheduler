@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// this package will handle function process init and exec specific function
+// initial pkg handles function process initialization and executes the specific function
 var (
 	funcName string
 	InitCmd  = &cobra.Command{
@@ -33,9 +33,8 @@ var (
 	}
 )
 
-// functionInit will move function code to it's own directory
-// redirect stdout and stderr to file
-// and exec function code
+// functionInit moves function code to it's own directory,
+// redirects stdout and stderr to file and executes function code
 func functionInit(functionName string) {
 	codeBase64, err := store.Get(k8sutils.GetSelfNamespace(), functionName)
 	if err != nil {
@@ -44,11 +43,13 @@ func functionInit(functionName string) {
 	codePrepareAndExec(codeBase64, functionName, viper.GetString(env.Environment))
 }
 
+// codePrepareAndExec prepares code and executes it
 func codePrepareAndExec(code string, functionName string, environment string) {
 	codePrepare(code)
 	codeExec(functionName, environment)
 }
 
+// codePrepare decodes & unzips the code and places the code to the desired location
 func codePrepare(code string) {
 	pid := os.Getpid()
 	directoryPath := fmt.Sprintf(env.TassFileRoot+"%d", pid)
@@ -88,6 +89,7 @@ func codePrepare(code string) {
 	zap.S().Infow("unzip user code", "filepath", filepaths)
 }
 
+// codeExec executes the prepared code
 func codeExec(functionName string, environment string) {
 	// todo support customize cmd
 	pid := os.Getpid()
@@ -135,7 +137,7 @@ func codeExec(functionName string, environment string) {
 	}
 }
 
-// unzip will decompress a zip archive, moving all files and folders
+// unzip decompresses a zip archive, moving all files and folders
 // within the zip file (parameter 1) to an output directory (parameter 2).
 func unzip(src string, dest string) ([]string, error) {
 

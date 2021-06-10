@@ -149,7 +149,8 @@ func (i *processInstance) startListen() {
 	}()
 }
 
-// startProcess starts function process and uses pipe to build a connection
+// startProcess starts function process and uses pipe to build a connection,
+// it also prepares the log directory
 // todo customize the command
 func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
 	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName,

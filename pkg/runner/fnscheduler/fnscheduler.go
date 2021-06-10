@@ -61,6 +61,7 @@ type FunctionScheduler struct {
 	sync.Locker
 	runner.Runner
 	schedule.Scheduler
+	// instances records all process instances of each Function
 	instances map[string]*set
 	trigger   chan struct{}
 }

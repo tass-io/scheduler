@@ -24,17 +24,22 @@ var (
 	closeChannelOnce = &sync.Once{}
 )
 
-// Wrapper will handle all lifecycle
+// Wrapper handles all lifecycle of a function
 // here the Consumer and Producer role exchanged.
 type Wrapper struct {
 	requestMap      cmap.ConcurrentMap // Now use a counter is also ok, but I think it is more convenient to debug.
 	consumer        *instance.Consumer
 	producer        *instance.Producer
-	handler         func(map[string]interface{}) (map[string]interface{}, error)
+	handler         handlerFn
 	receiveShutdown bool
 }
 
-func loadPlugin(codePath string, entrypoint string) (func(map[string]interface{}) (map[string]interface{}, error), error) {
+// handlerFn is the user function signature
+// all user defined functions should be declared as this type
+type handlerFn func(map[string]interface{}) (map[string]interface{}, error)
+
+// loadPlugin takes the codePath, loads the plugin code and returns the handler function
+func loadPlugin(codePath string, entrypoint string) (handlerFn, error) {
 	info, err := os.Stat(codePath)
 	if err != nil {
 		return nil, fmt.Errorf("error checking plugin path: %v", err)
@@ -65,9 +70,14 @@ func loadPlugin(codePath string, entrypoint string) (func(map[string]interface{}
 
 }
 
+// NewWrapper creates a new wrapper for a process
 func NewWrapper() *Wrapper {
-	requestFile := os.NewFile(uintptr(3), "pipe")  // 3 is the fd of request channel
-	producerFile := os.NewFile(uintptr(4), "pipe") // 4 is the fd of response channel
+	// 3 is the fd of request channel
+	requestFile := os.NewFile(uintptr(3), "pipe")
+	// 4 is the fd of response channel
+	producerFile := os.NewFile(uintptr(4), "pipe")
+	// the instuction that local scheduler runs the runtime is: main ${PLUGIN_PATH}
+	// so the value of os.Args[1] is the location of plugin.so
 	handler, err := loadPlugin(os.Args[1], "Handler")
 	if err != nil {
 		zap.S().Warnw("user code puglin load error", "err", err)
@@ -83,50 +93,26 @@ func NewWrapper() *Wrapper {
 	return wrapper
 }
 
+// Start starts the wrapped process waiting for requests
 func (w *Wrapper) Start() {
 	w.consumer.Start()
 	w.producer.Start()
 	reqChan := w.consumer.GetChannel()
-	for {
-		select {
-		case reqRaw, ok := <-reqChan:
-			{
-				if !ok {
-					zap.S().Info("wrapper reqChan not ok")
-					continue
-				}
-				req := reqRaw.(*instance.FunctionRequest)
-				zap.S().Debugw("get req", "req", req)
-				go func() {
-					w.requestMap.Set(req.Id, "")
-					result := w.invoke(*req)
-					w.producer.GetChannel() <- result
-					w.requestMap.Remove(req.Id)
-				}()
-			}
-		default:
-			{
-				// w.receiveShutdown has a high probability of being false, which shows whether the process receives SIGTERM.
-				// w.consumer.NoNewInfo and w.producer.NoNewInfo check whether the IPC is empty.
-				// w.requestMap.IsEmpty() will check whether the process is handling a request.
-				if w.receiveShutdown && w.consumer.NoNewInfo() {
-					zap.S().Debug("more requests")
-					if w.requestMap.IsEmpty() {
-						zap.S().Debug("all requests have been handled and put responses into channel")
-						closeChannelOnce.Do(func() {
-							w.producer.Terminate()
-						})
-						if w.producer.NoNewInfo() {
-							zap.S().Info("function shutdown after no requests and all responses have been sent")
-							os.Exit(0)
-						}
-					}
-				}
-			}
-		}
+
+	for reqRaw := range reqChan {
+		req := reqRaw.(*instance.FunctionRequest)
+		zap.S().Debugw("get req", "req", req)
+		// do the invocation
+		go func() {
+			w.requestMap.Set(req.Id, "")
+			result := w.invoke(*req)
+			w.producer.GetChannel() <- result
+			w.requestMap.Remove(req.Id)
+		}()
 	}
 }
 
+// invoke invokes the requests and returns the response
 // todo implementation by go plugin
 func (w *Wrapper) invoke(request instance.FunctionRequest) instance.FunctionResponse {
 	if w.handler == nil {
@@ -152,11 +138,14 @@ func (w *Wrapper) invoke(request instance.FunctionRequest) instance.FunctionResp
 
 }
 
+// Shutdown sets Warpper `receiveShutdown` field as true
 func (w *Wrapper) Shutdown() {
 	w.receiveShutdown = true
 }
 
+// init initializes the process of the golang runtime
 func init() {
+	// log config
 	cfg := zap.Config{
 		Encoding:         "json",
 		Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
@@ -180,11 +169,35 @@ func init() {
 		fmt.Println(err.Error())
 	}
 	zap.ReplaceGlobals(logger)
+	// let the sigtermChan recieve SIGTERM signal
 	signal.Notify(sigtermChan, syscall.SIGTERM)
 	go func() {
 		<-sigtermChan
 		w.Shutdown()
+		w.handleTerminate()
 	}()
+}
+
+// handleTerminate checks the process status, and terminates when it is idle
+// w.receiveShutdown shows whether the process receives SIGTERM.
+// w.consumer.NoNewInfo and w.producer.NoNewInfo check whether the IPC is empty.
+// w.requestMap.IsEmpty() checks whether the process is handling a request.
+func (w *Wrapper) handleTerminate() {
+	for {
+		if w.receiveShutdown && w.consumer.NoNewInfo() {
+			zap.S().Debug("more requests")
+			if w.requestMap.IsEmpty() {
+				zap.S().Debug("all requests have been handled and put responses into channel")
+				closeChannelOnce.Do(func() {
+					w.producer.Terminate()
+				})
+				if w.producer.NoNewInfo() {
+					zap.S().Info("function shutdown after no requests and all responses have been sent")
+					os.Exit(0)
+				}
+			}
+		}
+	}
 }
 
 func main() {
@@ -192,6 +205,7 @@ func main() {
 	if err != nil {
 		zap.S().Warnw("unable to get current user: %s", err)
 	}
+	zap.S().Infow("Hi", "user", currentUser.Name)
 	zap.S().Infow("run the binary user", "user", currentUser.Name)
 	w.Start()
 }
