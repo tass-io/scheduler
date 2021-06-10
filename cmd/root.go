@@ -111,9 +111,9 @@ func policyFlagInit() {
 }
 
 func initPersistentFlagInit() {
-	rootCmd.PersistentFlags().StringP(env.RedisIp, "I", "10.0.0.96", "redis ip to init function")
+	rootCmd.PersistentFlags().StringP(env.RedisIp, "I", "10.0.2.79", "redis ip to init function")
 	viper.BindPFlag(env.RedisIp, rootCmd.PersistentFlags().Lookup(env.RedisIp))
-	rootCmd.PersistentFlags().StringP(env.RedisPort, "P", "30285", "redis port to init function")
+	rootCmd.PersistentFlags().StringP(env.RedisPort, "P", "6379", "redis port to init function")
 	viper.BindPFlag(env.RedisPort, rootCmd.PersistentFlags().Lookup(env.RedisPort))
 	rootCmd.PersistentFlags().StringP(env.RedisPassword, "S", "", "redis password to init function")
 	viper.BindPFlag(env.RedisPassword, rootCmd.PersistentFlags().Lookup(env.RedisPassword))

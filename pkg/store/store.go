@@ -12,11 +12,8 @@ import (
 )
 
 var (
-	address   string = "100.92.53.83:6379"
-	password  string = ""
-	defaultDb int    = 0
-	rdb       *redis.Client
-	once      = &sync.Once{}
+	rdb  *redis.Client
+	once = &sync.Once{}
 )
 
 // getrdb initializes a redis client
