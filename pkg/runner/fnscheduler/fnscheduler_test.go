@@ -13,6 +13,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/pkg/runner/lsds"
+	"github.com/tass-io/scheduler/pkg/runner/ttl"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/tools/errorutils"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
@@ -47,6 +48,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 					instances: []instance.Instance{
 						NewInstance("a"),
 					},
+					ttl: ttl.NewTTLManager("a"),
 				},
 			},
 			span:   span.NewSpan("test", "a", "a"),
@@ -61,6 +63,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 					instances: []instance.Instance{
 						NewInstance("a"),
 					},
+					ttl: ttl.NewTTLManager("a"),
 				},
 			},
 			span:   span.NewSpan("test", "b", "b"),

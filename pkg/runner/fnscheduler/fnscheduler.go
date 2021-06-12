@@ -88,6 +88,11 @@ func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{},
 				s.Lock()
 				process := ChooseTargetInstance(s.instances)
 				s.Unlock()
+				err = s.resetInstanceTimer(process)
+				zap.S().Infow("reset timer", "instance", process)
+				if err != nil {
+					zap.S().Warnw("reset timer failed:", "err", err)
+				}
 				result, err = process.Invoke(parameters)
 				if err != nil {
 					zap.S().Debugw("retry in invoke err", "err", err)
@@ -97,7 +102,7 @@ func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{},
 			retry.RetryIf(func(err error) bool {
 				// this retry to avoid this case:
 				// one request choose the process when it is Running
-				// after the choose, the process Released
+				// after the chosen and before the reset, the process Released
 				// the process will return instance.InstanceNotServiceErr to describe this case.
 				// todo thinking about the request is unlucky to retry at the fourth time.
 				return err == instance.ErrInstanceNotService
@@ -108,6 +113,11 @@ func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{},
 	} else {
 		return nil, errorutils.NewNoInstanceError(s.functionName)
 	}
+}
+
+// resetInstanceTimer resets the timer of a process instance
+func (s *set) resetInstanceTimer(process instance.Instance) error {
+	return s.ttl.ResetInstanceTimer(process)
 }
 
 // stats returns the alive number of instances

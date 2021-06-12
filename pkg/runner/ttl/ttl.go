@@ -1,6 +1,7 @@
 package ttl
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"go.uber.org/zap"
 )
+
+var ErrTimerStopped = errors.New("timer has expired or been stopped")
 
 // TTLManager is a center to records all instances live time for a specific function
 type TTLManager struct {
@@ -103,4 +106,21 @@ func NewTTLManager(functionName string) *TTLManager {
 		}
 	}()
 	return ttl
+}
+
+// ResetInstanceTimer resets instance timer,
+// ResetInstanceTimer doesn't set any lock as the reset timer semantic is a weak guarantee
+func (ttl *TTLManager) ResetInstanceTimer(ins instance.Instance) error {
+	timer, ok := ttl.timers[ins]
+	// timer has been removed from ttl.timers
+	if !ok {
+		return instance.ErrInstanceNotService
+	}
+	stopSucc := timer.Stop()
+	// timer has just expired or been stopped, which means it has sent a signal to timer.C
+	if !stopSucc {
+		return ErrTimerStopped
+	}
+	timer.Reset(viper.GetDuration(env.TTL))
+	return nil
 }
