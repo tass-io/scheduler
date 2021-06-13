@@ -22,6 +22,10 @@ func (f *FakeScheduler) Refresh(functionName string, target int) {
 	f.stats[functionName] = target
 }
 
+func (f *FakeScheduler) ColdStartDone(functionName string) {
+	zap.S().Debugw("fake scheduler cold start", "functionName", functionName)
+}
+
 func TestScheduleHandler(t *testing.T) {
 
 	testcases := []struct {

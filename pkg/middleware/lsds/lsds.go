@@ -1,15 +1,14 @@
 package lsds
 
 import (
-	"time"
+	"sync"
 
-	"github.com/spf13/viper"
-	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/event/schedule"
 	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	runnerlsds "github.com/tass-io/scheduler/pkg/runner/lsds"
+	fnschedule "github.com/tass-io/scheduler/pkg/schedule"
 	"github.com/tass-io/scheduler/pkg/span"
 	"go.uber.org/zap"
 )
@@ -36,7 +35,9 @@ func Register() {
 
 // LSDSMiddleware checks fs status and uses some policies to handle requests,
 // which make the requests have a chance to redirect to other Local Scheduler
-type LSDSMiddleware struct{}
+type LSDSMiddleware struct {
+	sync.Mutex
+}
 
 // newLSDSMiddleware return a lsds middleware
 func newLSDSMiddleware() *LSDSMiddleware {
@@ -55,11 +56,11 @@ func (lsds *LSDSMiddleware) Handle(
 	lsdsSpan.Start("lsds")
 	defer lsdsSpan.Finish()
 
-	// use runner api instead of workflow api to reduce coupling
+	// cold start case, set a lock to prevent multi requests in a cold start situation
+	lsds.Lock()
 	instanceStatus := helper.GetMasterRunner().Stats()
 	zap.S().Infow("get master runner instance status at lsds", "stats", instanceStatus)
 	instanceNum, existed := instanceStatus[sp.GetFunctionName()]
-
 	if !existed || instanceNum == 0 {
 		// create event and wait a period of time
 		// the scheduler tries to create an instance locally,
@@ -72,7 +73,10 @@ func (lsds *LSDSMiddleware) Handle(
 		}
 		zap.S().Infow("create event at lsds", "event", event)
 		schedule.GetScheduleHandlerIns().AddEvent(event)
-		time.Sleep(viper.GetDuration(env.LSDSWait))
+
+		// TODO: Now use notification directly, a policy is preferred here
+		fnschedule.GetScheduler().ColdStartDone(sp.GetFunctionName())
+		// time.Sleep(viper.GetDuration(env.LSDSWait))
 		instanceStatus = helper.GetMasterRunner().Stats()
 		zap.S().Infow("get master runner stats at lsds", "stats", instanceStatus)
 		instanceNum, existed = instanceStatus[sp.GetFunctionName()]
@@ -85,6 +89,7 @@ func (lsds *LSDSMiddleware) Handle(
 			return result, middleware.Abort, nil
 		}
 	}
+	lsds.Unlock()
 	return nil, middleware.Next, nil
 }
 

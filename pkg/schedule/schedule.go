@@ -3,6 +3,7 @@ package schedule
 // Scheduler adjusts function instances number with upstream events
 type Scheduler interface {
 	Refresh(functionName string, target int)
+	ColdStartDone(functionName string)
 }
 
 // GetScheduler returns a Scheduler

@@ -135,6 +135,7 @@ func (i *processInstance) Start() (err error) {
 		return
 	}
 	i.startListen()
+	// FIXME: REMOVE Later
 	i.status = Running
 	return
 }
@@ -254,3 +255,15 @@ func (i *processInstance) getWaitNum() int {
 func (i *processInstance) HasRequests() bool {
 	return len(i.responseMapping) > 0
 }
+
+// InitDone returns when the process instance initialization done, or it hangs forever.
+func (i *processInstance) InitDone() {
+	zap.S().Infow("process instance init done", "process", i.uuid)
+	initDoneCh := i.consumer.GetInitDoneChannel()
+	<-initDoneCh
+
+	// lazy, change the status only when this method is called
+	i.status = Running
+}
+
+var _ Instance = &processInstance{}

@@ -20,4 +20,6 @@ type Instance interface {
 	Start() error
 	// HasRequests returns whether the instance is dealing with requests
 	HasRequests() bool
+	// InitDone returns when the instance initialization done
+	InitDone()
 }

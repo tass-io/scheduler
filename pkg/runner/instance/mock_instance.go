@@ -13,6 +13,14 @@ type mockInstance struct {
 	handleRequest bool
 }
 
+func NewMockInstance(functionName string) *mockInstance {
+	return &mockInstance{
+		functionName:  functionName,
+		released:      false,
+		handleRequest: false,
+	}
+}
+
 func (m *mockInstance) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
 	output, err := common.CopyMap(parameters)
 	output[m.functionName] = m.functionName
@@ -41,10 +49,6 @@ func (m *mockInstance) HasRequests() bool {
 	return !m.handleRequest
 }
 
-func NewMockInstance(functionName string) *mockInstance {
-	return &mockInstance{
-		functionName:  functionName,
-		released:      false,
-		handleRequest: false,
-	}
-}
+func (m *mockInstance) InitDone() {}
+
+var _ Instance = &mockInstance{}
