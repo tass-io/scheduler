@@ -44,13 +44,17 @@ func GetStaticMiddleware() *StaticMiddleware {
 // if it finds that the function not exists, it goes to lsds instance directly.
 // Because the piority of static middleware is higher than the piority of lsds middleware,
 // it can guarantee the function has been to other processes before the local execution.
-func (static *StaticMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+func (static *StaticMiddleware) Handle(
+	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+
 	staticSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
 	staticSpan.Start("static")
 	defer staticSpan.Finish()
-	stats := runnerlsds.GetLSDSIns().Stats() // use runner api instead of workflow api to reduce coupling
-	zap.S().Infow("get master runner stats at static", "stats", stats)
-	instanceNum, existed := stats[sp.GetFunctionName()]
+
+	// use runner api instead of workflow api to reduce coupling
+	instanceStatus := runnerlsds.GetLSDSIns().Stats()
+	zap.S().Infow("get master runner stats at static", "stats", instanceStatus)
+	instanceNum, existed := instanceStatus[sp.GetFunctionName()]
 	// todo use retry
 	if !existed || instanceNum == 0 {
 		result, err := runnerlsds.GetLSDSIns().Run(sp, body)

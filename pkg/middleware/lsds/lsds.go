@@ -43,15 +43,23 @@ func newLSDSMiddleware() *LSDSMiddleware {
 	return &LSDSMiddleware{}
 }
 
-// Handle receives a request and does lsds middleware logic
-func (lsds *LSDSMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+// Handle receives a request and does lsds middleware logic.
+// lsds middleware checks the function instance existance,
+// if not exists, it sends a new instance creation event.
+// lsds middleware then waits for a while and checks  the function instance existance again,
+// if still not exists, it forwards the function request to LSDS Runner
+func (lsds *LSDSMiddleware) Handle(
+	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+
 	lsdsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
 	lsdsSpan.Start("lsds")
 	defer lsdsSpan.Finish()
-	stats := helper.GetMasterRunner().Stats() // use runner api instead of workflow api to reduce coupling
-	zap.S().Infow("get master runner stats at lsds", "stats", stats)
-	instanceNum, existed := stats[sp.GetFunctionName()]
-	// todo use retry
+
+	// use runner api instead of workflow api to reduce coupling
+	instanceStatus := helper.GetMasterRunner().Stats()
+	zap.S().Infow("get master runner instance status at lsds", "stats", instanceStatus)
+	instanceNum, existed := instanceStatus[sp.GetFunctionName()]
+
 	if !existed || instanceNum == 0 {
 		// create event and wait a period of time
 		// the scheduler tries to create an instance locally,
@@ -65,9 +73,9 @@ func (lsds *LSDSMiddleware) Handle(sp *span.Span, body map[string]interface{}) (
 		zap.S().Infow("create event at lsds", "event", event)
 		schedule.GetScheduleHandlerIns().AddEvent(event)
 		time.Sleep(viper.GetDuration(env.LSDSWait))
-		stats = helper.GetMasterRunner().Stats()
-		zap.S().Infow("get master runner stats at lsds", "stats", stats)
-		instanceNum, existed = stats[sp.GetFunctionName()]
+		instanceStatus = helper.GetMasterRunner().Stats()
+		zap.S().Infow("get master runner stats at lsds", "stats", instanceStatus)
+		instanceNum, existed = instanceStatus[sp.GetFunctionName()]
 		if !existed || instanceNum == 0 {
 			result, err := runnerlsds.GetLSDSIns().Run(sp, body)
 			if err != nil {

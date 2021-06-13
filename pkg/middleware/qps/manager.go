@@ -22,7 +22,7 @@ func init() {
 	qpsmiddle = newQPSMiddleware()
 }
 
-// Register registers the qps middleware as a priority of 2
+// Register registers the qps middleware as a priority of 3
 func Register() {
 	middleware.Register(QPSMiddlewareSource, qpsmiddle, 3)
 }
@@ -47,15 +47,18 @@ func GetQPSMiddleware() *QPSMiddleware {
 }
 
 // Handle records metrics when a request comes
-func (qps *QPSMiddleware) Handle(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+func (qps *QPSMiddleware) Handle(
+	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+
 	qpsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
 	qpsSpan.Start("qps")
+	defer qpsSpan.Finish()
+
 	functionName := qpsSpan.GetFunctionName()
 	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(1000))
 	mgr := mgrRaw.(*QPSManager)
 	mgr.Inc()
 	zap.S().Debugw("qps handler inc", "functionName", functionName)
-	qpsSpan.Finish()
 	return nil, middleware.Next, nil
 }
 
