@@ -26,6 +26,8 @@ func (f *FakeScheduler) ColdStartDone(functionName string) {
 	zap.S().Debugw("fake scheduler cold start", "functionName", functionName)
 }
 
+func (f *FakeScheduler) NewInstanceSetIfNotExist(functionName string) {}
+
 func TestScheduleHandler(t *testing.T) {
 
 	testcases := []struct {

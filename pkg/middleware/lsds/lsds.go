@@ -1,8 +1,6 @@
 package lsds
 
 import (
-	"sync"
-
 	"github.com/tass-io/scheduler/pkg/event/schedule"
 	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/middleware"
@@ -35,9 +33,7 @@ func Register() {
 
 // LSDSMiddleware checks fs status and uses some policies to handle requests,
 // which make the requests have a chance to redirect to other Local Scheduler
-type LSDSMiddleware struct {
-	sync.Mutex
-}
+type LSDSMiddleware struct{}
 
 // newLSDSMiddleware return a lsds middleware
 func newLSDSMiddleware() *LSDSMiddleware {
@@ -49,6 +45,7 @@ func newLSDSMiddleware() *LSDSMiddleware {
 // if not exists, it sends a new instance creation event.
 // lsds middleware then waits for a while and checks  the function instance existance again,
 // if still not exists, it forwards the function request to LSDS Runner
+// TODO: Split this middleware into more pieces
 func (lsds *LSDSMiddleware) Handle(
 	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 
@@ -56,30 +53,36 @@ func (lsds *LSDSMiddleware) Handle(
 	lsdsSpan.Start("lsds")
 	defer lsdsSpan.Finish()
 
-	// cold start case, set a lock to prevent multi requests in a cold start situation
-	lsds.Lock()
+	functionName := sp.GetFunctionName()
+	// FIXME: Stats need a lock for function scheduler, which limites the performance,
+	// we need a more elegant way
+
 	instanceStatus := helper.GetMasterRunner().Stats()
-	zap.S().Infow("get master runner instance status at lsds", "stats", instanceStatus)
-	instanceNum, existed := instanceStatus[sp.GetFunctionName()]
+
+	zap.S().Infow("current instance status at lsds middleware", "stats", instanceStatus)
+
+	instanceNum, existed := instanceStatus[functionName]
 	if !existed || instanceNum == 0 {
-		// create event and wait a period of time
-		// the scheduler tries to create an instance locally,
+
+		fnschedule.GetScheduler().NewInstanceSetIfNotExist(functionName)
+
+		// create an event, the scheduler tries to create an instance locally,
 		// if still fails, it then goes to LSDS
 		event := source.ScheduleEvent{
-			FunctionName: sp.GetFunctionName(),
+			FunctionName: functionName,
 			Target:       1,
 			Trend:        source.Increase,
 			Source:       source.ScheduleSource,
 		}
-		zap.S().Infow("create event at lsds", "event", event)
+		zap.S().Infow("create event at lsds middleware", "event", event)
 		schedule.GetScheduleHandlerIns().AddEvent(event)
 
 		// TODO: Now use notification directly, a policy is preferred here
-		fnschedule.GetScheduler().ColdStartDone(sp.GetFunctionName())
-		// time.Sleep(viper.GetDuration(env.LSDSWait))
+		fnschedule.GetScheduler().ColdStartDone(functionName)
+
 		instanceStatus = helper.GetMasterRunner().Stats()
 		zap.S().Infow("get master runner stats at lsds", "stats", instanceStatus)
-		instanceNum, existed = instanceStatus[sp.GetFunctionName()]
+		instanceNum, existed = instanceStatus[functionName]
 		if !existed || instanceNum == 0 {
 			result, err := runnerlsds.GetLSDSIns().Run(sp, body)
 			if err != nil {
@@ -89,7 +92,6 @@ func (lsds *LSDSMiddleware) Handle(
 			return result, middleware.Abort, nil
 		}
 	}
-	lsds.Unlock()
 	return nil, middleware.Next, nil
 }
 

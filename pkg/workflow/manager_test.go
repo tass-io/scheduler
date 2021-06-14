@@ -84,6 +84,8 @@ func (r *SimpleFakeRunner) Stats() runner.InstanceStatus {
 	return nil
 }
 
+func (r *SimpleFakeRunner) NewInstanceSetIfNotExist(fnName string) {}
+
 func TestManager(t *testing.T) {
 	Convey("test workflow work with mock client", t, func() {
 		testcases := []struct {
