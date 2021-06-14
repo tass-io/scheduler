@@ -1,9 +1,13 @@
 package schedule
 
-// Scheduler adjusts function instances number with upstream events
+// Scheduler is responsible for scheduling the function process instances
 type Scheduler interface {
+	// Refresh adjusts function instances number(param2) with upstream events
 	Refresh(functionName string, target int)
+	// ColdStartDone returns when the function process (param1) cold start stage is finished
 	ColdStartDone(functionName string)
+	// NewInstanceSetIfNotExist creates a not existed instance set struct for the function(param1)
+	NewInstanceSetIfNotExist(functionName string)
 }
 
 // GetScheduler returns a Scheduler

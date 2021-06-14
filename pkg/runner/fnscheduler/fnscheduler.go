@@ -3,31 +3,29 @@ package fnscheduler
 import (
 	"sync"
 
-	"github.com/avast/retry-go"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
-	"github.com/tass-io/scheduler/pkg/runner/ttl"
 	"github.com/tass-io/scheduler/pkg/schedule"
 	"github.com/tass-io/scheduler/pkg/span"
-	"github.com/tass-io/scheduler/pkg/tools/errorutils"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
 	"go.uber.org/zap"
 )
 
 var (
-	fs                *FunctionScheduler
-	canCreatePolicies = map[string]func() bool{
-		"default": DefaultCanCreatePolicy,
-	}
+	fs *FunctionScheduler
 )
 
-// DefaultCanCreatePolicy is a policy to judge whether to create a new process or not
-// DefaultCanCreatePolicy always returns true
-func DefaultCanCreatePolicy() bool {
-	return true
+// FunctionScheduler implements Runner and Scheduler interface
+type FunctionScheduler struct {
+	sync.Locker
+	runner.Runner
+	schedule.Scheduler
+	// instances records all process instances of each Function
+	instances map[string]*instanceSet
+	trigger   chan struct{}
 }
 
 // GetFunctionScheduler returns a FunctionScheduler pointer
@@ -36,9 +34,21 @@ func GetFunctionScheduler() *FunctionScheduler {
 	return fs
 }
 
+// newFunctionScheduler inits a new FunctionScheduler.
+// By default, the capacity of process instances is 10 and the trigger channel length is 100
+func newFunctionScheduler() *FunctionScheduler {
+	// todo context architecture
+	return &FunctionScheduler{
+		Locker:    &sync.Mutex{},
+		instances: make(map[string]*instanceSet, 10),
+		trigger:   make(chan struct{}, 100),
+	}
+}
+
 // FunctionSchedulerInit inits a new FunctionScheduler,
 // it also prepares environments of the function scheduler
 func FunctionSchedulerInit() {
+	// if use mock mode, it doesn't create real process
 	if viper.GetBool(env.Mock) {
 		NewInstance = func(functionName string) instance.Instance {
 			return instance.NewMockInstance(functionName)
@@ -56,216 +66,6 @@ func FunctionSchedulerInit() {
 	go fs.sync()
 }
 
-// FunctionScheduler implements Runner and Scheduler interface
-type FunctionScheduler struct {
-	sync.Locker
-	runner.Runner
-	schedule.Scheduler
-	// instances records all process instances of each Function
-	instances map[string]*instanceSet
-	trigger   chan struct{}
-}
-
-// instanceSet is the status of the function and its instances
-// todo take care of terminated instances clean
-type instanceSet struct {
-	sync.Locker
-	functionName  string
-	instances     []instance.Instance
-	coldStartDone chan struct{}
-	ttl           *ttl.TTLManager
-}
-
-// newInstanceSet returns a new set for the input function
-func newInstanceSet(functionName string) *instanceSet {
-	return &instanceSet{
-		Locker:        &sync.Mutex{},
-		functionName:  functionName,
-		instances:     []instance.Instance{},
-		coldStartDone: make(chan struct{}, 10),
-		ttl:           ttl.NewTTLManager(functionName),
-	}
-}
-
-// Invoke is a set-level invocation
-// it finds a lowest score process to run the function
-// if no available processes, it returns en error
-func (s *instanceSet) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
-	if s.stats() > 0 {
-		// warm start, try to find a lowest latency process to work
-		var result map[string]interface{}
-		var err error
-		err = retry.Do(
-			func() error {
-				s.Lock()
-				process := ChooseTargetInstance(s.instances)
-				s.Unlock()
-				err = s.resetInstanceTimer(process)
-				zap.S().Infow("reset timer", "instance", process)
-				if err != nil {
-					zap.S().Warnw("reset timer failed:", "err", err)
-				}
-				result, err = process.Invoke(parameters)
-				if err != nil {
-					zap.S().Debugw("retry in invoke err", "err", err)
-				}
-				return err
-			},
-			retry.RetryIf(func(err error) bool {
-				// this retry to avoid this case:
-				// one request choose the process when it is Running
-				// after the chosen and before the reset, the process Released
-				// the process will return instance.InstanceNotServiceErr to describe this case.
-				// todo thinking about the request is unlucky to retry at the fourth time.
-				return err == instance.ErrInstanceNotService
-			}),
-			retry.Attempts(3),
-		)
-		return result, err
-	} else {
-		return nil, errorutils.NewNoInstanceError(s.functionName)
-	}
-}
-
-// resetInstanceTimer resets the timer of a process instance
-func (s *instanceSet) resetInstanceTimer(process instance.Instance) error {
-	return s.ttl.ResetInstanceTimer(process)
-}
-
-// Stats is the public method of the stats
-func (s *instanceSet) Stats() int {
-	s.Lock()
-	defer s.Unlock()
-	return s.stats()
-}
-
-// stats returns the alive number of instances
-func (s *instanceSet) stats() int {
-	alive := 0
-	for _, ins := range s.instances {
-		if ins.IsRunning() {
-			alive++
-		}
-	}
-	return alive
-}
-
-// Scale reads the target and does process-level scaling.
-// It's called when Refresh
-func (s *instanceSet) Scale(target int, functionName string) {
-	s.Lock()
-	defer s.Unlock()
-	l := len(s.instances)
-	if l > target {
-		zap.S().Debugw("set scale down", "function", s.functionName)
-		// scale down
-		// select the instances with the lowest scores
-		// get scores
-		// the ins.Score is the most important part
-		scores := []int{}
-		for _, ins := range s.instances {
-			scores = append(scores, ins.Score())
-		}
-		targetIndexes := []int{}
-		for rest := 0; rest < l-target; rest++ {
-			smallest := 99999
-			index := -1
-			for i, score := range scores {
-				if score < smallest {
-					index = i
-					smallest = score
-				}
-			}
-			if index == -1 {
-				zap.S().Warnw("cannot find one instance")
-			} else {
-				scores = append(scores[:index], scores[index+1:]...)
-				targetIndexes = append(targetIndexes, index)
-			}
-		}
-		for _, targetIndex := range targetIndexes {
-			ins := s.instances[targetIndex]
-			s.instances = append(s.instances[:targetIndex], s.instances[targetIndex+1:]...)
-			ins.Release()
-			zap.S().Debugw("fnscheduler release instance")
-			s.ttl.Release(ins)
-		}
-	} else if l < target {
-		zap.S().Debugw("set scale up", "function", s.functionName)
-		// scale up
-		for i := 0; i < target-l; i++ {
-			if fs.canCreate() {
-				// 1. preprare data structure for the new process instance
-				newIns := NewInstance(functionName)
-				zap.S().Infow("function scheduler creates instance", "instance", newIns)
-				if newIns == nil {
-					zap.S().Warn("instance is nil")
-					return
-				}
-
-				// 2. start the process instance
-				err := newIns.Start()
-				if err != nil {
-					zap.S().Warnw("function scheduler start instance error", "err", err)
-					continue
-				}
-
-				// 3. Notify the coldStartDone channel when the cold start phase is done
-				go func() {
-					newIns.InitDone()
-					zap.S().Debug("an instance initialization done")
-					// this step is important,
-					// ensure that we olny send a signal when a cold start stage done
-					//
-					// the newIns.InitDone() makes sure that the newIns status is running, guarantees
-					// the alive number is at least 1.
-					alive := s.Stats()
-					if alive == 1 {
-						s.coldStartDone <- struct{}{}
-						zap.S().Debug("an instance cold start done")
-					}
-				}()
-
-				s.instances = append(s.instances, newIns)
-				s.ttl.Append(newIns)
-			}
-		}
-	}
-}
-
-// functionColdStartDone returns when a cold start stage completes
-func (s *instanceSet) functionColdStartDone() {
-	<-s.coldStartDone
-}
-
-// newFunctionScheduler inits a new FunctionScheduler.
-// By default, the capacity of process instances is 10 and the trigger channel length is 100
-func newFunctionScheduler() *FunctionScheduler {
-	// todo context architecture
-	return &FunctionScheduler{
-		Locker:    &sync.Mutex{},
-		instances: make(map[string]*instanceSet, 10),
-		trigger:   make(chan struct{}, 100),
-	}
-}
-
-// Refresh refreshes information of instances and does scaling.
-// Everytime when ScheduleHandler recieves a new event for upstream,
-// it decides the status of the instance, and calls Refresh.
-func (fs *FunctionScheduler) Refresh(functionName string, target int) {
-	zap.S().Debugw("refresh")
-	fs.Lock()
-	ins, existed := fs.instances[functionName]
-	if !existed {
-		fs.instances[functionName] = newInstanceSet(functionName)
-		ins = fs.instances[functionName]
-	}
-	fs.Unlock()
-
-	ins.Scale(target, functionName)
-	fs.trigger <- struct{}{}
-}
-
 // sync syncs Function Scheduler intances info to api server via k8sutils
 func (fs *FunctionScheduler) sync() {
 	for range fs.trigger {
@@ -279,16 +79,20 @@ func (fs *FunctionScheduler) sync() {
 	}
 }
 
-// canCreate is a policy for determining whether function instance creation is still possible
-// todo check how to get metrics
+// canCreateInstance is a policy for determining whether function instance creation is possible
 // todo policy architecture
-func (fs *FunctionScheduler) canCreate() bool {
+func (fs *FunctionScheduler) canCreateInstance() bool {
 	return canCreatePolicies[viper.GetString(env.CreatePolicy)]()
 }
 
+// runner.Runner interface implementation
+//
+
 // Run chooses a target instance to run
 // now with middleware and events, fs run can be simplified
-func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
+func (fs *FunctionScheduler) Run(
+	span *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
+
 	fs.Lock()
 	functionName := span.GetFunctionName()
 	target, existed := fs.instances[functionName]
@@ -297,7 +101,7 @@ func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interfac
 		// so here if there is no funcionName map, it just means that this is the first HTTP request.
 		// The middleware has sent a Event for this Function, no matter it is created successfully or not.
 		// cold start, create target and create process
-		target = newInstanceSet(functionName)
+		zap.S().Panicw("instance set not initialized", "function", functionName)
 	}
 	// take care of the lock order, the set lock is before fs unlock
 	fs.instances[functionName] = target
@@ -320,12 +124,6 @@ func ChooseTargetInstance(instances []instance.Instance) (target instance.Instan
 	return
 }
 
-// NewInstance creates a new process instance.
-// This method is extracted as a helper function to mock instance creation in test injection.
-var NewInstance = func(functionName string) instance.Instance {
-	return instance.NewProcessInstance(functionName)
-}
-
 // Stats records the instances status that fnscheduler manages.
 // it returns a InstanceStatus map which the key is function name and the value is process number
 func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
@@ -338,17 +136,43 @@ func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	return stats
 }
 
-// ColdStartDone returns when the instace cold start stage of the function (param1) is done
-func (fs *FunctionScheduler) ColdStartDone(functionName string) {
-	// FIXME: now several places will initialize the set,
-	// this makes quite difficult to debug.
-	// an elegant solution is needed.
-	fs.Lock()
+// 	schedule.Scheduler interface implementation
+//
+
+// Refresh refreshes information of instances and does scaling.
+// Everytime when ScheduleHandler recieves a new event for upstream,
+// it decides the status of the instance, and calls Refresh.
+func (fs *FunctionScheduler) Refresh(functionName string, target int) {
+	zap.S().Debugw("refresh", "function", functionName)
+
 	ins, existed := fs.instances[functionName]
 	if !existed {
-		fs.instances[functionName] = newInstanceSet(functionName)
-		ins = fs.instances[functionName]
+		zap.S().Panicw("instance set not initialized", "function", functionName)
 	}
-	fs.Unlock()
+
+	ins.Scale(target, functionName)
+	fs.trigger <- struct{}{}
+}
+
+// ColdStartDone returns when the instace cold start stage of the function (param1) is done
+func (fs *FunctionScheduler) ColdStartDone(functionName string) {
+	ins, existed := fs.instances[functionName]
+	if !existed {
+		zap.S().Panicw("instance set not initialized", "function", functionName)
+	}
 	ins.functionColdStartDone()
+}
+
+// NewInstanceSetIfNotExist creates a new instance set structure for the given function (param1)
+func (fs *FunctionScheduler) NewInstanceSetIfNotExist(functionName string) {
+	// the lock guarantees that if many cold start requests at the same time,
+	// the second request doesn't create a repeated instance set
+	fs.Lock()
+	defer fs.Unlock()
+
+	_, existed := fs.instances[functionName]
+	if !existed {
+		newSet := newInstanceSet(functionName)
+		fs.instances[functionName] = newSet
+	}
 }
