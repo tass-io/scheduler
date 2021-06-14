@@ -135,8 +135,6 @@ func (i *processInstance) Start() (err error) {
 		return
 	}
 	i.startListen()
-	// FIXME: REMOVE Later
-	i.status = Running
 	return
 }
 

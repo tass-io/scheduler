@@ -18,7 +18,9 @@ type switchMockInstance struct {
 	name string
 }
 
-func (s *switchMockInstance) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
+func (s *switchMockInstance) Invoke(
+	parameters map[string]interface{}) (map[string]interface{}, error) {
+
 	parameters[s.name] = s.name
 	return parameters, nil
 }
@@ -27,9 +29,7 @@ func (s *switchMockInstance) Score() int {
 	return 0
 }
 
-func (s *switchMockInstance) Release() {
-	return
-}
+func (s *switchMockInstance) Release() {}
 
 func (s *switchMockInstance) IsRunning() bool {
 	return true
@@ -72,12 +72,28 @@ func TestSchedulerSwitch(t *testing.T) {
 				"left": {
 					Success: true,
 					Message: "ok",
-					Result:  map[string]interface{}{"flows": map[string]interface{}{"left": map[string]interface{}{"a": 5, "function1": "function1", "function3": "function3"}}},
+					Result: map[string]interface{}{
+						"flows": map[string]interface{}{
+							"left": map[string]interface{}{
+								"a":         5,
+								"function1": "function1",
+								"function3": "function3",
+							},
+						},
+					},
 				},
 				"right": {
 					Success: true,
 					Message: "ok",
-					Result:  map[string]interface{}{"flows": map[string]interface{}{"right": map[string]interface{}{"a": 1, "function1": "function1", "function2": "function2"}}},
+					Result: map[string]interface{}{
+						"flows": map[string]interface{}{
+							"right": map[string]interface{}{
+								"a":         1,
+								"function1": "function1",
+								"function2": "function2",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -110,7 +126,15 @@ func TestSchedulerSwitch(t *testing.T) {
 				"x > 10": {
 					Success: true,
 					Message: "ok",
-					Result:  map[string]interface{}{"flows": map[string]interface{}{"case1": map[string]interface{}{"a": 11, "function1": "function1", "function4": "function4"}}},
+					Result: map[string]interface{}{
+						"flows": map[string]interface{}{
+							"case1": map[string]interface{}{
+								"a":         11,
+								"function1": "function1",
+								"function4": "function4",
+							},
+						},
+					},
 				},
 				"x == 10": {
 					Success: true,
@@ -190,7 +214,8 @@ func TestSchedulerSwitch(t *testing.T) {
 			for caseName := range testcase.requests {
 				t.Logf("testcase %s\n", caseName)
 				resp := &dto.InvokeResponse{}
-				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.requests[caseName], resp)
+				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST",
+					map[string]string{}, testcase.requests[caseName], resp)
 				So(err, ShouldBeNil)
 				So(status, ShouldEqual, 200)
 				expect := testcase.expects[caseName].Result

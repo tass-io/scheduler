@@ -233,7 +233,8 @@ func GetIfElseWorkflow() *serverlessv1alpha1.Workflow {
 func DumpConfig(object runtime.Object, folderName, fileName string) error {
 	scheme := runtime.NewScheme()
 	_ = serverlessv1alpha1.AddToScheme(scheme)
-	serializer := json.NewSerializerWithOptions(yaml.DefaultMetaFactory, scheme, scheme, json.SerializerOptions{Yaml: true, Pretty: false, Strict: false})
+	serializer := json.NewSerializerWithOptions(yaml.DefaultMetaFactory, scheme, scheme,
+		json.SerializerOptions{Yaml: true, Pretty: false, Strict: false})
 	os.MkdirAll(folderName, 0666)
 	dumpFile, err := os.OpenFile(folderName+fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0)
 	if err != nil {
@@ -291,7 +292,22 @@ func TestCross(t *testing.T) {
 						"simple": "simple",
 					},
 				},
-				expect: map[string]interface{}{"simple_mid": map[string]interface{}{"simple_branch_1": map[string]interface{}{"simple": "simple", "simple_branch_1": "simple_branch_1", "simple_mid": "simple_mid", "simple_start": "simple_start"}, "simple_branch_2": map[string]interface{}{"simple": "simple", "simple_branch_2": "simple_branch_2", "simple_mid": "simple_mid", "simple_start": "simple_start"}}},
+				expect: map[string]interface{}{
+					"simple_mid": map[string]interface{}{
+						"simple_branch_1": map[string]interface{}{
+							"simple":          "simple",
+							"simple_branch_1": "simple_branch_1",
+							"simple_mid":      "simple_mid",
+							"simple_start":    "simple_start",
+						},
+						"simple_branch_2": map[string]interface{}{
+							"simple":          "simple",
+							"simple_branch_2": "simple_branch_2",
+							"simple_mid":      "simple_mid",
+							"simple_start":    "simple_start",
+						},
+					},
+				},
 			},
 			{
 				caseName:        "test simple branch for tracing",
@@ -305,7 +321,15 @@ func TestCross(t *testing.T) {
 						"a": 5,
 					},
 				},
-				expect: map[string]interface{}{"flows": map[string]interface{}{"left": map[string]interface{}{"a": 5, "left": "left", "start": "start"}}},
+				expect: map[string]interface{}{
+					"flows": map[string]interface{}{
+						"left": map[string]interface{}{
+							"a":     5,
+							"left":  "left",
+							"start": "start",
+						},
+					},
+				},
 			},
 		}
 
@@ -338,7 +362,8 @@ func TestCross(t *testing.T) {
 				// request the first one
 				request := testcase.request
 				resp := &dto.InvokeResponse{}
-				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, request, resp)
+				status, err := test.RequestJson(
+					"http://localhost:8080/v1/workflow/", "POST", map[string]string{}, request, resp)
 				t.Log(err)
 				So(status, ShouldEqual, 200)
 				So(fmt.Sprintf("%v", resp.Result), ShouldResemble, fmt.Sprintf("%v", testcase.expect))

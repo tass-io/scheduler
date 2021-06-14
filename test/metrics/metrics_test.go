@@ -40,12 +40,28 @@ func TestQPSScaleUpAndDown(t *testing.T) {
 				"left": {
 					Success: true,
 					Message: "ok",
-					Result:  map[string]interface{}{"flows": map[string]interface{}{"left": map[string]interface{}{"a": 5, "function1": "function1", "function3": "function3"}}},
+					Result: map[string]interface{}{
+						"flows": map[string]interface{}{
+							"left": map[string]interface{}{
+								"a":         5,
+								"function1": "function1",
+								"function3": "function3",
+							},
+						},
+					},
 				},
 				"right": {
 					Success: true,
 					Message: "ok",
-					Result:  map[string]interface{}{"flows": map[string]interface{}{"right": map[string]interface{}{"a": 1, "function1": "function1", "function2": "function2"}}},
+					Result: map[string]interface{}{
+						"flows": map[string]interface{}{
+							"right": map[string]interface{}{
+								"a":         1,
+								"function1": "function1",
+								"function2": "function2",
+							},
+						},
+					},
 				},
 			},
 		},
@@ -70,7 +86,8 @@ func TestQPSScaleUpAndDown(t *testing.T) {
 			for caseName := range testcase.requests {
 				t.Logf("testcase %s\n", caseName)
 				resp := &dto.InvokeResponse{}
-				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.requests[caseName], resp)
+				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST",
+					map[string]string{}, testcase.requests[caseName], resp)
 				So(err, ShouldBeNil)
 				So(status, ShouldEqual, 200)
 				expect := testcase.expects[caseName].Result

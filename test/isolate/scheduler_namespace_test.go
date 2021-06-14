@@ -87,9 +87,13 @@ func TestSchedulerIsolate(t *testing.T) {
 			functions       []*serverlessv1alpha1.Function
 		}{
 			{
-				caseName:      "direct test for function instance sacle down by ttl",
-				skipped:       false,
-				args:          []string{"-l", "-T", "2s", "-w", "../sample/samples/pipeline/direct.yaml", "-r", "./config/workflowruntime.yaml", "-f", "./config/function1.yaml,./config/function2.yaml,./config/function3.yaml"},
+				caseName: "direct test for function instance sacle down by ttl",
+				skipped:  false,
+				args: []string{
+					"-l", "-T", "2s", "-w", "../sample/samples/pipeline/direct.yaml",
+					"-r", "./config/workflowruntime.yaml",
+					"-f", "./config/function1.yaml,./config/function2.yaml,./config/function3.yaml",
+				},
 				fileName:      "../../user-code/default-golang-wrapper.zip",
 				functionNames: []string{"function1", "function2", "function3"},
 				workflowRuntime: &serverlessv1alpha1.WorkflowRuntime{
@@ -222,7 +226,8 @@ func TestSchedulerIsolate(t *testing.T) {
 				}
 				resp := &dto.InvokeResponse{}
 				time.Sleep(6 * time.Second)
-				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.request, resp)
+				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST",
+					map[string]string{}, testcase.request, resp)
 				So(err, ShouldBeNil)
 				So(status, ShouldEqual, 200)
 				So(*resp, ShouldResemble, testcase.expect)
