@@ -30,3 +30,8 @@ vendor/
 # cross test file
 /test/cross/config/
 /test/isolate/config/
+
+# package code for wrapper 
+user-code/default-golang-wrapper.zip
+user-code/plugin-golang-wrapper.zip
+

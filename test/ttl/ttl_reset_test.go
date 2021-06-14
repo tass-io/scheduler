@@ -23,7 +23,7 @@ func TestTTLReset(t *testing.T) {
 	}{
 		{
 			skipped: false,
-			args:    []string{"-l", "-T", "10s", "-q", "-w", "../sample/samples/switch/if-else.yaml"},
+			args:    []string{"-l", "-T", "5s", "-q", "-w", "../sample/samples/switch/if-else.yaml"},
 			requests: map[string]dto.InvokeRequest{
 				"left": {
 					WorkflowName: "if-else",
@@ -97,9 +97,9 @@ func TestTTLReset(t *testing.T) {
 				So(fmt.Sprintf("%v", resp.Result), ShouldResemble, fmt.Sprintf("%v", expect))
 			}
 
-			time.Sleep(5 * time.Second) // the sleep time depends on qps refresh time
+			time.Sleep(3 * time.Second) // the sleep time depends on qps refresh time
 			stats := fnscheduler.GetFunctionScheduler().Stats()
-			t.Logf("stats after 5 seconds %v\n", stats)
+			t.Logf("stats after 3 seconds %v\n", stats)
 			for _, stat := range stats {
 				So(stat, ShouldNotEqual, 0)
 			}
@@ -117,16 +117,16 @@ func TestTTLReset(t *testing.T) {
 				So(fmt.Sprintf("%v", resp.Result), ShouldResemble, fmt.Sprintf("%v", expect))
 			}
 
-			time.Sleep(5 * time.Second)
+			time.Sleep(2 * time.Second)
 			stats = fnscheduler.GetFunctionScheduler().Stats()
-			t.Logf("stats after 10 seconds %v\n", stats)
+			t.Logf("stats after 5 seconds %v\n", stats)
 			for _, stat := range stats {
 				So(stat, ShouldNotEqual, 0)
 			}
 
-			time.Sleep(10 * time.Second)
+			time.Sleep(5 * time.Second)
 			stats = fnscheduler.GetFunctionScheduler().Stats()
-			t.Logf("stats after 20 seconds %v\n", stats)
+			t.Logf("stats after 10 seconds %v\n", stats)
 			for _, stat := range stats {
 				So(stat, ShouldEqual, 0)
 			}

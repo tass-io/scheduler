@@ -62,23 +62,35 @@ type FunctionScheduler struct {
 	runner.Runner
 	schedule.Scheduler
 	// instances records all process instances of each Function
-	instances map[string]*set
+	instances map[string]*instanceSet
 	trigger   chan struct{}
 }
 
-// set is the status of the function and its instances
+// instanceSet is the status of the function and its instances
 // todo take care of terminated instances clean
-type set struct {
+type instanceSet struct {
 	sync.Locker
-	functionName string
-	instances    []instance.Instance
-	ttl          *ttl.TTLManager
+	functionName  string
+	instances     []instance.Instance
+	coldStartDone chan struct{}
+	ttl           *ttl.TTLManager
+}
+
+// newInstanceSet returns a new set for the input function
+func newInstanceSet(functionName string) *instanceSet {
+	return &instanceSet{
+		Locker:        &sync.Mutex{},
+		functionName:  functionName,
+		instances:     []instance.Instance{},
+		coldStartDone: make(chan struct{}, 10),
+		ttl:           ttl.NewTTLManager(functionName),
+	}
 }
 
 // Invoke is a set-level invocation
 // it finds a lowest score process to run the function
 // if no available processes, it returns en error
-func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
+func (s *instanceSet) Invoke(parameters map[string]interface{}) (map[string]interface{}, error) {
 	if s.stats() > 0 {
 		// warm start, try to find a lowest latency process to work
 		var result map[string]interface{}
@@ -116,12 +128,19 @@ func (s *set) Invoke(parameters map[string]interface{}) (map[string]interface{},
 }
 
 // resetInstanceTimer resets the timer of a process instance
-func (s *set) resetInstanceTimer(process instance.Instance) error {
+func (s *instanceSet) resetInstanceTimer(process instance.Instance) error {
 	return s.ttl.ResetInstanceTimer(process)
 }
 
+// Stats is the public method of the stats
+func (s *instanceSet) Stats() int {
+	s.Lock()
+	defer s.Unlock()
+	return s.stats()
+}
+
 // stats returns the alive number of instances
-func (s *set) stats() int {
+func (s *instanceSet) stats() int {
 	alive := 0
 	for _, ins := range s.instances {
 		if ins.IsRunning() {
@@ -131,16 +150,9 @@ func (s *set) stats() int {
 	return alive
 }
 
-// Stats is the public method of the stats
-func (s *set) Stats() int {
-	s.Lock()
-	defer s.Unlock()
-	return s.stats()
-}
-
 // Scale reads the target and does process-level scaling.
 // It's called when Refresh
-func (s *set) Scale(target int, functionName string) {
+func (s *instanceSet) Scale(target int, functionName string) {
 	s.Lock()
 	defer s.Unlock()
 	l := len(s.instances)
@@ -183,17 +195,37 @@ func (s *set) Scale(target int, functionName string) {
 		// scale up
 		for i := 0; i < target-l; i++ {
 			if fs.canCreate() {
+				// 1. preprare data structure for the new process instance
 				newIns := NewInstance(functionName)
 				zap.S().Infow("function scheduler creates instance", "instance", newIns)
 				if newIns == nil {
 					zap.S().Warn("instance is nil")
 					return
 				}
+
+				// 2. start the process instance
 				err := newIns.Start()
 				if err != nil {
 					zap.S().Warnw("function scheduler start instance error", "err", err)
 					continue
 				}
+
+				// 3. Notify the coldStartDone channel when the cold start phase is done
+				go func() {
+					newIns.InitDone()
+					zap.S().Debug("an instance initialization done")
+					// this step is important,
+					// ensure that we olny send a signal when a cold start stage done
+					//
+					// the newIns.InitDone() makes sure that the newIns status is running, guarantees
+					// the alive number is at least 1.
+					alive := s.Stats()
+					if alive == 1 {
+						s.coldStartDone <- struct{}{}
+						zap.S().Debug("an instance cold start done")
+					}
+				}()
+
 				s.instances = append(s.instances, newIns)
 				s.ttl.Append(newIns)
 			}
@@ -201,14 +233,9 @@ func (s *set) Scale(target int, functionName string) {
 	}
 }
 
-// newSet returns a new set for the input function
-func newSet(functionName string) *set {
-	return &set{
-		Locker:       &sync.Mutex{},
-		functionName: functionName,
-		instances:    []instance.Instance{},
-		ttl:          ttl.NewTTLManager(functionName),
-	}
+// functionColdStartDone returns when a cold start stage completes
+func (s *instanceSet) functionColdStartDone() {
+	<-s.coldStartDone
 }
 
 // newFunctionScheduler inits a new FunctionScheduler.
@@ -217,7 +244,7 @@ func newFunctionScheduler() *FunctionScheduler {
 	// todo context architecture
 	return &FunctionScheduler{
 		Locker:    &sync.Mutex{},
-		instances: make(map[string]*set, 10),
+		instances: make(map[string]*instanceSet, 10),
 		trigger:   make(chan struct{}, 100),
 	}
 }
@@ -230,10 +257,11 @@ func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 	fs.Lock()
 	ins, existed := fs.instances[functionName]
 	if !existed {
-		fs.instances[functionName] = newSet(functionName)
+		fs.instances[functionName] = newInstanceSet(functionName)
 		ins = fs.instances[functionName]
 	}
 	fs.Unlock()
+
 	ins.Scale(target, functionName)
 	fs.trigger <- struct{}{}
 }
@@ -269,7 +297,7 @@ func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interfac
 		// so here if there is no funcionName map, it just means that this is the first HTTP request.
 		// The middleware has sent a Event for this Function, no matter it is created successfully or not.
 		// cold start, create target and create process
-		target = newSet(functionName)
+		target = newInstanceSet(functionName)
 	}
 	// take care of the lock order, the set lock is before fs unlock
 	fs.instances[functionName] = target
@@ -308,4 +336,19 @@ func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	}
 	fs.Unlock()
 	return stats
+}
+
+// ColdStartDone returns when the instace cold start stage of the function (param1) is done
+func (fs *FunctionScheduler) ColdStartDone(functionName string) {
+	// FIXME: now several places will initialize the set,
+	// this makes quite difficult to debug.
+	// an elegant solution is needed.
+	fs.Lock()
+	ins, existed := fs.instances[functionName]
+	if !existed {
+		fs.instances[functionName] = newInstanceSet(functionName)
+		ins = fs.instances[functionName]
+	}
+	fs.Unlock()
+	ins.functionColdStartDone()
 }

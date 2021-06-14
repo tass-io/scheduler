@@ -89,7 +89,7 @@ func TestLSDS_Policy(t *testing.T) {
 					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
 						Status: serverlessv1alpha1.WfrtStatus{
 							Instances: map[string]serverlessv1alpha1.Instance{
-								"ty": serverlessv1alpha1.Instance{
+								"ty": {
 									Status: &serverlessv1alpha1.InstanceStatus{
 										HostIP: k8sutils.NewStringPtr("ty"),
 										PodIP:  k8sutils.NewStringPtr("ty"),
@@ -98,7 +98,7 @@ func TestLSDS_Policy(t *testing.T) {
 										"test_start": {Number: 1},
 									},
 								},
-								"tx": serverlessv1alpha1.Instance{
+								"tx": {
 									Status: &serverlessv1alpha1.InstanceStatus{
 										HostIP: k8sutils.NewStringPtr("tx"),
 										PodIP:  k8sutils.NewStringPtr("tx"),
@@ -107,7 +107,7 @@ func TestLSDS_Policy(t *testing.T) {
 										"test_end": {Number: 1},
 									},
 								},
-								"littledrizzle": serverlessv1alpha1.Instance{
+								"littledrizzle": {
 									Status: &serverlessv1alpha1.InstanceStatus{
 										HostIP: k8sutils.NewStringPtr("littledrizzle"),
 										PodIP:  k8sutils.NewStringPtr("littledrizzle"),
@@ -226,7 +226,7 @@ func TestLSDS_Sync(t *testing.T) {
 					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
 						Status: serverlessv1alpha1.WfrtStatus{
 							Instances: map[string]serverlessv1alpha1.Instance{
-								"ty": serverlessv1alpha1.Instance{
+								"ty": {
 									Status: &serverlessv1alpha1.InstanceStatus{
 										HostIP: k8sutils.NewStringPtr("ty"),
 										PodIP:  k8sutils.NewStringPtr("ty"),
@@ -235,7 +235,7 @@ func TestLSDS_Sync(t *testing.T) {
 										"test_start": {Number: 1},
 									},
 								},
-								"tx": serverlessv1alpha1.Instance{
+								"tx": {
 									Status: &serverlessv1alpha1.InstanceStatus{
 										HostIP: k8sutils.NewStringPtr("tx"),
 										PodIP:  k8sutils.NewStringPtr("tx"),
@@ -244,7 +244,7 @@ func TestLSDS_Sync(t *testing.T) {
 										"test_end": {Number: 1},
 									},
 								},
-								"littledrizzle": serverlessv1alpha1.Instance{
+								"littledrizzle": {
 									Status: &serverlessv1alpha1.InstanceStatus{
 										HostIP: k8sutils.NewStringPtr("littledrizzle"),
 										PodIP:  k8sutils.NewStringPtr("littledrizzle"),

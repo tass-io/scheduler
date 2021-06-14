@@ -126,7 +126,7 @@ func TestProcessInstance(t *testing.T) {
 			process := NewProcessInstance(testcase.functionName)
 			err = process.Start()
 			So(err, ShouldBeNil)
-			time.Sleep(500 * time.Millisecond)
+			process.InitDone()
 			for i := 1; i < 50; i++ {
 				result, err := process.Invoke(testcase.request)
 				So(err, ShouldBeNil)

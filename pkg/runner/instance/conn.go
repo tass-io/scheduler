@@ -37,6 +37,10 @@ var (
 	// For example, `{"a": "b"}littledrizzle{"a": "c"}` maybe in the pipe,
 	// so to split two request, we need a delimiter.
 	splitByte = []byte("littledrizzle")
+
+	// ping is a information to show the producer is ready to send requests,
+	// indicating the process is ready
+	ping = []byte("ping")
 )
 
 // FunctionRequest will be put into the producer and send it to request pipe
@@ -67,7 +71,7 @@ type FunctionResponse struct {
 // Producer waits for requests from request channel and put the data into the process
 type Producer struct {
 	f                  *os.File
-	demo               interface{}
+	data               interface{}
 	requestChannel     chan interface{}
 	startRoutineExited bool
 }
@@ -75,33 +79,34 @@ type Producer struct {
 // Consumer waits for responses and put the data into response channel
 type Consumer struct {
 	f               *os.File
-	demo            interface{}
+	data            interface{}
 	responseChannel chan interface{}
+	initDoneChannel chan struct{}
 	noNewInfo       bool
 }
 
 // NewConsumer creates a new consumer data structure cantains a channel and an unnamed pipe
-func NewConsumer(f *os.File, demo interface{}) *Consumer {
+func NewConsumer(f *os.File, data interface{}) *Consumer {
 	return &Consumer{
 		f:               f,
-		demo:            demo,
+		data:            data,
 		responseChannel: make(chan interface{}, 10),
+		initDoneChannel: make(chan struct{}, 1),
 	}
 }
 
 // consumer Start gets the function response and sends it to the channel
 func (c *Consumer) Start() {
 	go func() {
-		typ := reflect.TypeOf(c.demo)
+		typ := reflect.TypeOf(c.data)
 		zap.S().Debugw("consumer get type", "type", typ)
 		data := make([]byte, 4<<20)
 		reader := bufio.NewReader(c.f)
-		tail := ""
+		processInitDone := false
 		for {
-			// todo fixed error read
 			n, err := reader.Read(data)
 			if n == 0 {
-				zap.S().Debug("read 0")
+				zap.S().Debug("read nothing")
 				if err == nil {
 					continue
 				} else {
@@ -111,15 +116,23 @@ func (c *Consumer) Start() {
 					}
 				}
 			}
-			s := string(data[:n])
-			s = tail + s
-			pkg := strings.Split(s, string(splitByte))
-			if len(pkg) == 0 {
-				// when the case is only one response,
-				// for example, `{"hello":"world"}`
-				pkg = append(pkg, s)
+
+			rawString := string(data[:n])
+			responseSlice := strings.Split(rawString, string(splitByte))
+
+			if !processInitDone {
+				// this is sent when the producer starts at the first time
+				if responseSlice[0] == string(ping) {
+					zap.S().Info("recieve a 'ping' signal")
+					processInitDone = true
+					c.initDoneChannel <- struct{}{}
+					responseSlice = responseSlice[1:]
+				} else {
+					zap.S().Panic("Should recieve ping from pipe but received other info")
+				}
 			}
-			for _, item := range pkg {
+
+			for _, item := range responseSlice {
 				if item == "" {
 					continue
 				}
@@ -128,19 +141,13 @@ func (c *Consumer) Start() {
 				err = json.Unmarshal([]byte(item), newP)
 				if err != nil {
 					zap.S().Infow("consumer unmarshal error", "err", err, "item", item)
-					// take care of `{"s":"b"}littledrizzle{"n":`
-					// the item must be the last one
-					//
-					// NOTE: this case may never happen. In linux kernel implementation,
-					// a lock is required during read/write operations.
-					// Since all tests are passed, the code remains now.
-					tail = item
 					continue
 				}
 				zap.S().Debugw("get resp with in consumer ", "resp", newP)
 				c.responseChannel <- newP
 			}
 		}
+
 		zap.S().Debug("no more requests")
 		c.noNewInfo = true
 		c.f.Close()
@@ -150,6 +157,12 @@ func (c *Consumer) Start() {
 // GetChannel returns a consumer response channel
 func (c *Consumer) GetChannel() chan interface{} {
 	return c.responseChannel
+}
+
+// GetInitDoneChannel returns a consumer initDone channel,
+// which notifies the channel when the process producer pipe sends a "ping" signal
+func (c *Consumer) GetInitDoneChannel() chan struct{} {
+	return c.initDoneChannel
 }
 
 // NoNewInfo returns wether the pipe have data waiting for dealing with in the response channel
@@ -168,7 +181,7 @@ func (c *Consumer) Terminate() {
 func NewProducer(f *os.File, demo interface{}) *Producer {
 	return &Producer{
 		f:                  f,
-		demo:               demo,
+		data:               demo,
 		requestChannel:     make(chan interface{}, 10),
 		startRoutineExited: false,
 	}
@@ -176,6 +189,12 @@ func NewProducer(f *os.File, demo interface{}) *Producer {
 
 // producer listens the channel and gets a request, writes the data to pipe
 func (p *Producer) Start() {
+	signal := append(ping, splitByte...)
+	n, err := p.f.Write(signal)
+	if err != nil || n != len(signal) {
+		zap.S().Panicw("instance producer starts error", "err", err, "reqByteLen", len(signal), "n", n)
+	}
+
 	go func() {
 		for req := range p.requestChannel {
 			reqByte, err := json.Marshal(&req)

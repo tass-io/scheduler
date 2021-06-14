@@ -35,14 +35,14 @@ func TestFunctionScheduler_Run(t *testing.T) {
 	testcases := []struct {
 		caseName       string
 		skipped        bool
-		instanceInject map[string]*set
+		instanceInject map[string]*instanceSet
 		span           *span.Span
 		expect         error
 	}{
 		{
 			caseName: "test simple run",
 			skipped:  false,
-			instanceInject: map[string]*set{
+			instanceInject: map[string]*instanceSet{
 				"a": {
 					Locker: &sync.RWMutex{},
 					instances: []instance.Instance{
@@ -57,7 +57,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 		{
 			caseName: "test simple run",
 			skipped:  false,
-			instanceInject: map[string]*set{
+			instanceInject: map[string]*instanceSet{
 				"a": {
 					Locker: &sync.RWMutex{},
 					instances: []instance.Instance{
@@ -131,7 +131,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
 						Status: serverlessv1alpha1.WfrtStatus{
 							Instances: map[string]serverlessv1alpha1.Instance{
-								"littledrizzle": serverlessv1alpha1.Instance{
+								"littledrizzle": {
 									Status: &serverlessv1alpha1.InstanceStatus{
 										HostIP: k8sutils.NewStringPtr("littledrizzle"),
 										PodIP:  k8sutils.NewStringPtr("littledrizzle"),
@@ -168,7 +168,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 			for functionName, num := range testcase.targets {
 				// work like a prepare middleware
-				fs.instances[functionName] = newSet(functionName)
+				fs.instances[functionName] = newInstanceSet(functionName)
 				fs.Refresh(functionName, num)
 				time.Sleep(500 * time.Millisecond)
 			}

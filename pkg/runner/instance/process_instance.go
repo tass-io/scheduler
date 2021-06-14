@@ -51,7 +51,7 @@ type processInstance struct {
 	uuid         string
 	lock         sync.Locker
 	functionName string
-	Status       Status
+	status       Status
 	cpu          string // todo we thought about implementing resource limitation either at instance create
 	memory       string
 	environment  string
@@ -68,7 +68,7 @@ type processInstance struct {
 // Score returns the score of the Process.
 // The scheduler chooses the process which has the minimum score as the target
 func (i *processInstance) Score() int {
-	if i.Status != Running {
+	if i.status != Running {
 		return runner.SCORE_MAX
 	}
 	policyName := viper.GetString(env.InstanceScorePolicy)
@@ -117,7 +117,7 @@ func (i *processInstance) Start() (err error) {
 	zap.S().Debugw("process start")
 	i.lock.Lock()
 	defer i.lock.Unlock()
-	i.Status = Init
+	i.status = Init
 	producerRead, producerWrite, err := newPipe()
 	if err != nil {
 		return
@@ -135,7 +135,6 @@ func (i *processInstance) Start() (err error) {
 		return
 	}
 	i.startListen()
-	i.Status = Running
 	return
 }
 
@@ -149,10 +148,14 @@ func (i *processInstance) startListen() {
 	}()
 }
 
-// startProcess starts function process and uses pipe to build a connection,
-// it also prepares the log directory
+// startProcess starts function process, prepares log output directory
+// and uses the pipe to build two connections,
+// the request (param1) is the producer read pipe,
+// the response (param2) is the consumer write pipe.
 // todo customize the command
-func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
+func (i *processInstance) startProcess(
+	request *os.File, response *os.File, functionName string) (err error) {
+
 	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName,
 		viper.GetString(env.RedisIp), viper.GetString(env.RedisPort),
 		viper.GetString(env.RedisPassword), i.environment)
@@ -161,6 +164,7 @@ func (i *processInstance) startProcess(request *os.File, response *os.File, func
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC,
 	}
+
 	_ = os.MkdirAll(fmt.Sprintf("%slogs/", env.TassFileRoot), 0777)
 	logFileName := fmt.Sprintf("%slogs/%s.log", env.TassFileRoot, i.uuid)
 	logFile, err := os.Create(logFileName)
@@ -170,6 +174,7 @@ func (i *processInstance) startProcess(request *os.File, response *os.File, func
 	} else {
 		cmd.Stdout = logFile
 	}
+
 	cmd.ExtraFiles = []*os.File{request, response}
 	err = cmd.Start()
 	// todo how to check whether a process is init over
@@ -188,8 +193,8 @@ func (i *processInstance) handleCmdExit() {
 
 }
 
-// Send SIGTERM to process and trigger clean up
-// Process Release step
+// Sends a SIGTERM signal to process and triggers `clean up` action
+// Process Release steps
 /*  1. send SIGTERM to function process
  *  2. close main request channel
  *  3. when function process get eof about request, set noNewInfo true
@@ -201,7 +206,7 @@ func (i *processInstance) Release() {
 	zap.S().Debugw("instance release", "id", i.uuid)
 	i.lock.Lock()
 	defer i.lock.Unlock()
-	i.Status = Terminating
+	i.status = Terminating
 	err := i.cmd.Process.Signal(syscall.SIGTERM)
 	if err != nil {
 		zap.S().Errorw("process send SIGTERM error", "err", err)
@@ -211,7 +216,7 @@ func (i *processInstance) Release() {
 
 // IsRunning returns wether a process is running
 func (i *processInstance) IsRunning() bool {
-	return i.Status == Running
+	return i.status == Running
 }
 
 // cleanUp is used at processInstance exception or graceful shut down
@@ -224,8 +229,8 @@ func (i *processInstance) cleanUp() {
 // Invoke generates a functionRequest and is blocked until the function return the result
 // Invoke is a process-level invoke
 func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[string]interface{}, err error) {
-	if i.Status != Running {
-		zap.S().Infow("process instance Invoke", "status", i.Status)
+	if i.status != Running {
+		zap.S().Infow("process instance Invoke", "status", i.status)
 		return nil, ErrInstanceNotService
 	}
 	i.lock.Lock()
@@ -248,3 +253,15 @@ func (i *processInstance) getWaitNum() int {
 func (i *processInstance) HasRequests() bool {
 	return len(i.responseMapping) > 0
 }
+
+// InitDone returns when the process instance initialization done, or it hangs forever.
+func (i *processInstance) InitDone() {
+	zap.S().Infow("process instance init done", "process", i.uuid)
+	initDoneCh := i.consumer.GetInitDoneChannel()
+	<-initDoneCh
+
+	// lazy, change the status only when this method is called
+	i.status = Running
+}
+
+var _ Instance = &processInstance{}

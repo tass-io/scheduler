@@ -40,6 +40,8 @@ func (p *PipeMockInstance) HasRequests() bool {
 	return false
 }
 
+func (p *PipeMockInstance) InitDone() {}
+
 func TestSchedulerPipeline(t *testing.T) {
 	fnscheduler.NewInstance = func(functionName string) instance.Instance {
 		return &PipeMockInstance{}
@@ -148,7 +150,8 @@ func TestSchedulerPipeline(t *testing.T) {
 			}()
 			time.Sleep(1000 * time.Millisecond)
 			resp := &dto.InvokeResponse{}
-			status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST", map[string]string{}, testcase.request, resp)
+			status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST",
+				map[string]string{}, testcase.request, resp)
 			So(err, ShouldBeNil)
 			So(status, ShouldEqual, 200)
 			So(*resp, ShouldResemble, testcase.expect)
