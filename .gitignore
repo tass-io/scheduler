@@ -32,4 +32,6 @@ vendor/
 /test/isolate/config/
 
 # package code for wrapper 
-user-code/
+user-code/default-golang-wrapper.zip
+user-code/plugin-golang-wrapper.zip
+
