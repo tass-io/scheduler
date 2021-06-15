@@ -136,6 +136,16 @@ func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	return stats
 }
 
+// FunctionStats returns the current running instances numbers for the given function (param1)
+// if the instanceSet for the function doesn't exist, it returns 0
+func (fs *FunctionScheduler) FunctionStats(functionName string) int {
+	set, ok := fs.instances[functionName]
+	if !ok {
+		return 0
+	}
+	return set.Stats()
+}
+
 // 	schedule.Scheduler interface implementation
 //
 
@@ -151,6 +161,7 @@ func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 	}
 
 	ins.Scale(target, functionName)
+	// FIXME: when trigger, the process status may not still running, update the logic here
 	fs.trigger <- struct{}{}
 }
 
@@ -176,3 +187,6 @@ func (fs *FunctionScheduler) NewInstanceSetIfNotExist(functionName string) {
 		fs.instances[functionName] = newSet
 	}
 }
+
+var _ runner.Runner = &FunctionScheduler{}
+var _ schedule.Scheduler = &FunctionScheduler{}

@@ -3,6 +3,7 @@ package initial
 import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
+	"github.com/tass-io/scheduler/pkg/middleware/coldstart"
 	"github.com/tass-io/scheduler/pkg/middleware/lsds"
 	"github.com/tass-io/scheduler/pkg/middleware/qps"
 	"github.com/tass-io/scheduler/pkg/middleware/static"
@@ -17,6 +18,7 @@ func Initial() {
 		static.Register()
 	}
 	if true {
+		coldstart.Register()
 		lsds.Register()
 	}
 }
