@@ -26,7 +26,9 @@ type SimpleFakeRunner struct {
 }
 
 // SimpleFakeRunner will 'register' all function will be call, which indexes the function by span.FlowName
-func (r *SimpleFakeRunner) Run(sp *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
+func (r *SimpleFakeRunner) Run(
+	sp *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
+
 	switch sp.GetFlowName() {
 	case "simple_start":
 		{
@@ -82,6 +84,10 @@ func (r *SimpleFakeRunner) Run(sp *span.Span, parameters map[string]interface{})
 
 func (r *SimpleFakeRunner) Stats() runner.InstanceStatus {
 	return nil
+}
+
+func (r *SimpleFakeRunner) FunctionStats(functionName string) int {
+	return 0
 }
 
 func (r *SimpleFakeRunner) NewInstanceSetIfNotExist(fnName string) {}
@@ -146,8 +152,16 @@ func TestManager(t *testing.T) {
 					*objects = append(*objects, workflow)
 				},
 				sp:         span.NewSpan("simple", "", ""),
-				parameters: map[string]interface{}{"a": "b"},
-				expect:     map[string]interface{}{"simple_mid": map[string]interface{}{"simple_end": map[string]interface{}{"d": "e"}}},
+				parameters: map[string]interface{}{
+					"a": "b",
+				},
+				expect:     map[string]interface{}{
+					"simple_mid": map[string]interface{}{
+						"simple_end": map[string]interface{}{
+							"d": "e",
+						},
+					},
+				},
 			},
 			{
 				caseName: "simple with parallel",
@@ -206,8 +220,19 @@ func TestManager(t *testing.T) {
 					*objects = append(*objects, workflow)
 				},
 				sp:         span.NewSpan("simple", "", ""),
-				parameters: map[string]interface{}{"a": "b"},
-				expect:     map[string]interface{}{"simple_mid": map[string]interface{}{"simple_branch_1": map[string]interface{}{"branch_1": "branch_1"}, "simple_branch_2": map[string]interface{}{"branch_2": "branch_2"}}},
+				parameters: map[string]interface{}{
+					"a": "b",
+				},
+				expect:     map[string]interface{}{
+					"simple_mid": map[string]interface{}{
+						"simple_branch_1": map[string]interface{}{
+							"branch_1": "branch_1",
+							}, 
+							"simple_branch_2": map[string]interface{}{
+								"branch_2": "branch_2",
+							},
+						},
+					},
 			},
 			{
 				caseName: "simple with one condition",

@@ -22,9 +22,9 @@ func init() {
 	qpsmiddle = newQPSMiddleware()
 }
 
-// Register registers the qps middleware as a priority of 3
+// Register registers the qps middleware as a priority of 10
 func Register() {
-	middleware.Register(QPSMiddlewareSource, qpsmiddle, 3)
+	middleware.Register(QPSMiddlewareSource, qpsmiddle, 10)
 }
 
 // qpsmiddle is the middleware for statisticsis,

@@ -198,3 +198,28 @@ func (l *LSDS) Stats() runner.InstanceStatus {
 	}
 	return result
 }
+
+// FunctionStats returns the current running instances numbers for the given function (param1),
+// it iterates the self instances data in WorkflowRuntime, and returns the number
+// if the function instance doesn't exist or something error from getting the WorkflowRuntime,
+// it returns 0
+func (l *LSDS) FunctionStats(functionName string) int {
+	wfrt, existed, err := l.getWorkflowRuntimeByName(l.workflowName)
+	if err != nil {
+		zap.S().Errorw("get lsds stats error", "err", err)
+		return 0
+	}
+	if !existed {
+		return 0
+	}
+
+	zap.S().Debugw("get workflow runtime", "wfrt", wfrt, "selfName", l.selfName)
+	selfStatus, existed := wfrt.Spec.Status.Instances[l.selfName]
+	if !existed {
+		return 0
+	}
+
+	return selfStatus.ProcessRuntimes[functionName].Number
+}
+
+var _ runner.Runner = &LSDS{}

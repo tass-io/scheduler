@@ -24,4 +24,7 @@ type Runner interface {
 	// Stats returns the runner current status, which is a map that the key is the function name
 	// and the value is the number of running instances
 	Stats() InstanceStatus
+	// FunctionStats returns the current running instances numbers for the given function (param1)
+	// if the instanceSet for the function doesn't exist, it returns 0
+	FunctionStats(functionName string) int
 }
