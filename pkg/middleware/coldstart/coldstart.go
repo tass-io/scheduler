@@ -20,7 +20,7 @@ var (
 	coldstartmiddle *ColdstartMiddleware
 )
 
-// init initializes the cold middleware
+// init initializes the cold start middleware
 func init() {
 	coldstartmiddle = newColdstartMiddleware()
 }
