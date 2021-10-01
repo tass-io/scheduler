@@ -22,7 +22,6 @@ func CopyMap(m map[string]interface{}) (map[string]interface{}, error) {
 	return copy, nil
 }
 
-
 func DeepCopy(dst, src interface{}) error {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(src); err != nil {

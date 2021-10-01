@@ -28,9 +28,9 @@ const (
 type ScheduleEvent struct {
 	FunctionName string
 	// Target is the expected number of the process
-	Target       int
-	Trend        Trend
-	Source       Source
+	Target int
+	Trend  Trend
+	Source Source
 }
 
 func NewNoneScheduleEvent(functionName string) *ScheduleEvent {

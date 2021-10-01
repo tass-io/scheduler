@@ -20,7 +20,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var ErrInvalidTarget error = errors.New("no valid target")
+var ErrInvalidTarget = errors.New("no valid target")
 
 // Policy returns the ip we choose to send request.
 type Policy func(functionName string, selfName string, runtime *serverlessv1alpha1.WorkflowRuntime) string

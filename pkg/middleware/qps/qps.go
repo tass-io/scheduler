@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type QPSManager struct {
+type Manager struct {
 	periodMicros     int64
 	nextPeriodMicros int64
 	currentPermits   int64
@@ -14,8 +14,8 @@ type QPSManager struct {
 	mutex sync.Mutex
 }
 
-func newQPSManager(periodMs int64) *QPSManager {
-	l := &QPSManager{
+func newQPSManager(periodMs int64) *Manager {
+	l := &Manager{
 		periodMicros: periodMs * int64(time.Millisecond),
 		start:        time.Now(),
 	}
@@ -23,7 +23,7 @@ func newQPSManager(periodMs int64) *QPSManager {
 	return l
 }
 
-func (l *QPSManager) refresh() {
+func (l *Manager) refresh() {
 	var nowMicros = int64(time.Since(l.start))
 	if nowMicros >= l.nextPeriodMicros {
 		l.nextPeriodMicros = ((nowMicros-l.nextPeriodMicros)/l.periodMicros+1)*l.periodMicros + l.nextPeriodMicros
@@ -32,7 +32,7 @@ func (l *QPSManager) refresh() {
 }
 
 // TryAcquire limit
-func (l *QPSManager) Inc() int64 {
+func (l *Manager) Inc() int64 {
 
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
@@ -41,7 +41,7 @@ func (l *QPSManager) Inc() int64 {
 	return l.currentPermits
 }
 
-func (l *QPSManager) Get() int64 {
+func (l *Manager) Get() int64 {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	l.refresh()

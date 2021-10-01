@@ -2,7 +2,6 @@ package instance
 
 import (
 	"github.com/tass-io/scheduler/pkg/tools/common"
-	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"go.uber.org/zap"
 )
 
@@ -13,7 +12,7 @@ type mockInstance struct {
 	handleRequest bool
 }
 
-func NewMockInstance(functionName string) *mockInstance {
+func NewMockInstance(functionName string) Instance {
 	return &mockInstance{
 		functionName:  functionName,
 		released:      false,

@@ -110,7 +110,7 @@ func newScheduleHandler() *ScheduleHandler {
 		lock: &sync.Mutex{},
 		// orders records the current Source items in an increasing order
 		orders: nil,
-		// upstream recieves all upstream ScheduleEvent
+		// upstream receives all upstream ScheduleEvent
 		upstream: make(chan source.ScheduleEvent, 1000),
 		// scoreboard records scoreBoards for functions in a workflow.
 		// the key is the function name

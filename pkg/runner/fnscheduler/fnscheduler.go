@@ -111,7 +111,7 @@ func (fs *FunctionScheduler) Run(
 
 // ChooseTargetInstance chooses a target instance which has the lowest score
 func ChooseTargetInstance(instances []instance.Instance) (target instance.Instance) {
-	min := runner.SCORE_MAX
+	min := runner.MaxScore
 	for _, item := range instances {
 		if item.IsRunning() {
 			score := item.Score()

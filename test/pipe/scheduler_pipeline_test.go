@@ -24,9 +24,7 @@ func (p *PipeMockInstance) Score() int {
 	return 1
 }
 
-func (p *PipeMockInstance) Release() {
-	return
-}
+func (p *PipeMockInstance) Release() {}
 
 func (p *PipeMockInstance) IsRunning() bool {
 	return true

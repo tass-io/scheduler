@@ -60,7 +60,7 @@ func (handler *QPSHandler) Start() error {
 			zap.S().Errorw("middleware QPS not")
 			return
 		}
-		middleware := middlewareRaw.(*qps.QPSMiddleware)
+		middleware := middlewareRaw.(*qps.Middleware)
 		for {
 			time.Sleep(1 * time.Second)
 			stats := middleware.GetStat()
@@ -79,11 +79,12 @@ func (handler *QPSHandler) Start() error {
 					target = 0
 				}
 				var trend source.Trend
-				if target == before {
+				switch {
+				case target == before:
 					continue
-				} else if target > before {
+				case target > before:
 					trend = source.Increase
-				} else if target < before {
+				case target < before:
 					trend = source.Decrease
 				}
 				handler.qpsMap[functionName] = target

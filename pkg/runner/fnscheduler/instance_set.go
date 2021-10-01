@@ -71,9 +71,8 @@ func (s *instanceSet) Invoke(parameters map[string]interface{}) (map[string]inte
 			retry.Attempts(3),
 		)
 		return result, err
-	} else {
-		return nil, errorutils.NewNoInstanceError(s.functionName)
 	}
+	return nil, errorutils.NewNoInstanceError(s.functionName)
 }
 
 // resetInstanceTimer resets the timer of a process instance

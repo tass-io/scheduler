@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// TraceInit initializes a jaeger client
-func TraceInit() {
+// Init initializes a jaeger client
+func Init() {
 	cfg := &jaegercfg.Configuration{}
 	cfg.Sampler = &jaegercfg.SamplerConfig{
 		Type:  jaeger.SamplerTypeConst,

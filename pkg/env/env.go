@@ -11,7 +11,7 @@ const (
 	WorkflowName            = "workflowName"
 	SelfName                = "selfName"
 	Environment             = "Environment"
-	RedisIp                 = "RedisIp"
+	RedisIP                 = "RedisIp"
 	RedisPort               = "RedisPort"
 	RedisPassword           = "RedisPassword"
 	DefaultDb               = "DefaultDb"

@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	ColdstartMiddlewareSource middleware.Source = "Coldstart"
+	MiddlewareSource middleware.Source = "Coldstart"
 )
 
 var (
@@ -27,7 +27,7 @@ func init() {
 
 // Register registers the lsds middleware as a priority of 2
 func Register() {
-	middleware.Register(ColdstartMiddlewareSource, coldstartmiddle, 2)
+	middleware.Register(MiddlewareSource, coldstartmiddle, 2)
 }
 
 // ColdstartMiddleware is responsible for sending a creating event for instance,
@@ -40,9 +40,9 @@ func newColdstartMiddleware() *ColdstartMiddleware {
 }
 
 // Handle receives a request and does cold start middleware logic.
-// cold start middleware checks the function instance existance,
+// cold start middleware checks the function instance existence,
 // if not exists, it sends a new instance creation event.
-func (coldstart *ColdstartMiddleware) Handle(
+func (cs *ColdstartMiddleware) Handle(
 	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 
 	lsdsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
@@ -78,6 +78,6 @@ func (coldstart *ColdstartMiddleware) Handle(
 }
 
 // GetSource returns the middleware source
-func (lsds *ColdstartMiddleware) GetSource() middleware.Source {
-	return ColdstartMiddlewareSource
+func (cs *ColdstartMiddleware) GetSource() middleware.Source {
+	return MiddlewareSource
 }

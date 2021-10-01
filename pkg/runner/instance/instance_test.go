@@ -101,7 +101,7 @@ func TestProcessInstance(t *testing.T) {
 			},
 		}
 		viper.Set(env.Local, true)
-		viper.Set(env.RedisIp, "10.0.2.79")
+		viper.Set(env.RedisIP, "10.0.2.79")
 		viper.Set(env.RedisPort, "6379")
 		viper.Set(env.RedisPassword, "")
 		viper.Set(env.DefaultDb, 0)

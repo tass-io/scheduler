@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// nolint
 // wrapper request to local scheduler
 func RequestJson(url string, method string, headers map[string]string, param interface{}, bodyStruct interface{}) (int, error) {
 	var jsonByte []byte

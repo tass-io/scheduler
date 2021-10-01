@@ -29,7 +29,7 @@ var (
 		Short: "scheduler",
 		Long:  "scheduler",
 		Run: func(cmd *cobra.Command, args []string) {
-			trace.TraceInit()
+			trace.Init()
 			k8sutils.Prepare()
 			fnscheduler.FunctionSchedulerInit()
 			workflow.ManagerInit()
@@ -43,7 +43,7 @@ var (
 				Handler: r,
 			}
 
-			quit := make(chan os.Signal)
+			quit := make(chan os.Signal, 1)
 			signal.Notify(quit, os.Interrupt)
 
 			go func() {
@@ -111,8 +111,8 @@ func policyFlagInit() {
 }
 
 func initPersistentFlagInit() {
-	rootCmd.PersistentFlags().StringP(env.RedisIp, "I", "10.0.2.79", "redis ip to init function")
-	viper.BindPFlag(env.RedisIp, rootCmd.PersistentFlags().Lookup(env.RedisIp))
+	rootCmd.PersistentFlags().StringP(env.RedisIP, "I", "10.0.2.79", "redis ip to init function")
+	viper.BindPFlag(env.RedisIP, rootCmd.PersistentFlags().Lookup(env.RedisIP))
 	rootCmd.PersistentFlags().StringP(env.RedisPort, "P", "6379", "redis port to init function")
 	viper.BindPFlag(env.RedisPort, rootCmd.PersistentFlags().Lookup(env.RedisPort))
 	rootCmd.PersistentFlags().StringP(env.RedisPassword, "S", "", "redis password to init function")

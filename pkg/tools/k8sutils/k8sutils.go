@@ -12,7 +12,6 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
-	_ "github.com/tass-io/scheduler/pkg/tools/log"
 
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
@@ -366,7 +365,10 @@ func GetWorkflowRuntimeByName(name string) (*serverlessv1alpha1.WorkflowRuntime,
 		{
 			ust := obj
 			wfrt = &serverlessv1alpha1.WorkflowRuntime{}
-			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), wfrt)
+			if err != nil {
+				return nil, false, err
+			}
 		}
 	}
 
@@ -394,7 +396,10 @@ func GetFunctionByName(name string) (*serverlessv1alpha1.Function, bool, error) 
 		{
 			ust := obj
 			function = &serverlessv1alpha1.Function{}
-			runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
+			err := runtime.DefaultUnstructuredConverter.FromUnstructured(ust.UnstructuredContent(), function)
+			if err != nil {
+				return nil, false, err
+			}
 		}
 	}
 

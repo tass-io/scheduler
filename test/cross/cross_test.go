@@ -235,7 +235,7 @@ func DumpConfig(object runtime.Object, folderName, fileName string) error {
 	_ = serverlessv1alpha1.AddToScheme(scheme)
 	serializer := json.NewSerializerWithOptions(yaml.DefaultMetaFactory, scheme, scheme,
 		json.SerializerOptions{Yaml: true, Pretty: false, Strict: false})
-	os.MkdirAll(folderName, 0666)
+	_ = os.MkdirAll(folderName, 0666)
 	dumpFile, err := os.OpenFile(folderName+fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0)
 	if err != nil {
 		return err

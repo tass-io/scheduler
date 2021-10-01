@@ -14,7 +14,7 @@ const (
 
 var (
 	// qpsmiddle is the middleware for statisticsis
-	qpsmiddle *QPSMiddleware
+	qpsmiddle *Middleware
 )
 
 // init initializes the qps middleware
@@ -27,27 +27,27 @@ func Register() {
 	middleware.Register(QPSMiddlewareSource, qpsmiddle, 10)
 }
 
-// qpsmiddle is the middleware for statisticsis,
+// Middleware is the qps middleware for statisticsis,
 // it only does some statisticsis for different functions,
 // it does nothing about Event adding
-type QPSMiddleware struct {
+type Middleware struct {
 	qpsManagers sync.Map
 }
 
 // newQPSMiddleware returns a new QPS middleware
-func newQPSMiddleware() *QPSMiddleware {
-	return &QPSMiddleware{
+func newQPSMiddleware() *Middleware {
+	return &Middleware{
 		qpsManagers: sync.Map{},
 	}
 }
 
 // GetQPSMiddleware returns the QPS middleware instance
-func GetQPSMiddleware() *QPSMiddleware {
+func GetQPSMiddleware() *Middleware {
 	return qpsmiddle
 }
 
 // Handle records metrics when a request comes
-func (qps *QPSMiddleware) Handle(
+func (qps *Middleware) Handle(
 	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 
 	qpsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
@@ -56,22 +56,22 @@ func (qps *QPSMiddleware) Handle(
 
 	functionName := qpsSpan.GetFunctionName()
 	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(1000))
-	mgr := mgrRaw.(*QPSManager)
+	mgr := mgrRaw.(*Manager)
 	mgr.Inc()
 	zap.S().Debugw("qps handler inc", "functionName", functionName)
 	return nil, middleware.Next, nil
 }
 
 // GetSource returns the QPS middleware source
-func (qps *QPSMiddleware) GetSource() middleware.Source {
+func (qps *Middleware) GetSource() middleware.Source {
 	return QPSMiddlewareSource
 }
 
 // GetStat returns the qps number of each function which is concurrency safe.
-func (qps *QPSMiddleware) GetStat() map[string]int64 {
+func (qps *Middleware) GetStat() map[string]int64 {
 	stats := map[string]int64{}
 	qps.qpsManagers.Range(func(key, value interface{}) bool {
-		mgr := value.(*QPSManager)
+		mgr := value.(*Manager)
 		stats[key.(string)] = mgr.Get()
 		return true
 	})

@@ -216,7 +216,7 @@ func TestSchedulerIsolate(t *testing.T) {
 				defer main.Process.Kill()
 				code, err := base64.EncodeUserCode(testcase.fileName)
 				So(err, ShouldBeNil)
-				viper.Set(env.RedisIp, "10.0.2.79")
+				viper.Set(env.RedisIP, "10.0.2.79")
 				viper.Set(env.RedisPort, "6379")
 				viper.Set(env.RedisPassword, "")
 				viper.Set(env.DefaultDb, 0)

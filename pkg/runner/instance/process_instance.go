@@ -14,7 +14,6 @@ import (
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
-	_ "github.com/tass-io/scheduler/pkg/tools/log"
 	"go.uber.org/zap"
 )
 
@@ -69,7 +68,7 @@ type processInstance struct {
 // The scheduler chooses the process which has the minimum score as the target
 func (i *processInstance) Score() int {
 	if i.status != Running {
-		return runner.SCORE_MAX
+		return runner.MaxScore
 	}
 	policyName := viper.GetString(env.InstanceScorePolicy)
 	return policies[policyName](i)
@@ -80,6 +79,7 @@ func (i *processInstance) Score() int {
 // Note that the initialization of the process does not init a new process,
 // it only prepares useful information for the process.
 // Start function creates the real process.
+// FIXME: processInstance should be Instance
 func NewProcessInstance(functionName string) *processInstance {
 	function, existed, err := k8sutils.GetFunctionByName(functionName)
 	if err != nil {
@@ -157,7 +157,7 @@ func (i *processInstance) startProcess(
 	request *os.File, response *os.File, functionName string) (err error) {
 
 	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName,
-		viper.GetString(env.RedisIp), viper.GetString(env.RedisPort),
+		viper.GetString(env.RedisIP), viper.GetString(env.RedisPort),
 		viper.GetString(env.RedisPassword), i.environment)
 	cmd := exec.Command(binary, strings.Split(initParam, " ")...)
 	// It is different from docker, we do not create mount namespace and network namespace

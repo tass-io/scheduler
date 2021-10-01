@@ -47,7 +47,7 @@ func Register(source Source, handler MiddlewareHandler, order int) {
 	orderOrigin[order] = level
 }
 
-// Middleware return all middleware handlers 
+// Middleware return all middleware handlers
 var Middlewares = func() map[Source]MiddlewareHandler {
 	return handlers
 }

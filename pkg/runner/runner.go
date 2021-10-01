@@ -10,7 +10,9 @@ type InstanceStatus map[string]int
 
 type RunnerType string
 
-const SCORE_MAX = 9999
+const (
+	MaxScore int = 9999
+)
 
 var (
 	Mock    RunnerType = "Mock"

@@ -43,6 +43,7 @@ func NewSpanFromTheSameFlowSpanAsParent(sp *Span) *Span {
 	if sp.sp != nil {
 		parent = sp.sp.Context()
 	} else {
+		zap.L().Warn("sp.sp is nil")
 		// panic(sp) // for some test, there are no span
 	}
 	return &Span{

@@ -30,6 +30,9 @@ submodule:
 local:
 	@go run main.go -l -w ${TEST_DIR}/pipeline/direct.yaml -f ${TEST_FN_DIR}/function1.yaml,${TEST_FN_DIR}/function2.yaml,${TEST_FN_DIR}/function3.yaml
 
-.PHONY: build fmt vet test docker clean help
+lint:
+	golangci-lint run --deadline=10m ./...
+
+.PHONY: build fmt vet test docker clean help lint
 
 

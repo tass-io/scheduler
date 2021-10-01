@@ -121,21 +121,18 @@ func (w *Wrapper) invoke(request instance.FunctionRequest) instance.FunctionResp
 			Id:     request.Id,
 			Result: request.Parameters,
 		}
-	} else {
-		resp, err := w.handler(request.Parameters)
-		if err != nil {
-			return instance.FunctionResponse{
-				Id:     request.Id,
-				Result: map[string]interface{}{"err": err.Error()},
-			}
-		} else {
-			return instance.FunctionResponse{
-				Id:     request.Id,
-				Result: resp,
-			}
+	}
+	resp, err := w.handler(request.Parameters)
+	if err != nil {
+		return instance.FunctionResponse{
+			Id:     request.Id,
+			Result: map[string]interface{}{"err": err.Error()},
 		}
 	}
-
+	return instance.FunctionResponse{
+		Id:     request.Id,
+		Result: resp,
+	}
 }
 
 // Shutdown sets Warpper `receiveShutdown` field as true
