@@ -15,9 +15,9 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner/lsds"
 	"github.com/tass-io/scheduler/pkg/runner/ttl"
 	"github.com/tass-io/scheduler/pkg/span"
-	"github.com/tass-io/scheduler/pkg/tools/errorutils"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
-	_ "github.com/tass-io/scheduler/pkg/tools/log"
+	"github.com/tass-io/scheduler/pkg/utils/errorutils"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
+	_ "github.com/tass-io/scheduler/pkg/utils/log"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,6 +32,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 	NewInstance = func(functionName string) instance.Instance {
 		return instance.NewMockInstance(functionName)
 	}
+
 	testcases := []struct {
 		caseName       string
 		skipped        bool
@@ -71,6 +72,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 			expect: errorutils.NewNoInstanceError("b"),
 		},
 	}
+
 	for _, testcase := range testcases {
 		if testcase.skipped {
 			continue
@@ -88,9 +90,6 @@ func TestFunctionScheduler_Run(t *testing.T) {
 // pay attention! this test depends on lsds
 // todo decouple
 func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
-	NewInstance = func(functionName string) instance.Instance {
-		return instance.NewMockInstance(functionName)
-	}
 	testcases := []struct {
 		caseName       string
 		skipped        bool
@@ -149,6 +148,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			},
 		},
 	}
+	viper.Set(env.Mock, true)
 	viper.Set(env.Local, true)
 	viper.Set(env.CreatePolicy, "default")
 	viper.Set(env.InstanceScorePolicy, "default")

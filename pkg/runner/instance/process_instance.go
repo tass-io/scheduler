@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
 	"go.uber.org/zap"
 )
 

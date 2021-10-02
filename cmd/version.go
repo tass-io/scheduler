@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"log"
+	"fmt"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -30,7 +30,7 @@ var versionCmd = &cobra.Command{
 			Compiler:              runtime.Compiler,
 			Platform:              runtime.GOOS + "/" + runtime.GOARCH,
 		}
-		log.Println(info.String())
+		fmt.Println(info.String())
 	},
 }
 

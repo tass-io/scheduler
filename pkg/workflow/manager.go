@@ -6,12 +6,11 @@ import (
 	"sync"
 
 	"github.com/tass-io/scheduler/pkg/event"
-	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"github.com/tass-io/scheduler/pkg/span"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 )
@@ -30,12 +29,12 @@ var (
 
 // Manager is a workflow manager, it owns a runner and middlewares
 type Manager struct {
-	ctx             context.Context
-	runner          runner.Runner
-	stopCh          chan struct{}
-	events          map[source.Source]event.EventHandler
-	middlewareOrder []middleware.Source
-	middlewares     map[middleware.Source]middleware.MiddlewareHandler
+	ctx                context.Context
+	runner             runner.Runner
+	stopCh             chan struct{}
+	events             map[event.Source]event.Handler
+	middlewares        map[middleware.Source]middleware.Handler
+	orderedMiddlewares []middleware.Source // in increasing order
 }
 
 // GetManagerIns returns a Manager instance
@@ -46,26 +45,26 @@ func GetManagerIns() *Manager {
 // GetEventHandlerBySource returns a EventHandler by the given source,
 // it's a help function for event upstream,
 // an example: `GetManagerIns().GetEventHandlerBySource(source)`
-func (m *Manager) GetEventHandlerBySource(source source.Source) event.EventHandler {
+func (m *Manager) GetEventHandlerBySource(source event.Source) event.Handler {
 	return m.events[source]
 }
 
 // GetMiddlewareBySource returns a middleware handler by the given source
 // it's a help function for event upstream,
 // an example: `GetManagerIns().GetMiddlewareBySource(source)`
-func (m *Manager) GetMiddlewareBySource(source middleware.Source) middleware.MiddlewareHandler {
+func (m *Manager) GetMiddlewareBySource(source middleware.Source) middleware.Handler {
 	return m.middlewares[source]
 }
 
 // NewManager uses path to init workflow from file
 func NewManager() *Manager {
 	m := &Manager{
-		ctx:             context.Background(),
-		runner:          helper.GetMasterRunner(),
-		stopCh:          make(chan struct{}),
-		events:          nil,
-		middlewareOrder: nil,
-		middlewares:     nil,
+		ctx:                context.Background(),
+		runner:             helper.GetMasterRunner(),
+		stopCh:             make(chan struct{}),
+		events:             nil,
+		middlewares:        nil,
+		orderedMiddlewares: nil,
 	}
 	return m
 }
@@ -73,8 +72,9 @@ func NewManager() *Manager {
 // Start links all middleware and events to the manager itsself,
 // it then starts all events handlers
 func (m *Manager) Start() {
-	m.middlewares = middleware.Middlewares()
-	m.events = event.Events()
+	m.middlewares = middleware.GetHandlers()
+	m.orderedMiddlewares = middleware.GetOrderedSources()
+	m.events = event.GetHandlers()
 	err := m.startEvents()
 	if err != nil {
 		zap.S().Panic(err)

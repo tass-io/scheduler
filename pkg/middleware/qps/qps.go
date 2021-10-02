@@ -2,48 +2,65 @@ package qps
 
 import (
 	"sync"
-	"time"
+
+	"github.com/tass-io/scheduler/pkg/middleware"
+	"github.com/tass-io/scheduler/pkg/span"
+	"go.uber.org/zap"
 )
 
-type Manager struct {
-	periodMicros     int64
-	nextPeriodMicros int64
-	currentPermits   int64
+var (
+	// qps is the middleware for statisticsis
+	qps *qpsMiddleware
+)
 
-	start time.Time
-	mutex sync.Mutex
+// init initializes the qps middleware
+func init() {
+	qps = newQPSMiddleware()
 }
 
-func newQPSManager(periodMs int64) *Manager {
-	l := &Manager{
-		periodMicros: periodMs * int64(time.Millisecond),
-		start:        time.Now(),
+// Register registers the qps middleware as a priority of 10
+func Register() {
+	middleware.Register(middleware.QPSMiddlewareSource, qps, 10)
+}
+
+// qpsMiddleware is the qps middleware for statisticsis,
+// it only does some statisticsis for different functions,
+// it does nothing about Event adding
+type qpsMiddleware struct {
+	qpsManagers sync.Map
+}
+
+var _ middleware.Handler = &qpsMiddleware{}
+
+// newQPSMiddleware returns a new QPS middleware
+func newQPSMiddleware() *qpsMiddleware {
+	return &qpsMiddleware{
+		qpsManagers: sync.Map{},
 	}
-	l.nextPeriodMicros = int64(time.Since(l.start)) + l.periodMicros
-	return l
 }
 
-func (l *Manager) refresh() {
-	var nowMicros = int64(time.Since(l.start))
-	if nowMicros >= l.nextPeriodMicros {
-		l.nextPeriodMicros = ((nowMicros-l.nextPeriodMicros)/l.periodMicros+1)*l.periodMicros + l.nextPeriodMicros
-		l.currentPermits = 0
-	}
+// GetQPSMiddleware returns the QPS middleware instance
+func GetQPSMiddleware() middleware.Handler {
+	return qps
 }
 
-// TryAcquire limit
-func (l *Manager) Inc() int64 {
+// Handle records metrics when a request comes
+func (qps *qpsMiddleware) Handle(
+	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-	l.refresh()
-	l.currentPermits++
-	return l.currentPermits
+	qpsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
+	qpsSpan.Start("qps")
+	defer qpsSpan.Finish()
+
+	functionName := qpsSpan.GetFunctionName()
+	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(1000))
+	mgr := mgrRaw.(*manager)
+	mgr.Inc()
+	zap.S().Debugw("qps handler inc", "functionName", functionName)
+	return nil, middleware.Next, nil
 }
 
-func (l *Manager) Get() int64 {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-	l.refresh()
-	return l.currentPermits
+// GetSource returns the QPS middleware source
+func (qps *qpsMiddleware) GetSource() middleware.Source {
+	return middleware.QPSMiddlewareSource
 }

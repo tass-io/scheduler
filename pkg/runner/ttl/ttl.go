@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/event"
-	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"go.uber.org/zap"
 )
@@ -84,22 +83,22 @@ func NewTTLManager(functionName string) *TTLManager {
 					zap.S().Infow("clean up timer")
 					ttl.clean(ins)
 					// generate ttl event
-					event.FindEventHandlerBySource(source.MetricsSource).AddEvent(source.ScheduleEvent{
+					event.GetHandlerBySource(event.MetricsSource).AddEvent(event.ScheduleEvent{
 						FunctionName: functionName,
 						Target:       len(ttl.timers),
-						Trend:        source.Decrease,
-						Source:       source.TTLSource,
+						Trend:        event.Decrease,
+						Source:       event.TTLSource,
 					})
 				}
 			case ins := <-ttl.append:
 				{
 					ttl.start(ins)
-					event.FindEventHandlerBySource(source.MetricsSource).AddEvent(source.ScheduleEvent{
+					event.GetHandlerBySource(event.MetricsSource).AddEvent(event.ScheduleEvent{
 						FunctionName: functionName,
 						Target:       len(ttl.timers),
 						// NOTE: ttl never does Increase action
-						Trend:  source.Decrease,
-						Source: source.TTLSource,
+						Trend:  event.Decrease,
+						Source: event.TTLSource,
 					})
 				}
 			}

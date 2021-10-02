@@ -8,39 +8,37 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	LSDSMiddlewareSource middleware.Source = "LSDS"
-)
-
 var (
-	// lsdsmiddle is the local scheduler discovery service middleware for local scheduler
+	// lsds is the local scheduler discovery service middleware for local scheduler
 	// lsds is the short name for "local scheduler discovery service"
-	lsdsmiddle *LSDSMiddleware
+	lsds *lsdsMiddleware
 )
 
 // init initializes the lsds middleware
 func init() {
-	lsdsmiddle = newLSDSMiddleware()
+	lsds = newLSDSMiddleware()
 }
 
 // Register registers the lsds middleware as a priority of 3
 func Register() {
-	middleware.Register(LSDSMiddlewareSource, lsdsmiddle, 3)
+	middleware.Register(middleware.LSDSMiddlewareSource, lsds, 3)
 }
 
-// LSDSMiddleware checks status for function,
+// lsdsMiddleware checks status for function,
 // which make the requests have a chance to redirect to other Local Scheduler
-type LSDSMiddleware struct{}
+type lsdsMiddleware struct{}
+
+var _ middleware.Handler = &lsdsMiddleware{}
 
 // newLSDSMiddleware returns a lsds middleware
-func newLSDSMiddleware() *LSDSMiddleware {
-	return &LSDSMiddleware{}
+func newLSDSMiddleware() *lsdsMiddleware {
+	return &lsdsMiddleware{}
 }
 
 // Handle receives a request and does lsds middleware logic.
 // lsds middleware checks the instance existance again (the first time is cold start middleware),
 // if still not exists, it forwards the function request to LSDS Runner
-func (lsds *LSDSMiddleware) Handle(
+func (lsds *lsdsMiddleware) Handle(
 	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 
 	lsdsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
@@ -66,6 +64,6 @@ func (lsds *LSDSMiddleware) Handle(
 }
 
 // GetSource returns the middleware source
-func (lsds *LSDSMiddleware) GetSource() middleware.Source {
-	return LSDSMiddlewareSource
+func (lsds *lsdsMiddleware) GetSource() middleware.Source {
+	return middleware.LSDSMiddlewareSource
 }

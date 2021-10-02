@@ -1,8 +1,8 @@
 package coldstart
 
 import (
+	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/event/schedule"
-	"github.com/tass-io/scheduler/pkg/event/source"
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	fnschedule "github.com/tass-io/scheduler/pkg/schedule"
@@ -10,39 +10,37 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	MiddlewareSource middleware.Source = "Coldstart"
-)
-
 var (
-	// coldstartmiddle is the cold start middleware for local Scheduler
+	// cs is the cold start middleware for local Scheduler
 	// if no instance is available for the function, it sends a create event
-	coldstartmiddle *ColdstartMiddleware
+	cs *coldstartMiddleware
 )
 
 // init initializes the cold start middleware
 func init() {
-	coldstartmiddle = newColdstartMiddleware()
+	cs = newColdstartMiddleware()
 }
 
 // Register registers the lsds middleware as a priority of 2
 func Register() {
-	middleware.Register(MiddlewareSource, coldstartmiddle, 2)
+	middleware.Register(middleware.ColdstartSource, cs, 2)
 }
 
-// ColdstartMiddleware is responsible for sending a creating event for instance,
-// if there is at least one request function process instance, ColdstartMiddleware is skipped
-type ColdstartMiddleware struct{}
+// coldstartMiddleware is responsible for sending a creating event for instance,
+// if there is at least one request function process instance, coldstartMiddleware is skipped
+type coldstartMiddleware struct{}
+
+var _ middleware.Handler = &coldstartMiddleware{}
 
 // newColdstartMiddleware returns a coldstart middleware instance
-func newColdstartMiddleware() *ColdstartMiddleware {
-	return &ColdstartMiddleware{}
+func newColdstartMiddleware() *coldstartMiddleware {
+	return &coldstartMiddleware{}
 }
 
 // Handle receives a request and does cold start middleware logic.
 // cold start middleware checks the function instance existence,
 // if not exists, it sends a new instance creation event.
-func (cs *ColdstartMiddleware) Handle(
+func (cs *coldstartMiddleware) Handle(
 	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 
 	lsdsSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
@@ -60,11 +58,11 @@ func (cs *ColdstartMiddleware) Handle(
 
 		// create an event, the scheduler tries to create an instance locally,
 		// if still fails, it then goes to LSDS
-		event := source.ScheduleEvent{
+		event := event.ScheduleEvent{
 			FunctionName: functionName,
 			Target:       1,
-			Trend:        source.Increase,
-			Source:       source.ScheduleSource,
+			Trend:        event.Increase,
+			Source:       event.ScheduleSource,
 		}
 		zap.S().Infow("create event at coldstart middleware", "event", event)
 		schedule.GetScheduleHandlerIns().AddEvent(event)
@@ -78,6 +76,6 @@ func (cs *ColdstartMiddleware) Handle(
 }
 
 // GetSource returns the middleware source
-func (cs *ColdstartMiddleware) GetSource() middleware.Source {
-	return MiddlewareSource
+func (cs *coldstartMiddleware) GetSource() middleware.Source {
+	return middleware.ColdstartSource
 }

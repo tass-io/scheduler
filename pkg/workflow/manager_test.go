@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/span"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
-	_ "github.com/tass-io/scheduler/pkg/tools/log"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
+	_ "github.com/tass-io/scheduler/pkg/utils/log"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,7 +22,7 @@ const (
 	WorkflowKind       = "Workflow"
 )
 
-type SimpleFakeRunner struct {}
+type SimpleFakeRunner struct{}
 
 // SimpleFakeRunner 'registers' all functions called later, which indexes the function by span.FlowName
 func (r *SimpleFakeRunner) Run(
@@ -311,10 +311,10 @@ func TestManager(t *testing.T) {
 							"condition_end": "condition_end",
 							"flows": map[string]interface{}{
 								"condition_flow": map[string]interface{}{
-									"a":               "b",
-									"condition_flow":  "condition_flow",
-									"condition_mid":   "condition_mid",
-									"tass": "tass",
+									"a":              "b",
+									"condition_flow": "condition_flow",
+									"condition_mid":  "condition_mid",
+									"tass":           "tass",
 								},
 							},
 						},
@@ -426,17 +426,17 @@ func TestManager(t *testing.T) {
 											"a":                "b",
 											"condition_mid":    "condition_mid",
 											"condition_nested": "condition_nested",
-											"tass":  "tass",
+											"tass":             "tass",
 										},
 									},
 								},
 							},
 							"flows": map[string]interface{}{
 								"condition_flow": map[string]interface{}{
-									"a":               "b",
-									"condition_flow":  "condition_flow",
-									"condition_mid":   "condition_mid",
-									"tass": "tass",
+									"a":              "b",
+									"condition_flow": "condition_flow",
+									"condition_mid":  "condition_mid",
+									"tass":           "tass",
 								},
 							},
 						},

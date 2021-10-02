@@ -10,13 +10,16 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/pkg/schedule"
 	"github.com/tass-io/scheduler/pkg/span"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
 	"go.uber.org/zap"
 )
 
 var (
 	fs *FunctionScheduler
 )
+
+var _ runner.Runner = &FunctionScheduler{}
+var _ schedule.Scheduler = &FunctionScheduler{}
 
 // FunctionScheduler implements Runner and Scheduler interface
 type FunctionScheduler struct {
@@ -34,17 +37,6 @@ func GetFunctionScheduler() *FunctionScheduler {
 	return fs
 }
 
-// newFunctionScheduler inits a new FunctionScheduler.
-// By default, the capacity of process instances is 10 and the trigger channel length is 100
-func newFunctionScheduler() *FunctionScheduler {
-	// todo context architecture
-	return &FunctionScheduler{
-		Locker:    &sync.Mutex{},
-		instances: make(map[string]*instanceSet, 10),
-		trigger:   make(chan struct{}, 100),
-	}
-}
-
 // FunctionSchedulerInit inits a new FunctionScheduler,
 // it also prepares environments of the function scheduler
 func FunctionSchedulerInit() {
@@ -54,9 +46,12 @@ func FunctionSchedulerInit() {
 			return instance.NewMockInstance(functionName)
 		}
 	}
-	fs = newFunctionScheduler()
-	// schedule.Register and helper.Register are all for decouple the logic
-	// so it can be easy to test
+	fs = &FunctionScheduler{
+		Locker:    &sync.Mutex{},
+		instances: make(map[string]*instanceSet, 10),
+		trigger:   make(chan struct{}, 100),
+	}
+	// schedule.Register and helper.Register are all for decouple the logic, so it can be easy to test
 	schedule.Register(func() schedule.Scheduler {
 		return fs
 	})
@@ -187,6 +182,3 @@ func (fs *FunctionScheduler) NewInstanceSetIfNotExist(functionName string) {
 		fs.instances[functionName] = newSet
 	}
 }
-
-var _ runner.Runner = &FunctionScheduler{}
-var _ schedule.Scheduler = &FunctionScheduler{}

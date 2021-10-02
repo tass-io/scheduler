@@ -17,8 +17,6 @@ func Initial() {
 	if viper.GetBool(env.StaticMiddleware) {
 		static.Register()
 	}
-	if true {
-		coldstart.Register()
-		lsds.Register()
-	}
+	coldstart.Register()
+	lsds.Register()
 }

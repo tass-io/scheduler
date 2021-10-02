@@ -12,13 +12,14 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	TraceToken = "tass"
+)
+
 // Init initializes a jaeger client
 func Init() {
 	cfg := &jaegercfg.Configuration{}
-	cfg.Sampler = &jaegercfg.SamplerConfig{
-		Type:  jaeger.SamplerTypeConst,
-		Param: 1.0,
-	}
+
 	zap.S().Infow("use jaeger agent host and port", "HostAndPort", viper.GetString(env.TraceAgentHostPort))
 	cfg.Reporter = &jaegercfg.ReporterConfig{
 		QueueSize:           100,
@@ -26,8 +27,13 @@ func Init() {
 		LogSpans:            false,
 		LocalAgentHostPort:  viper.GetString(env.TraceAgentHostPort),
 	}
+	cfg.Sampler = &jaegercfg.SamplerConfig{
+		Type:  jaeger.SamplerTypeConst,
+		Param: 1.0,
+	}
 
-	_, err := cfg.InitGlobalTracer("tass") // closer ignore here, Assuming it doesn't close until the pod gets killed
+	// closer ignore here, Assuming it doesn't close until the pod gets killed
+	_, err := cfg.InitGlobalTracer(TraceToken)
 	if err != nil {
 		zap.S().Panic(err)
 	}

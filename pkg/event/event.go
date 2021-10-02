@@ -1,36 +1,13 @@
-package source
+package event
 
-import "github.com/tass-io/scheduler/pkg/tools/common"
-
-// Trend is a type that claims what the operation expects to be done.
-// It's wrapped in a ScheduleEvent to show the meaning of this event.
-// For example, a ScheduleEvent that Trend is "Increase" and Target is 2
-// means that you wanna increase the function instance to 2
-type Trend string
-
-const (
-	None     Trend = "None" // None for init
-	Increase Trend = "Increase"
-	Decrease Trend = "Decrease"
-)
-
-// Source show the ScheduleEvent's source, ScheduleHandler has a priority table to
-type Source string
-
-const (
-	ScheduleSource Source = "Source"
-	MetricsSource  Source = "Metrics"
-	QPSSource      Source = "QPS"
-	TTLSource      Source = "TTL"
-)
+import "github.com/tass-io/scheduler/pkg/utils/common"
 
 // ScheduleEvent is a resource schedule event sent by different middleware
 type ScheduleEvent struct {
 	FunctionName string
-	// Target is the expected number of the process
-	Target int
-	Trend  Trend
-	Source Source
+	Target       int	// Target is the expected number of the process
+	Trend        Trend
+	Source       Source
 }
 
 func NewNoneScheduleEvent(functionName string) *ScheduleEvent {

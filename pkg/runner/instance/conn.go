@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/tass-io/scheduler/pkg/tools/common"
+	"github.com/tass-io/scheduler/pkg/utils/common"
 	"go.uber.org/zap"
 )
 

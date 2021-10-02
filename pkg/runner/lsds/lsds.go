@@ -15,7 +15,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/span"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 )

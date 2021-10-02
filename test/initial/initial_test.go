@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/tass-io/scheduler/pkg/tools/base64"
+	"github.com/tass-io/scheduler/pkg/utils/base64"
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
-	_ "github.com/tass-io/scheduler/pkg/tools/log"
+	_ "github.com/tass-io/scheduler/pkg/utils/log"
 )
 
 // InitCmd use binary level black test because of syscall.Exec

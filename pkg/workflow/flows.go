@@ -5,7 +5,7 @@ import (
 
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/span"
-	"github.com/tass-io/scheduler/pkg/tools/common"
+	"github.com/tass-io/scheduler/pkg/utils/common"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	"go.uber.org/zap"
 )
@@ -485,11 +485,11 @@ func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool
 // 3. If the decision is NEXT, it continues to iterate the middleware stream;
 // 4. If the decision is ABORT, it breaks the middleware stream and returns the result directly.
 func (m *Manager) middleware(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
-	if m.middlewareOrder == nil {
-		m.middlewareOrder = middleware.Orders()
+	if m.orderedMiddlewares == nil {
+		m.orderedMiddlewares = middleware.GetOrderedSources()
 	}
-	zap.S().Infow("get m.middlewareOrder", "orders", m.middlewareOrder)
-	for _, source := range m.middlewareOrder {
+	zap.S().Infow("get m.middlewareOrder", "orders", m.orderedMiddlewares)
+	for _, source := range m.orderedMiddlewares {
 		if mid, existed := m.middlewares[source]; !existed {
 			zap.S().Warnw("middleware execute not found", "middleware", source)
 			continue

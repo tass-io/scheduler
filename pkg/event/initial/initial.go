@@ -6,6 +6,6 @@ import (
 )
 
 func Initial() {
-	schedule.Initial()
-	metrics.Initial()
+	schedule.Init()
+	metrics.Init()
 }

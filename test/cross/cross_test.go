@@ -10,7 +10,7 @@ import (
 
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/pkg/dto"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
 	"github.com/tass-io/scheduler/test"
 	serverlessv1alpha1 "github.com/tass-io/tass-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -9,7 +9,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
-	_ "github.com/tass-io/scheduler/pkg/tools/log"
+	_ "github.com/tass-io/scheduler/pkg/utils/log"
 	"github.com/tass-io/scheduler/test"
 )
 

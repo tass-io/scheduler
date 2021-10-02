@@ -7,44 +7,42 @@ import (
 	"go.uber.org/zap"
 )
 
-const (
-	StaticMiddlewareSource middleware.Source = "Static"
-)
-
 var (
-	// staticmiddle is the static middleware that assumes some functions has been registered
+	// static is the static middleware that assumes some functions has been registered
 	// this middleware is a middleware to be convenient to test
-	staticmiddle *StaticMiddleware
+	static *staticMiddleware
 )
 
 // init initializes an instance of static middleware
 func init() {
-	staticmiddle = newStaticMiddleware()
+	static = newStaticMiddleware()
 }
 
 // Register registers the static middleware as a priority of 1
 func Register() {
-	middleware.Register(StaticMiddlewareSource, staticmiddle, 1)
+	middleware.Register(middleware.StaticMiddlewareSource, static, 1)
 }
 
-// StaticMiddleware is a middleware to help testing
-type StaticMiddleware struct{}
+// staticMiddleware is a middleware to help testing
+type staticMiddleware struct{}
+
+var _ middleware.Handler = &staticMiddleware{}
 
 // newStaticMiddleware returns a new static middleware
-func newStaticMiddleware() *StaticMiddleware {
-	return &StaticMiddleware{}
+func newStaticMiddleware() *staticMiddleware {
+	return &staticMiddleware{}
 }
 
 // GetStaticMiddleware returns a static middleware instance
-func GetStaticMiddleware() *StaticMiddleware {
-	return staticmiddle
+func GetStaticMiddleware() *staticMiddleware {
+	return static
 }
 
 // Handle receives a request and does static middleware logic,
 // if it finds that the function not exists, it goes to lsds instance directly.
 // Because the piority of static middleware is higher than the piority of lsds middleware,
 // it can guarantee the function has been to other processes before the local execution.
-func (static *StaticMiddleware) Handle(
+func (static *staticMiddleware) Handle(
 	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
 
 	staticSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
@@ -68,6 +66,6 @@ func (static *StaticMiddleware) Handle(
 }
 
 // GetSource returns the static middleware source
-func (static *StaticMiddleware) GetSource() middleware.Source {
-	return StaticMiddlewareSource
+func (static *staticMiddleware) GetSource() middleware.Source {
+	return middleware.StaticMiddlewareSource
 }

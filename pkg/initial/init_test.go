@@ -11,8 +11,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
-	"github.com/tass-io/scheduler/pkg/tools/base64"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
+	"github.com/tass-io/scheduler/pkg/utils/base64"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
 )
 
 func TestFunctionFilePrepare(t *testing.T) {

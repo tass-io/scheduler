@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
-	"github.com/tass-io/scheduler/pkg/tools/k8sutils"
-	_ "github.com/tass-io/scheduler/pkg/tools/log"
+	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
+	_ "github.com/tass-io/scheduler/pkg/utils/log"
 	"go.uber.org/zap"
 )
 

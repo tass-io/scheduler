@@ -6,7 +6,7 @@ import (
 	"github.com/avast/retry-go"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/pkg/runner/ttl"
-	"github.com/tass-io/scheduler/pkg/tools/errorutils"
+	"github.com/tass-io/scheduler/pkg/utils/errorutils"
 	"go.uber.org/zap"
 )
 
