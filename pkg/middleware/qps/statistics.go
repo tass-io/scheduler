@@ -10,8 +10,8 @@ type Statistics interface {
 // GetStat returns the qps number of each function which is concurrency safe.
 func (qps *qpsMiddleware) GetStat() map[string]int64 {
 	stats := map[string]int64{}
-	qps.qpsManagers.Range(func(key, value interface{}) bool {
-		mgr := value.(*manager)
+	qps.qpsRecorders.Range(func(key, value interface{}) bool {
+		mgr := value.(*recorder)
 		stats[key.(string)] = mgr.Get()
 		return true
 	})

@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
-	eventinitial "github.com/tass-io/scheduler/pkg/event/initial"
+	eventinit "github.com/tass-io/scheduler/pkg/event/init"
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
-	middlewareinitial "github.com/tass-io/scheduler/pkg/middleware/initial"
+	middlewareinit "github.com/tass-io/scheduler/pkg/middleware/init"
 	_ "github.com/tass-io/scheduler/pkg/prom"
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/trace"
@@ -35,17 +35,17 @@ var (
 			k8sutils.Prepare()
 
 			// init function scheduler which is responsible for scheduling the function to the appropriate process instance
-			fnscheduler.FunctionSchedulerInit()
+			fnscheduler.Init()
 			// init middleware framework for sync schedule,
 			// middleware framework registers middlewares based on the startup parameters
-			middlewareinitial.Initial()
+			middlewareinit.Init()
 			// init event framework for async schedule, event framework registers event handlers
-			eventinitial.Initial()
+			eventinit.Init()
 			// init manager, which is responsible for fn scheduler, middleware framework and event framework
-			workflow.ManagerInit()
+			workflow.InitManager()
 			// start the manager based on the startup parameters
-			workflow.GetManagerIns().Start()
-			
+			workflow.GetManager().Start()
+
 			r := gin.Default()
 			schttp.RegisterRoute(r)
 			server := &http.Server{

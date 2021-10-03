@@ -127,9 +127,9 @@ func (l *LSDS) start() {
 }
 
 // WorkflowRequest sends a request to other LocalScheduler
-func WorkflowRequest(sp *span.Span, parameters map[string]interface{}, target string) (dto.InvokeResponse, error) {
+func WorkflowRequest(sp *span.Span, parameters map[string]interface{}, target string) (dto.WorkflowResponse, error) {
 	client := &http.Client{}
-	invokeRequest := dto.InvokeRequest{
+	invokeRequest := dto.WorkflowRequest{
 		WorkflowName: sp.GetWorkflowName(),
 		FlowName:     sp.GetFlowName(),
 		Parameters:   parameters,
@@ -137,12 +137,12 @@ func WorkflowRequest(sp *span.Span, parameters map[string]interface{}, target st
 	reqByte, err := json.Marshal(invokeRequest)
 	if err != nil {
 		zap.S().Errorw("workflow request body error", "err", err)
-		return dto.InvokeResponse{}, err
+		return dto.WorkflowResponse{}, err
 	}
 	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/workflow", target), strings.NewReader(string(reqByte)))
 	if err != nil {
 		zap.S().Errorw("workflow request request error", "err", err)
-		return dto.InvokeResponse{}, err
+		return dto.WorkflowResponse{}, err
 	}
 	// so the span has same level span in two local scheduler
 	sp.InjectRoot(req.Header)
@@ -150,15 +150,15 @@ func WorkflowRequest(sp *span.Span, parameters map[string]interface{}, target st
 	resp, err := client.Do(req)
 	if err != nil {
 		zap.S().Errorw("workflow request response error", "err", err)
-		return dto.InvokeResponse{}, err
+		return dto.WorkflowResponse{}, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		zap.S().Errorw("workflow request response body error", "err", err)
-		return dto.InvokeResponse{}, err
+		return dto.WorkflowResponse{}, err
 	}
-	invokeResp := dto.InvokeResponse{}
+	invokeResp := dto.WorkflowResponse{}
 	_ = json.Unmarshal(body, &invokeResp)
 	return invokeResp, nil
 }

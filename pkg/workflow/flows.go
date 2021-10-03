@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/tass-io/scheduler/pkg/middleware"
 	"github.com/tass-io/scheduler/pkg/span"
@@ -322,7 +323,7 @@ func (m *Manager) executeCondition(sp *span.Span, condition *serverlessv1alpha1.
 //   comparision: "5"
 // 	 destination: ...
 //
-// we can see taht the type is `int`, the comparision is converted to 5 as int,
+// we can see that the type is `int`, the comparision is converted to 5 as int,
 // the target is converted to an "int" by reading the upstream response.
 // Then it starts the "compare" and returns the result.
 func executeConditionLogic(condition *serverlessv1alpha1.Condition, functionResult map[string]interface{}) bool {
@@ -485,32 +486,28 @@ func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool
 // 3. If the decision is NEXT, it continues to iterate the middleware stream;
 // 4. If the decision is ABORT, it breaks the middleware stream and returns the result directly.
 func (m *Manager) middleware(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
-	if m.orderedMiddlewares == nil {
-		m.orderedMiddlewares = middleware.GetOrderedSources()
+	if m.orderedMiddlewareSources == nil {
+		m.orderedMiddlewareSources = middleware.GetOrderedSources()
 	}
-	zap.S().Infow("get m.middlewareOrder", "orders", m.orderedMiddlewares)
-	for _, source := range m.orderedMiddlewares {
+	zap.S().Info(fmt.Sprintf("the manager middleware order is: %v\n", m.orderedMiddlewareSources))
+	for _, source := range m.orderedMiddlewareSources {
 		if mid, existed := m.middlewares[source]; !existed {
 			zap.S().Warnw("middleware execute not found", "middleware", source)
 			continue
 		} else {
-			zap.S().Infow("run middleware", "source", source)
+			zap.S().Infow("run middleware handler", "source", source)
 			result, decision, err := mid.Handle(sp, body)
 			if err != nil {
 				zap.S().Errorw("middleware error", "middleware", mid.GetSource(), "err", err)
-				return nil, middleware.Abort, err
+				return nil, middleware.Error, err
 			}
 			zap.S().Infow("middleware result", "result", result, "decision", decision)
 			switch decision {
 			case middleware.Next:
-				{
-					// ignore result
-					continue
-				}
+				// ignore result
+				continue
 			case middleware.Abort:
-				{
-					return result, middleware.Abort, nil
-				}
+				return result, middleware.Abort, nil
 			}
 		}
 	}

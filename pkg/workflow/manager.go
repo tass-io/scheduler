@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// ManagerInit inits a workflow manager
+// InitManager inits a workflow manager,
 // unlike lsds and other things, Manager should not lazy start
-func ManagerInit() {
+func InitManager() {
 	manager = NewManager()
 }
 
@@ -34,11 +34,11 @@ type Manager struct {
 	stopCh             chan struct{}
 	events             map[event.Source]event.Handler
 	middlewares        map[middleware.Source]middleware.Handler
-	orderedMiddlewares []middleware.Source // in increasing order
+	orderedMiddlewareSources []middleware.Source // in increasing order
 }
 
-// GetManagerIns returns a Manager instance
-func GetManagerIns() *Manager {
+// GetManager returns a Manager instance
+func GetManager() *Manager {
 	return manager
 }
 
@@ -64,7 +64,7 @@ func NewManager() *Manager {
 		stopCh:             make(chan struct{}),
 		events:             nil,
 		middlewares:        nil,
-		orderedMiddlewares: nil,
+		orderedMiddlewareSources: nil,
 	}
 	return m
 }
@@ -73,7 +73,7 @@ func NewManager() *Manager {
 // it then starts all events handlers
 func (m *Manager) Start() {
 	m.middlewares = middleware.GetHandlers()
-	m.orderedMiddlewares = middleware.GetOrderedSources()
+	m.orderedMiddlewareSources = middleware.GetOrderedSources()
 	m.events = event.GetHandlers()
 	err := m.startEvents()
 	if err != nil {
@@ -107,12 +107,12 @@ func (m *Manager) getWorkflowByName(name string) (*serverlessv1alpha1.Workflow, 
 func (m *Manager) handleWorkflow(sp *span.Span, parameters map[string]interface{}) (map[string]interface{}, error) {
 	// sp is root as parent
 	workflowName := sp.GetWorkflowName()
-	workflow, existed, err := m.getWorkflowByName(sp.GetWorkflowName())
+	workflow, existed, err := m.getWorkflowByName(workflowName)
 	if err != nil {
 		return nil, err
 	}
 	if !existed {
-		zap.S().Errorw("workflow not found", "workflowname", workflowName)
+		zap.S().Errorw("workflow not found", "workflow", workflowName)
 		return nil, ErrWorkflowNotFound
 	}
 	if sp.GetFlowName() == "" {

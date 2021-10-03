@@ -277,7 +277,7 @@ func TestCross(t *testing.T) {
 			skipped         bool
 			workflow        *serverlessv1alpha1.Workflow
 			workflowRuntime *serverlessv1alpha1.WorkflowRuntime
-			request         dto.InvokeRequest
+			request         dto.WorkflowRequest
 			expect          map[string]interface{}
 		}{
 			{
@@ -285,7 +285,7 @@ func TestCross(t *testing.T) {
 				skipped:         false,
 				workflow:        GetSampleWorkflow(),
 				workflowRuntime: GetSampleWorkflowRuntime(),
-				request: dto.InvokeRequest{
+				request: dto.WorkflowRequest{
 					WorkflowName: "simple",
 					FlowName:     "",
 					Parameters: map[string]interface{}{
@@ -314,7 +314,7 @@ func TestCross(t *testing.T) {
 				skipped:         false,
 				workflow:        GetIfElseWorkflow(),
 				workflowRuntime: GetIfElseWorkflowRuntime(),
-				request: dto.InvokeRequest{
+				request: dto.WorkflowRequest{
 					WorkflowName: "if-else",
 					FlowName:     "",
 					Parameters: map[string]interface{}{
@@ -361,7 +361,7 @@ func TestCross(t *testing.T) {
 				time.Sleep(1 * time.Second)
 				// request the first one
 				request := testcase.request
-				resp := &dto.InvokeResponse{}
+				resp := &dto.WorkflowResponse{}
 				status, err := test.RequestJson(
 					"http://localhost:8080/v1/workflow/", "POST", map[string]string{}, request, resp)
 				t.Log(err)

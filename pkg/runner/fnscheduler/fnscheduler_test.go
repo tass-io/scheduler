@@ -8,8 +8,8 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
-	eventinitial "github.com/tass-io/scheduler/pkg/event/initial"
-	middlewareinitial "github.com/tass-io/scheduler/pkg/middleware/initial"
+	eventinit "github.com/tass-io/scheduler/pkg/event/init"
+	middlewareinit "github.com/tass-io/scheduler/pkg/middleware/init"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/pkg/runner/lsds"
@@ -78,7 +78,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 			continue
 		}
 		Convey(testcase.caseName, t, func() {
-			FunctionSchedulerInit()
+			Init()
 			fs := GetFunctionScheduler()
 			fs.instances = testcase.instanceInject
 			_, err := fs.Run(testcase.span, nil)
@@ -161,10 +161,10 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			viper.Set(env.WorkflowName, testcase.workflowName)
 			viper.Set(env.SelfName, testcase.selfName)
 			k8sutils.Prepare()
-			eventinitial.Initial()
-			middlewareinitial.Initial()
+			eventinit.Init()
+			middlewareinit.Init()
 			ls := lsds.GetLSDSIns()
-			FunctionSchedulerInit()
+			Init()
 			fs := GetFunctionScheduler()
 			time.Sleep(500 * time.Millisecond)
 			for functionName, num := range testcase.targets {

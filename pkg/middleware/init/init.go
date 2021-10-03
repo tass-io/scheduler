@@ -1,4 +1,4 @@
-package initial
+package init
 
 import (
 	"github.com/spf13/viper"
@@ -9,8 +9,8 @@ import (
 	"github.com/tass-io/scheduler/pkg/middleware/static"
 )
 
-// Initial registers middleware of qps, static and lsds
-func Initial() {
+// Init registers middleware of qps, static and lsds
+func Init() {
 	if viper.GetBool(env.QPSMiddleware) {
 		qps.Register()
 	}

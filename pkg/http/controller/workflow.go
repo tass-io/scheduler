@@ -12,15 +12,18 @@ import (
 
 // Invoke is called when a http request is received
 func Invoke(c *gin.Context) {
-	var request dto.InvokeRequest
+	var request dto.WorkflowRequest
+
+	// 1. mapping into JSON format
 	if err := c.BindJSON(&request); err != nil {
 		zap.S().Errorw("invoke bind json error", "err", err)
-		c.JSON(400, dto.InvokeResponse{
+		c.JSON(400, dto.WorkflowResponse{
 			Success: false,
 			Message: err.Error(),
 		})
 	}
 
+	// 2. record opentracing span
 	var root opentracing.Span
 	spanContext, err := trace.GetSpanContextFromHeaders(request.WorkflowName, c.Request.Header)
 	if err != nil {
@@ -43,15 +46,17 @@ func Invoke(c *gin.Context) {
 	sp := span.NewSpan(request.WorkflowName, request.FlowName, "")
 	sp.SetRoot(spanContext)
 	sp.SetParent(spanContext)
-	result, err := workflow.GetManagerIns().Invoke(sp, request.Parameters)
+
+	// 3. invoke the busniess logic
+	result, err := workflow.GetManager().Invoke(sp, request.Parameters)
 	if err != nil {
-		c.JSON(500, dto.InvokeResponse{
+		c.JSON(500, dto.WorkflowResponse{
 			Success: false,
 			Message: err.Error(),
 		})
 		return
 	}
-	c.JSON(200, dto.InvokeResponse{
+	c.JSON(200, dto.WorkflowResponse{
 		Success: true,
 		Message: "ok",
 		Result:  result,

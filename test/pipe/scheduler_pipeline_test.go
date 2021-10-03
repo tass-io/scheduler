@@ -49,21 +49,21 @@ func TestSchedulerPipeline(t *testing.T) {
 		skipped      bool
 		args         []string
 		workflowName string
-		request      dto.InvokeRequest
-		expect       dto.InvokeResponse
+		request      dto.WorkflowRequest
+		expect       dto.WorkflowResponse
 	}{
 		{
 			caseName: "direct test with http request",
 			skipped:  false,
 			args:     []string{"-l", "-w", "../sample/samples/pipeline/direct.yaml"},
-			request: dto.InvokeRequest{
+			request: dto.WorkflowRequest{
 				WorkflowName: "direct",
 				FlowName:     "",
 				Parameters: map[string]interface{}{
 					"a": "b",
 				},
 			},
-			expect: dto.InvokeResponse{
+			expect: dto.WorkflowResponse{
 				Success: true,
 				Message: "ok",
 				Result: map[string]interface{}{
@@ -79,14 +79,14 @@ func TestSchedulerPipeline(t *testing.T) {
 			caseName: "multi end test with http request",
 			skipped:  false,
 			args:     []string{"-l", "-w", "../sample/samples/pipeline/multiend.yaml"},
-			request: dto.InvokeRequest{
+			request: dto.WorkflowRequest{
 				WorkflowName: "multiend",
 				FlowName:     "",
 				Parameters: map[string]interface{}{
 					"a": "b",
 				},
 			},
-			expect: dto.InvokeResponse{
+			expect: dto.WorkflowResponse{
 				Success: true,
 				Message: "ok",
 				Result: map[string]interface{}{
@@ -106,14 +106,14 @@ func TestSchedulerPipeline(t *testing.T) {
 			caseName: "devide and merge test with http request",
 			skipped:  false,
 			args:     []string{"-l", "-w", "../sample/samples/pipeline/divide-and-merge.yaml"},
-			request: dto.InvokeRequest{
+			request: dto.WorkflowRequest{
 				WorkflowName: "divide-and-merge",
 				FlowName:     "",
 				Parameters: map[string]interface{}{
 					"a": "b",
 				},
 			},
-			expect: dto.InvokeResponse{
+			expect: dto.WorkflowResponse{
 				Success: true,
 				Message: "ok",
 				Result: map[string]interface{}{
@@ -147,7 +147,7 @@ func TestSchedulerPipeline(t *testing.T) {
 				c.So(err, ShouldBeNil)
 			}()
 			time.Sleep(1000 * time.Millisecond)
-			resp := &dto.InvokeResponse{}
+			resp := &dto.WorkflowResponse{}
 			status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST",
 				map[string]string{}, testcase.request, resp)
 			So(err, ShouldBeNil)

@@ -27,7 +27,7 @@ func Register() {
 // it only does some statisticsis for different functions,
 // it does nothing about Event adding
 type qpsMiddleware struct {
-	qpsManagers sync.Map
+	qpsRecorders sync.Map
 }
 
 var _ middleware.Handler = &qpsMiddleware{}
@@ -35,7 +35,7 @@ var _ middleware.Handler = &qpsMiddleware{}
 // newQPSMiddleware returns a new QPS middleware
 func newQPSMiddleware() *qpsMiddleware {
 	return &qpsMiddleware{
-		qpsManagers: sync.Map{},
+		qpsRecorders: sync.Map{},
 	}
 }
 
@@ -53,8 +53,8 @@ func (qps *qpsMiddleware) Handle(
 	defer qpsSpan.Finish()
 
 	functionName := qpsSpan.GetFunctionName()
-	mgrRaw, _ := qps.qpsManagers.LoadOrStore(functionName, newQPSManager(1000))
-	mgr := mgrRaw.(*manager)
+	mgrRaw, _ := qps.qpsRecorders.LoadOrStore(functionName, newQPSRecorder(1000))
+	mgr := mgrRaw.(*recorder)
 	mgr.Inc()
 	zap.S().Debugw("qps handler inc", "functionName", functionName)
 	return nil, middleware.Next, nil

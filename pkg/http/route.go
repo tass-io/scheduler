@@ -20,13 +20,19 @@ func RegisterRoute(r *gin.Engine) {
 		},
 		MaxAge: 12 * time.Hour,
 	}))
+	registerWorkflowHandler(r)
+	registerPrometheusHandler(r)
+}
+
+func registerWorkflowHandler(r *gin.Engine) {
 	v1 := r.Group("/v1")
+	workflowRoute := v1.Group("/workflow")
 	{
-		workflowRoute := v1.Group("/workflow")
-		{
-			workflowRoute.POST("/", controller.Invoke)
-		}
+		workflowRoute.POST("/", controller.Invoke)
 	}
+}
+
+func registerPrometheusHandler(r *gin.Engine) {
 	r.GET("/metrics", prometheusHandler())
 }
 

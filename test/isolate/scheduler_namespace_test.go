@@ -81,8 +81,8 @@ func TestSchedulerIsolate(t *testing.T) {
 			workflowName    string
 			functionNames   []string
 			fileName        string
-			request         dto.InvokeRequest
-			expect          dto.InvokeResponse
+			request         dto.WorkflowRequest
+			expect          dto.WorkflowResponse
 			workflowRuntime *serverlessv1alpha1.WorkflowRuntime
 			functions       []*serverlessv1alpha1.Function
 		}{
@@ -172,14 +172,14 @@ func TestSchedulerIsolate(t *testing.T) {
 						},
 					},
 				},
-				request: dto.InvokeRequest{
+				request: dto.WorkflowRequest{
 					WorkflowName: "direct",
 					FlowName:     "",
 					Parameters: map[string]interface{}{
 						"a": "b",
 					},
 				},
-				expect: dto.InvokeResponse{
+				expect: dto.WorkflowResponse{
 					Success: true,
 					Message: "ok",
 					Result: map[string]interface{}{
@@ -224,7 +224,7 @@ func TestSchedulerIsolate(t *testing.T) {
 					err = store.Set("default", name, code)
 					So(err, ShouldBeNil)
 				}
-				resp := &dto.InvokeResponse{}
+				resp := &dto.WorkflowResponse{}
 				time.Sleep(6 * time.Second)
 				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST",
 					map[string]string{}, testcase.request, resp)

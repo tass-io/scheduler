@@ -18,13 +18,13 @@ func TestQPSScaleUpAndDown(t *testing.T) {
 		skipped      bool
 		args         []string
 		workflowName string
-		requests     map[string]dto.InvokeRequest
-		expects      map[string]dto.InvokeResponse
+		requests     map[string]dto.WorkflowRequest
+		expects      map[string]dto.WorkflowResponse
 	}{
 		{
 			skipped: false,
 			args:    []string{"-l", "-q", "-w", "../sample/samples/switch/if-else.yaml"},
-			requests: map[string]dto.InvokeRequest{
+			requests: map[string]dto.WorkflowRequest{
 				"left": {
 					WorkflowName: "if-else",
 					FlowName:     "",
@@ -36,7 +36,7 @@ func TestQPSScaleUpAndDown(t *testing.T) {
 					Parameters:   map[string]interface{}{"a": 1},
 				},
 			},
-			expects: map[string]dto.InvokeResponse{
+			expects: map[string]dto.WorkflowResponse{
 				"left": {
 					Success: true,
 					Message: "ok",
@@ -85,7 +85,7 @@ func TestQPSScaleUpAndDown(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 			for caseName := range testcase.requests {
 				t.Logf("testcase %s\n", caseName)
-				resp := &dto.InvokeResponse{}
+				resp := &dto.WorkflowResponse{}
 				status, err := test.RequestJson("http://localhost:8080/v1/workflow/", "POST",
 					map[string]string{}, testcase.requests[caseName], resp)
 				So(err, ShouldBeNil)

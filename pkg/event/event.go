@@ -5,7 +5,7 @@ import "github.com/tass-io/scheduler/pkg/utils/common"
 // ScheduleEvent is a resource schedule event sent by different middleware
 type ScheduleEvent struct {
 	FunctionName string
-	Target       int	// Target is the expected number of the process
+	Target       int // Target is the expected number of the process
 	Trend        Trend
 	Source       Source
 }

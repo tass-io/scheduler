@@ -169,7 +169,7 @@ func (s *instanceSet) Scale(target int, functionName string) {
 					// the alive number is at least 1.
 					alive := s.stats()
 					if alive == 1 {
-						s.coldStartDone <- struct{}{}
+						s.notifyColdStartDone()
 						zap.S().Debug("an instance cold start done")
 					}
 				}()
@@ -188,9 +188,19 @@ func (s *instanceSet) functionColdStartDone() {
 	// check again to avoid tocttou problem
 	alive := s.stats()
 	if alive == 0 {
-		<-s.coldStartDone
+		s.receiveColdStartDone()
 	}
 	<-s.accesslimit
+}
+
+// notifyColdStartDone is used to notify the coldStartDone channel
+func (s *instanceSet) notifyColdStartDone() {
+	s.coldStartDone <- struct{}{}
+}
+
+// receiveColdStartDone is used to receive the coldStartDone channel
+func (s *instanceSet) receiveColdStartDone() {
+	<-s.coldStartDone
 }
 
 // NewInstance creates a new process instance.

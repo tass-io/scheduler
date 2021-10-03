@@ -37,9 +37,9 @@ func GetFunctionScheduler() *FunctionScheduler {
 	return fs
 }
 
-// FunctionSchedulerInit inits a new FunctionScheduler,
+// Init inits a new FunctionScheduler,
 // it also prepares environments of the function scheduler
-func FunctionSchedulerInit() {
+func Init() {
 	// if use mock mode, it doesn't create real process
 	if viper.GetBool(env.Mock) {
 		NewInstance = func(functionName string) instance.Instance {
