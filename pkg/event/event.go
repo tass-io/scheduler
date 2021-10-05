@@ -10,6 +10,7 @@ type ScheduleEvent struct {
 	Source       Source
 }
 
+// NewNoneScheduleEvent is used for initialization a new schedule event
 func NewNoneScheduleEvent(functionName string) *ScheduleEvent {
 	return &ScheduleEvent{
 		FunctionName: functionName,

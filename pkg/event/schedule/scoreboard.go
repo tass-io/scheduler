@@ -36,25 +36,21 @@ func (board *scoreBoard) Decide(functionName string, orders []event.Source) *eve
 	defer board.lock.Unlock()
 	zap.S().Debugw("board before decide", "wishes", board.bestWishes)
 	origin := event.NewNoneScheduleEvent(functionName)
-	usedList := []event.Source{}
 	zap.S().Debugw("board get orders", "orders", orders)
 	for _, order := range orders {
-		event, existed := board.scores[order]
+		e, existed := board.scores[order]
 		if !existed {
 			continue
 		}
-		zap.S().Debugw("scoreboard handle source with event", "source", order, "event", event)
-		if used := origin.Merge(&event); used {
-			zap.S().Debugw("scoreboard use event", "event", event, "result", origin)
-			usedList = append(usedList, event.Source)
+		zap.S().Debugw("scoreboard handle source with event", "source", order, "event", e)
+		if used := origin.Merge(&e); used {
+			zap.S().Debugw("scoreboard use event", "event", e, "result", origin)
+			if event.NeedDelete(e.Source) {
+				delete(board.scores, e.Source)
+			}
 		}
 	}
 
-	for _, source := range usedList {
-		if event.NeedDelete(source) {
-			delete(board.scores, source)
-		}
-	}
 	origin.Merge(board.bestWishes)
 	*board.bestWishes = *origin
 	zap.S().Debugw("board after decide", "wishes", board.bestWishes)
