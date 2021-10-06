@@ -32,8 +32,12 @@ const (
 func DumpConfig(object runtime.Object, folderName, fileName string) error {
 	scheme := runtime.NewScheme()
 	_ = serverlessv1alpha1.AddToScheme(scheme)
-	serializer := json.NewSerializerWithOptions(yaml.DefaultMetaFactory, scheme, scheme, json.SerializerOptions{Yaml: true, Pretty: false, Strict: false})
-	os.MkdirAll(folderName, 0666)
+	serializer := json.NewSerializerWithOptions(
+		yaml.DefaultMetaFactory, scheme, scheme, json.SerializerOptions{Yaml: true, Pretty: false, Strict: false})
+	err := os.MkdirAll(folderName, 0666)
+	if err != nil {
+		return err
+	}
 	dumpFile, err := os.OpenFile(folderName+fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0)
 	if err != nil {
 		return err
@@ -108,7 +112,7 @@ func TestSchedulerIsolate(t *testing.T) {
 					Spec: &serverlessv1alpha1.WorkflowRuntimeSpec{
 						Status: serverlessv1alpha1.WfrtStatus{
 							Instances: map[string]serverlessv1alpha1.Instance{
-								"ubuntu": serverlessv1alpha1.Instance{
+								"ubuntu": {
 									Status: &serverlessv1alpha1.InstanceStatus{
 										HostIP: k8sutils.NewStringPtr("ubuntu"),
 										PodIP:  k8sutils.NewStringPtr("ubuntu"),
@@ -207,12 +211,14 @@ func TestSchedulerIsolate(t *testing.T) {
 			err = DumpConfig(testcase.workflowRuntime, "./config/", "workflowruntime.yaml")
 			So(err, ShouldBeNil)
 
-			DumpFunctions(testcase.functions, "./config/")
+			err = DumpFunctions(testcase.functions, "./config/")
+			So(err, ShouldBeNil)
 
 			Convey("use http request test scheduler", func() {
 
 				main := exec.Command("./main", testcase.args...)
 				stdOutDump(main, "./caller.log")
+				// nolint: errcheck
 				defer main.Process.Kill()
 				code, err := base64.EncodeUserCode(testcase.fileName)
 				So(err, ShouldBeNil)

@@ -30,54 +30,32 @@ func (r *SimpleFakeRunner) Run(
 
 	switch sp.GetFlowName() {
 	case "simple_start":
-		{
-			return map[string]interface{}{"b": "c"}, nil
-		}
+		return map[string]interface{}{"b": "c"}, nil
 	case "simple_mid":
-		{
-			return map[string]interface{}{"c": "d"}, nil
-		}
+		return map[string]interface{}{"c": "d"}, nil
 	case "simple_branch_1":
-		{
-			return map[string]interface{}{"branch_1": "branch_1"}, nil
-		}
+		return map[string]interface{}{"branch_1": "branch_1"}, nil
 	case "simple_branch_2":
-		{
-			return map[string]interface{}{"branch_2": "branch_2"}, nil
-		}
+		return map[string]interface{}{"branch_2": "branch_2"}, nil
 	case "simple_end":
-		{
-			return map[string]interface{}{"d": "e"}, nil
-		}
+		return map[string]interface{}{"d": "e"}, nil
 	case "tass":
-		{
-			parameters["tass"] = "tass"
-			return parameters, nil
-		}
+		parameters["tass"] = "tass"
+		return parameters, nil
 	case "condition_mid":
-		{
-			parameters["condition_mid"] = "condition_mid"
-			return parameters, nil
-		}
+		parameters["condition_mid"] = "condition_mid"
+		return parameters, nil
 	case "condition_flow":
-		{
-			parameters["condition_flow"] = "condition_flow"
-			return parameters, nil
-		}
+		parameters["condition_flow"] = "condition_flow"
+		return parameters, nil
 	case "condition_end":
-		{
-			parameters["condition_end"] = "condition_end"
-			return parameters, nil
-		}
+		parameters["condition_end"] = "condition_end"
+		return parameters, nil
 	case "condition_nested":
-		{
-			parameters["condition_nested"] = "condition_nested"
-			return parameters, nil
-		}
+		parameters["condition_nested"] = "condition_nested"
+		return parameters, nil
 	default:
-		{
-			return parameters, nil
-		}
+		return parameters, nil
 	}
 }
 

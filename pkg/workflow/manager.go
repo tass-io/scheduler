@@ -29,11 +29,11 @@ var (
 
 // Manager is a workflow manager, it owns a runner and middlewares
 type Manager struct {
-	ctx                context.Context
-	runner             runner.Runner
-	stopCh             chan struct{}
-	events             map[event.Source]event.Handler
-	middlewares        map[middleware.Source]middleware.Handler
+	ctx                      context.Context
+	runner                   runner.Runner
+	stopCh                   chan struct{}
+	events                   map[event.Source]event.Handler
+	middlewares              map[middleware.Source]middleware.Handler
 	orderedMiddlewareSources []middleware.Source // in increasing order
 }
 
@@ -59,11 +59,11 @@ func (m *Manager) GetMiddlewareBySource(source middleware.Source) middleware.Han
 // NewManager uses path to init workflow from file
 func NewManager() *Manager {
 	m := &Manager{
-		ctx:                context.Background(),
-		runner:             helper.GetMasterRunner(),
-		stopCh:             make(chan struct{}),
-		events:             nil,
-		middlewares:        nil,
+		ctx:                      context.Background(),
+		runner:                   helper.GetMasterRunner(),
+		stopCh:                   make(chan struct{}),
+		events:                   nil,
+		middlewares:              nil,
 		orderedMiddlewareSources: nil,
 	}
 	return m

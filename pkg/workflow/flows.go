@@ -174,13 +174,9 @@ func (m *Manager) executeRunFunction(sp *span.Span, parameters map[string]interf
 	zap.S().Infow("get middleware result", "result", midResult)
 	switch decision {
 	case middleware.Abort:
-		{
-			return midResult, nil
-		}
+		return midResult, nil
 	case middleware.Next:
-		{
-			// now nothing to do
-		}
+		// now nothing to do
 	}
 	functionSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
 	functionSpan.Start(sp.GetFunctionName() + "Function")
@@ -224,47 +220,41 @@ func (m *Manager) findNext(sp *span.Span,
 	var err error
 	switch now.Statement {
 	case serverlessv1alpha1.Direct:
-		{
-			nexts := make([]int, 0, len(now.Outputs))
-			for _, name := range now.Outputs {
-				n, err := findFlowByName(wf, name)
-				if err != nil {
-					zap.S().Debugw("find next findFlowByName error", "err", err, "name", name)
-					return nil, err
-				}
-				nexts = append(nexts, n)
-			}
-			sp.Finish() // direct finish here
-			return nexts, nil
-		}
-	case serverlessv1alpha1.Switch:
-		{
-			sp.Finish()
-			conditionSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
-			// conditionSpan.Start("conditions")
-			zap.S().Debugw("in switch with conditions", now.Conditions)
-			rootcond := findRootCondition(&now)
-			*result, err = m.executeCondition(conditionSpan, rootcond, wf, target, *result)
-			zap.S().Debugw("in switch with get new result", "result", result)
+		nexts := make([]int, 0, len(now.Outputs))
+		for _, name := range now.Outputs {
+			n, err := findFlowByName(wf, name)
 			if err != nil {
+				zap.S().Debugw("find next findFlowByName error", "err", err, "name", name)
 				return nil, err
 			}
-			// change the result I'm sorry for it, the logics is evil
-			nexts := make([]int, 0, len(now.Outputs))
-			for _, name := range now.Outputs {
-				n, err := findFlowByName(wf, name)
-				if err != nil {
-					zap.S().Debugw("find next findFlowByName error", "err", err, "name", name)
-					return nil, err
-				}
-				nexts = append(nexts, n)
+			nexts = append(nexts, n)
+		}
+		sp.Finish() // direct finish here
+		return nexts, nil
+	case serverlessv1alpha1.Switch:
+		sp.Finish()
+		conditionSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
+		// conditionSpan.Start("conditions")
+		zap.S().Debugw("in switch with conditions", now.Conditions)
+		rootcond := findRootCondition(&now)
+		*result, err = m.executeCondition(conditionSpan, rootcond, wf, target, *result)
+		zap.S().Debugw("in switch with get new result", "result", result)
+		if err != nil {
+			return nil, err
+		}
+		// change the result I'm sorry for it, the logics is evil
+		nexts := make([]int, 0, len(now.Outputs))
+		for _, name := range now.Outputs {
+			n, err := findFlowByName(wf, name)
+			if err != nil {
+				zap.S().Debugw("find next findFlowByName error", "err", err, "name", name)
+				return nil, err
 			}
-			return nexts, nil
+			nexts = append(nexts, n)
 		}
+		return nexts, nil
 	default:
-		{
-			return []int{-1}, ErrInvalidStatement
-		}
+		return []int{-1}, ErrInvalidStatement
 	}
 }
 
@@ -312,7 +302,7 @@ func (m *Manager) executeCondition(sp *span.Span, condition *serverlessv1alpha1.
 
 // executeConditionLogic reads condition from Workflow.spec.spec.[x].conditions and does the comparaion
 // it first checks the type of the condition,
-// then converts the target and comparision to the real values,
+// then converts the target and comparison to the real values,
 // last it does the `compare`
 //
 // For example, a Condition is defined as below:
@@ -332,20 +322,14 @@ func executeConditionLogic(condition *serverlessv1alpha1.Condition, functionResu
 	var rightValue interface{}
 	switch condition.Type {
 	case serverlessv1alpha1.Bool:
-		{
-			leftValue = new(bool)
-			rightValue = new(bool)
-		}
+		leftValue = new(bool)
+		rightValue = new(bool)
 	case serverlessv1alpha1.String:
-		{
-			leftValue = new(string)
-			rightValue = new(string)
-		}
+		leftValue = new(string)
+		rightValue = new(string)
 	case serverlessv1alpha1.Int:
-		{
-			leftValue = new(int)
-			rightValue = new(int)
-		}
+		leftValue = new(int)
+		rightValue = new(int)
 	}
 
 	// get the real values
@@ -358,27 +342,18 @@ func executeConditionLogic(condition *serverlessv1alpha1.Condition, functionResu
 
 // compare compares different type values and ops
 func compare(left interface{}, right interface{}, op serverlessv1alpha1.OperatorType) bool {
-	switch left.(type) {
+	switch left := left.(type) {
 	case *int:
-		{
-			leftValue := left.(*int)
-			rightValue := right.(*int)
-			result := compareInt(*leftValue, *rightValue, op)
-			zap.S().Debugw("get compareInt result at compare", "result", result)
-			return result
-		}
+		right := right.(*int)
+		result := compareInt(*left, *right, op)
+		zap.S().Debugw("get compareInt result at compare", "result", result)
+		return result
 	case *string:
-		{
-			leftValue := left.(*string)
-			rightValue := right.(*string)
-			return compareString(*leftValue, *rightValue, op)
-		}
+		right := right.(*string)
+		return compareString(*left, *right, op)
 	case *bool:
-		{
-			leftValue := left.(*bool)
-			rightValue := right.(*bool)
-			return compareBool(*leftValue, *rightValue, op)
-		}
+		right := right.(*bool)
+		return compareBool(*left, *right, op)
 	default:
 		zap.S().Panic(op)
 	}
@@ -391,35 +366,21 @@ func compareInt(left int, right int, op serverlessv1alpha1.OperatorType) bool {
 	zap.S().Debugw("compareInt", "left", left, "right", right, "op", op)
 	switch op {
 	case serverlessv1alpha1.Eq:
-		{
-			return left == right
-		}
+		return left == right
 	case serverlessv1alpha1.Ne:
-		{
-			return left != right
-		}
+		return left != right
 	case serverlessv1alpha1.Lt:
-		{
-			return left < right
-		}
+		return left < right
 	case serverlessv1alpha1.Le:
-		{
-			return left <= right
-		}
+		return left <= right
 	case serverlessv1alpha1.Gt:
-		{
-			zap.S().Debugw("compare int result", "left", left, "right", right, "result", left > right)
-			return left > right
-		}
+		zap.S().Debugw("compare int result", "left", left, "right", right, "result", left > right)
+		return left > right
 	case serverlessv1alpha1.Ge:
-		{
-			return left >= right
-		}
+		return left >= right
 	default:
-		{
-			zap.S().Warnw("invalid operator, return false instead", "op", op)
-			return false
-		}
+		zap.S().Warnw("invalid operator, return false instead", "op", op)
+		return false
 	}
 }
 
@@ -428,34 +389,20 @@ func compareInt(left int, right int, op serverlessv1alpha1.OperatorType) bool {
 func compareString(left string, right string, op serverlessv1alpha1.OperatorType) bool {
 	switch op {
 	case serverlessv1alpha1.Eq:
-		{
-			return left == right
-		}
+		return left == right
 	case serverlessv1alpha1.Ne:
-		{
-			return left != right
-		}
+		return left != right
 	case serverlessv1alpha1.Lt:
-		{
-			return left < right
-		}
+		return left < right
 	case serverlessv1alpha1.Le:
-		{
-			return left <= right
-		}
+		return left <= right
 	case serverlessv1alpha1.Gt:
-		{
-			return left > right
-		}
+		return left > right
 	case serverlessv1alpha1.Ge:
-		{
-			return left >= right
-		}
+		return left >= right
 	default:
-		{
-			zap.S().Warnw("invalid operator, return false instead", "op", op)
-			return false
-		}
+		zap.S().Warnw("invalid operator, return false instead", "op", op)
+		return false
 	}
 }
 
@@ -464,28 +411,23 @@ func compareString(left string, right string, op serverlessv1alpha1.OperatorType
 func compareBool(left bool, right bool, op serverlessv1alpha1.OperatorType) bool {
 	switch op {
 	case serverlessv1alpha1.Eq:
-		{
-			return left == right
-		}
+		return left == right
 	case serverlessv1alpha1.Ne:
-		{
-			return left != right
-		}
+		return left != right
 	default:
-		{
-			zap.S().Warnw("invalid operator, return false instead", "op", op)
-			return false
-		}
+		zap.S().Warnw("invalid operator, return false instead", "op", op)
+		return false
 	}
 }
 
 // middleware executes all middleware actions and make a decision.
-// It contais the following steps:
+// It contains the following steps:
 // 1. Order all the registered middlewares in a increasing order;
 // 2. For each middleware, it does the middleware.Handle function;
 // 3. If the decision is NEXT, it continues to iterate the middleware stream;
 // 4. If the decision is ABORT, it breaks the middleware stream and returns the result directly.
-func (m *Manager) middleware(sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {
+func (m *Manager) middleware(sp *span.Span, body map[string]interface{}) (
+	map[string]interface{}, middleware.Decision, error) {
 	if m.orderedMiddlewareSources == nil {
 		m.orderedMiddlewareSources = middleware.GetOrderedSources()
 	}
@@ -516,7 +458,6 @@ func (m *Manager) middleware(sp *span.Span, body map[string]interface{}) (map[st
 
 // findConditionByName returns the condition by the given name
 func findConditionByName(name string, flow *serverlessv1alpha1.Flow) *serverlessv1alpha1.Condition {
-
 	for _, condition := range flow.Conditions {
 		if condition.Name == name {
 			return condition

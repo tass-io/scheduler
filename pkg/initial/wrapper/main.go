@@ -76,7 +76,7 @@ func NewWrapper() *Wrapper {
 	requestFile := os.NewFile(uintptr(3), "pipe")
 	// 4 is the fd of response channel
 	producerFile := os.NewFile(uintptr(4), "pipe")
-	// the instuction that local scheduler runs the runtime is: main ${PLUGIN_PATH}
+	// the instruction that local scheduler runs the runtime is: main ${PLUGIN_PATH}
 	// so the value of os.Args[1] is the location of plugin.so
 	handler, err := loadPlugin(os.Args[1], "Handler")
 	if err != nil {
@@ -104,10 +104,10 @@ func (w *Wrapper) Start() {
 		zap.S().Debugw("get req", "req", req)
 		// do the invocation
 		go func() {
-			w.requestMap.Set(req.Id, "")
+			w.requestMap.Set(req.ID, "")
 			result := w.invoke(*req)
 			w.producer.GetChannel() <- result
-			w.requestMap.Remove(req.Id)
+			w.requestMap.Remove(req.ID)
 		}()
 	}
 }
@@ -118,19 +118,19 @@ func (w *Wrapper) invoke(request instance.FunctionRequest) instance.FunctionResp
 	if w.handler == nil {
 		request.Parameters["motto"] = "Veni Vidi Vici"
 		return instance.FunctionResponse{
-			Id:     request.Id,
+			ID:     request.ID,
 			Result: request.Parameters,
 		}
 	}
 	resp, err := w.handler(request.Parameters)
 	if err != nil {
 		return instance.FunctionResponse{
-			Id:     request.Id,
+			ID:     request.ID,
 			Result: map[string]interface{}{"err": err.Error()},
 		}
 	}
 	return instance.FunctionResponse{
-		Id:     request.Id,
+		ID:     request.ID,
 		Result: resp,
 	}
 }
@@ -166,7 +166,7 @@ func init() {
 		fmt.Println(err.Error())
 	}
 	zap.ReplaceGlobals(logger)
-	// let the sigtermChan recieve SIGTERM signal
+	// let the sigtermChan receive SIGTERM signal
 	signal.Notify(sigtermChan, syscall.SIGTERM)
 	go func() {
 		<-sigtermChan

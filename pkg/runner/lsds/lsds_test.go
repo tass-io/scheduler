@@ -288,7 +288,8 @@ func TestLSDS_Sync(t *testing.T) {
 			So(err, ShouldBeNil)
 			So(existed, ShouldBeTrue)
 			zap.S().Debugw("refresh WorkflowRuntime", "WorkflowRuntime", wfrt)
-			So(wfrt.Spec.Status.Instances[testcase.selfName].ProcessRuntimes, ShouldResemble, ConvertMapToProcessRuntimes(testcase.syncInfo))
+			So(wfrt.Spec.Status.Instances[testcase.selfName].ProcessRuntimes,
+				ShouldResemble, ConvertMapToProcessRuntimes(testcase.syncInfo))
 		})
 	}
 }

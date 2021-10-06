@@ -19,20 +19,14 @@ func GetValue(body map[string]interface{}, target string, obj interface{}) {
 
 		switch obj := obj.(type) {
 		case *int:
-			{
-				intval := obj
-				*intval = int(val.Int())
-			}
+			intval := obj
+			*intval = int(val.Int())
 		case *string:
-			{
-				strval := obj
-				*strval = val.String()
-			}
+			strval := obj
+			*strval = val.String()
 		case *bool:
-			{
-				boolval := obj
-				*boolval = val.Bool()
-			}
+			boolval := obj
+			*boolval = val.Bool()
 		default:
 			zap.S().Panic(obj)
 		}
@@ -40,23 +34,17 @@ func GetValue(body map[string]interface{}, target string, obj interface{}) {
 		// constant
 		switch obj := obj.(type) {
 		case *int:
-			{
-				intval := obj
-				*intval, _ = strconv.Atoi(target)
-			}
+			intval := obj
+			*intval, _ = strconv.Atoi(target)
 		case *string:
-			{
-				strval := obj
-				*strval = target
-			}
+			strval := obj
+			*strval = target
 		case *bool:
-			{
-				boolval := obj
-				if target == "True" || target == "true" || target == "1" {
-					*boolval = true
-				} else {
-					*boolval = false
-				}
+			boolval := obj
+			if target == "True" || target == "true" || target == "1" {
+				*boolval = true
+			} else {
+				*boolval = false
 			}
 		default:
 			zap.S().Panic(obj)

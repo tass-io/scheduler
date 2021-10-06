@@ -36,7 +36,7 @@ func newLSDSMiddleware() *lsdsMiddleware {
 }
 
 // Handle receives a request and does lsds middleware logic.
-// lsds middleware checks the instance existance again (the first time is cold start middleware),
+// lsds middleware checks the instance existence again (the first time is cold start middleware),
 // if still not exists, it forwards the function request to LSDS Runner
 func (lsds *lsdsMiddleware) Handle(
 	sp *span.Span, body map[string]interface{}) (map[string]interface{}, middleware.Decision, error) {

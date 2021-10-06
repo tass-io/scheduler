@@ -235,7 +235,8 @@ func DumpConfig(object runtime.Object, folderName, fileName string) error {
 	_ = serverlessv1alpha1.AddToScheme(scheme)
 	serializer := json.NewSerializerWithOptions(yaml.DefaultMetaFactory, scheme, scheme,
 		json.SerializerOptions{Yaml: true, Pretty: false, Strict: false})
-	_ = os.MkdirAll(folderName, 0666)
+	err := os.MkdirAll(folderName, 0666)
+	So(err, ShouldBeNil)
 	dumpFile, err := os.OpenFile(folderName+fileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0)
 	if err != nil {
 		return err
@@ -354,9 +355,11 @@ func TestCross(t *testing.T) {
 				calleeParam := "-l -i -m -a 9090 -s callee -w ./config/workflow.yaml -r ./config/workflowruntime.yaml"
 				caller := exec.Command("./main", strings.Split(callerParam, " ")...)
 				stdOutDump(caller, "./caller.log")
+				// nolint
 				defer caller.Process.Kill()
 				callee := exec.Command("./main", strings.Split(calleeParam, " ")...)
 				stdOutDump(callee, "./callee.log")
+				// nolint
 				defer callee.Process.Kill()
 				time.Sleep(1 * time.Second)
 				// request the first one

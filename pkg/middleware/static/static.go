@@ -33,11 +33,6 @@ func newStaticMiddleware() *staticMiddleware {
 	return &staticMiddleware{}
 }
 
-// GetStaticMiddleware returns a static middleware instance
-func GetStaticMiddleware() *staticMiddleware {
-	return static
-}
-
 // Handle receives a request and does static middleware logic,
 // if it finds that the function not exists, it goes to lsds instance directly.
 // Because the piority of static middleware is higher than the piority of lsds middleware,

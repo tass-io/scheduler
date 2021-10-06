@@ -78,7 +78,7 @@ func (sh *scheduleHandler) Start() error {
 			schedule.GetScheduler().Refresh(decision.FunctionName, decision.Target)
 			// NOTE: actually, this line is not necessary, because the fields in `scoreBoard` are all pointers.
 			// so the changes of the `board` variable will be reflected in the scoreboard[e.FunctionName].
-			// However, we still copy the board to scoreboard[e.FunctionName] to make the developer not suprise.
+			// However, we still copy the board to scoreboard[e.FunctionName] to make the developer not surprise.
 			sh.scoreboard[e.FunctionName] = board
 		}
 	}()

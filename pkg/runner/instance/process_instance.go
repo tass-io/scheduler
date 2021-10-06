@@ -80,7 +80,7 @@ func (i *processInstance) Score() int {
 // it only prepares useful information for the process.
 // Start function creates the real process.
 // FIXME: processInstance should be Instance
-func NewProcessInstance(functionName string) *processInstance {
+func NewProcessInstance(functionName string) Instance {
 	function, existed, err := k8sutils.GetFunctionByName(functionName)
 	if err != nil {
 		zap.S().Warnw("new process instances get function by name error", "functionName", functionName)
@@ -143,7 +143,7 @@ func (i *processInstance) startListen() {
 	go func() {
 		for respRaw := range i.consumer.GetChannel() {
 			resp := respRaw.(*FunctionResponse)
-			i.responseMapping[resp.Id] <- resp.Result
+			i.responseMapping[resp.ID] <- resp.Result
 		}
 	}()
 }
@@ -183,7 +183,7 @@ func (i *processInstance) startProcess(
 	return
 }
 
-// handleCmdExit cleans the process when recieves a exit code
+// handleCmdExit cleans the process when receives a exit code
 func (i *processInstance) handleCmdExit() {
 	err := i.cmd.Wait()
 	if err != nil {

@@ -18,7 +18,7 @@ type instanceSet struct {
 	instances     []instance.Instance
 	coldStartDone chan struct{}
 	accesslimit   chan struct{}
-	ttl           *ttl.TTLManager
+	ttl           *ttl.Manager
 }
 
 // newInstanceSet returns a new instance set for the input function

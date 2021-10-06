@@ -29,24 +29,18 @@ func (event *ScheduleEvent) Merge(target *ScheduleEvent) bool {
 	used := false
 	switch event.Trend {
 	case Increase:
-		{
-			if event.Target < target.Target {
-				event.Target = target.Target
-				used = true
-			}
-		}
-	case Decrease:
-		{
-			if event.Target > target.Target {
-				event.Target = target.Target
-				used = true
-			}
-		}
-	case None:
-		{
-			_ = common.DeepCopy(event, target)
+		if event.Target < target.Target {
+			event.Target = target.Target
 			used = true
 		}
+	case Decrease:
+		if event.Target > target.Target {
+			event.Target = target.Target
+			used = true
+		}
+	case None:
+		_ = common.DeepCopy(event, target)
+		used = true
 	}
 	return used
 }

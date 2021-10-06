@@ -145,7 +145,7 @@ func (fs *FunctionScheduler) FunctionStats(functionName string) int {
 //
 
 // Refresh refreshes information of instances and does scaling.
-// Everytime when ScheduleHandler recieves a new event for upstream,
+// Everytime when ScheduleHandler receives a new event for upstream,
 // it decides the status of the instance, and calls Refresh.
 func (fs *FunctionScheduler) Refresh(functionName string, target int) {
 	zap.S().Debugw("refresh", "function", functionName)

@@ -103,7 +103,7 @@ func TestSchedulerPipeline(t *testing.T) {
 			},
 		},
 		{
-			caseName: "devide and merge test with http request",
+			caseName: "divide and merge test with http request",
 			skipped:  false,
 			args:     []string{"-l", "-w", "../sample/samples/pipeline/divide-and-merge.yaml"},
 			request: dto.WorkflowRequest{

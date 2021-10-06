@@ -69,11 +69,12 @@ func (handler *metricsHandler) Start() error {
 }
 
 func updateMetrics(m metricsEvents, e event.ScheduleEvent) metricsEvents {
-	if e.Source == event.QPSSource {
+	switch e.Source {
+	case event.QPSSource:
 		m.qps = copyEvent(e)
-	} else if e.Source == event.TTLSource {
+	case event.TTLSource:
 		m.ttl = copyEvent(e)
-	} else {
+	default:
 		zap.S().Errorw("metrics handler get unknown event", "event", e)
 	}
 	return m

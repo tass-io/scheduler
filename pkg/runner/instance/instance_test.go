@@ -134,7 +134,9 @@ func TestProcessInstance(t *testing.T) {
 			}
 			process.Release()
 			time.Sleep(500 * time.Millisecond)
-			So(process.getWaitNum(), ShouldEqual, 0)
+			instanceProcess, ok := process.(*processInstance)
+			So(ok, ShouldBeTrue)
+			So(instanceProcess.getWaitNum(), ShouldEqual, 0)
 		}
 	})
 }

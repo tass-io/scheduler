@@ -8,15 +8,15 @@ import (
 // The key is the function name and the value is the number of running instances
 type InstanceStatus map[string]int
 
-type RunnerType string
+type InstanceType string
 
 const (
 	MaxScore int = 9999
 )
 
 var (
-	Mock    RunnerType = "Mock"
-	Process RunnerType = "Process"
+	Mock    InstanceType = "Mock"
+	Process InstanceType = "Process"
 )
 
 // Runner is responsible for running a function

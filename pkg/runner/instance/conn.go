@@ -45,7 +45,7 @@ var (
 
 // FunctionRequest will be put into the producer and send it to request pipe
 type FunctionRequest struct {
-	Id         string                 `json:"id"`
+	ID         string                 `json:"id"`
 	Parameters map[string]interface{} `json:"parameters"`
 }
 
@@ -57,14 +57,14 @@ func NewFunctionRequest(id string, parameters map[string]interface{}) *FunctionR
 		return nil
 	}
 	return &FunctionRequest{
-		Id:         id,
+		ID:         id,
 		Parameters: transfer,
 	}
 }
 
 // FunctionResponse will be put into channel to be consume by instance.
 type FunctionResponse struct {
-	Id     string
+	ID     string
 	Result map[string]interface{}
 }
 
@@ -109,11 +109,9 @@ func (c *Consumer) Start() {
 				zap.S().Debug("read nothing")
 				if err == nil {
 					continue
-				} else {
-					if err == io.EOF {
-						zap.S().Info("consumer read EOF")
-						break
-					}
+				} else if err == io.EOF {
+					zap.S().Info("consumer read EOF")
+					break
 				}
 			}
 
@@ -123,12 +121,12 @@ func (c *Consumer) Start() {
 			if !processInitDone {
 				// this is sent when the producer starts at the first time
 				if responseSlice[0] == string(ping) {
-					zap.S().Info("recieve a 'ping' signal")
+					zap.S().Info("receive a 'ping' signal")
 					processInitDone = true
 					c.initDoneChannel <- struct{}{}
 					responseSlice = responseSlice[1:]
 				} else {
-					zap.S().Panic("Should recieve ping from pipe but received other info")
+					zap.S().Panic("Should receive ping from pipe but received other info")
 				}
 			}
 
@@ -189,7 +187,10 @@ func NewProducer(f *os.File, demo interface{}) *Producer {
 
 // producer listens the channel and gets a request, writes the data to pipe
 func (p *Producer) Start() {
-	signal := append(ping, splitByte...)
+	var signal []byte
+	signal = append(signal, ping...)
+	signal = append(signal, splitByte...)
+
 	n, err := p.f.Write(signal)
 	if err != nil || n != len(signal) {
 		zap.S().Panicw("instance producer starts error", "err", err, "reqByteLen", len(signal), "n", n)

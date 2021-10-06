@@ -11,12 +11,15 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/store"
 	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
+
+	// log config
 	_ "github.com/tass-io/scheduler/pkg/utils/log"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -97,43 +100,37 @@ func codeExec(functionName string, environment string) {
 	codePath := directoryPath + "/code"
 	switch environment {
 	case "JavaScript":
-		{
-			entryPath := codePath + "/index.js"
-			zap.S().Debugw("run with entryPath", "path", entryPath)
-			if _, err := os.Stat(entryPath); err != nil {
-				zap.S().Errorw("code file error", "err", err, "entryPath", entryPath)
-			}
-			binary, err := exec.LookPath("node")
-			if err != nil {
-				zap.S().Errorw("environment prepare error at JavaScript", "err", err)
-				os.Exit(2)
-			}
-			if err := syscall.Exec(binary, []string{entryPath}, os.Environ()); err != nil {
-				zap.S().Errorw("init exec error", "err", err)
-				os.Exit(2)
-			}
+		entryPath := codePath + "/index.js"
+		zap.S().Debugw("run with entryPath", "path", entryPath)
+		if _, err := os.Stat(entryPath); err != nil {
+			zap.S().Errorw("code file error", "err", err, "entryPath", entryPath)
+		}
+		binary, err := exec.LookPath("node")
+		if err != nil {
+			zap.S().Errorw("environment prepare error at JavaScript", "err", err)
+			os.Exit(2)
+		}
+		if err := syscall.Exec(binary, []string{entryPath}, os.Environ()); err != nil {
+			zap.S().Errorw("init exec error", "err", err)
+			os.Exit(2)
 		}
 	case "Golang":
-		{
-			entryPath := codePath + "/main"
-			pluginPath := codePath + "/plugin.so"
-			err := os.Chmod(entryPath, 0777)
-			if err != nil {
-				zap.S().Errorw("init chmod error", "err", err)
-				os.Exit(3)
-			}
-			zap.S().Debugw("prepare to exec golang binary", "entryPath", entryPath)
-			// todo support cmd params customize
-			if err := syscall.Exec(entryPath, []string{"main", pluginPath}, os.Environ()); err != nil {
-				zap.S().Errorw("init exec error", "err", err)
-				os.Exit(4)
-			}
+		entryPath := codePath + "/main"
+		pluginPath := codePath + "/plugin.so"
+		err := os.Chmod(entryPath, 0777)
+		if err != nil {
+			zap.S().Errorw("init chmod error", "err", err)
+			os.Exit(3)
+		}
+		zap.S().Debugw("prepare to exec golang binary", "entryPath", entryPath)
+		// todo support cmd params customize
+		if err := syscall.Exec(entryPath, []string{"main", pluginPath}, os.Environ()); err != nil {
+			zap.S().Errorw("init exec error", "err", err)
+			os.Exit(4)
 		}
 	default:
-		{
-			zap.S().Error("init exec with unsupport environment")
-			os.Exit(5)
-		}
+		zap.S().Error("init exec with unsupport environment")
+		os.Exit(5)
 	}
 }
 
@@ -164,7 +161,10 @@ func unzip(src string, dest string) ([]string, error) {
 
 			if f.FileInfo().IsDir() {
 				// Make Folder
-				os.MkdirAll(fpath, os.ModePerm)
+				err := os.MkdirAll(fpath, os.ModePerm)
+				if err != nil {
+					return fmt.Errorf("create %s failed: %v", fpath, err)
+				}
 				return nil
 			}
 
