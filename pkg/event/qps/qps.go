@@ -35,7 +35,7 @@ func newQPSHandler() *qpsHandler {
 }
 
 // noone should use it, because the qps handler pulls the middleware QPSMiddleware periodly
-func (handler *qpsHandler) AddEvent(e interface{}) {
+func (handler *qpsHandler) AddEvent(e event.ScheduleEvent) {
 	zap.S().Panic("do not use QPSHandler.AddEvent")
 }
 
@@ -66,17 +66,17 @@ func (handler *qpsHandler) Start() error {
 			time.Sleep(1 * time.Second)
 			stats := statistics.GetStat()
 			zap.S().Debugw("QPS event SYNC", "stats", stats)
-			for functionName, metrics := range stats {
+			for functionName, num := range stats {
 				before, existed := handler.qpsMap[functionName]
 				if !existed {
 					handler.qpsMap[functionName] = 0
 					before = 0
 				}
-				target := metrics / 10
+				target := num / 10
 				if target < 1 {
 					target = 1
 				}
-				if metrics == 0 {
+				if num == 0 {
 					target = 0
 				}
 				var trend event.Trend

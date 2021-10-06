@@ -16,7 +16,7 @@ var (
 
 // Handler for async handle like cold start, scale up and down...
 type Handler interface {
-	AddEvent(interface{})
+	AddEvent(e ScheduleEvent)
 	GetSource() Source
 	Start() error
 }

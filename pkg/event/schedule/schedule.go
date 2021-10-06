@@ -47,12 +47,8 @@ var GetScheduleHandlerIns = func() event.Handler {
 
 // AddEvent adds a scheduler event for the ScheduleHandler
 // All kinds of events finally go to ScheduleHandler
-func (sh *scheduleHandler) AddEvent(e interface{}) {
-	se, ok := e.(event.ScheduleEvent)
-	if !ok {
-		zap.S().Errorw("schedule handler add event convert error", "event", e)
-	}
-	sh.upstream <- se
+func (sh *scheduleHandler) AddEvent(e event.ScheduleEvent) {
+	sh.upstream <- e
 }
 
 // GetSource returns Schedule Source

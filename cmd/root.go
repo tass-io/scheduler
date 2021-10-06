@@ -6,20 +6,25 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/tass-io/scheduler/pkg/env"
 	eventinit "github.com/tass-io/scheduler/pkg/event/init"
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
 	middlewareinit "github.com/tass-io/scheduler/pkg/middleware/init"
-	_ "github.com/tass-io/scheduler/pkg/prom"
+
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/trace"
 	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
-	_ "github.com/tass-io/scheduler/pkg/utils/log"
 	"github.com/tass-io/scheduler/pkg/workflow"
+
+	// init prometheus metrics
+	_ "github.com/tass-io/scheduler/pkg/prom"
+	// init logging config
+	_ "github.com/tass-io/scheduler/pkg/utils/log"
+
+	"github.com/gin-gonic/gin"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/env"
 	"go.uber.org/zap"
 )
 
@@ -89,14 +94,19 @@ func basicFlags() {
 
 	rootCmd.Flags().BoolP(env.Local, "l", false, "whether to use local file")
 	viper.BindPFlag(env.Local, rootCmd.Flags().Lookup(env.Local))
-	rootCmd.Flags().StringP(env.SelfName, "s", "ubuntu", "if local is true, it is used to set selfName")
+	rootCmd.Flags().StringP(env.SelfName, "s", "ubuntu",
+		"if local is true, it is used to set selfName")
 	viper.BindPFlag(env.SelfName, rootCmd.Flags().Lookup(env.SelfName))
-	rootCmd.Flags().StringP(env.WorkflowPath, "w", "./workflow.yaml", "if local is true, it is used to init Workflow by file")
+	rootCmd.Flags().StringP(env.WorkflowPath, "w", "./workflow.yaml",
+		"if local flag is true, it is used to init Workflow by file")
 	viper.BindPFlag(env.WorkflowPath, rootCmd.Flags().Lookup(env.WorkflowPath))
-	rootCmd.Flags().StringP(env.WorkflowRuntimeFilePath, "r", "./workflowruntime.yaml", "if local is true, it is used to init WorkflowRuntime by file")
+	rootCmd.Flags().StringP(env.WorkflowRuntimeFilePath, "r", "./workflowruntime.yaml",
+		"if local flag is true, it is used to init WorkflowRuntime by file")
 	viper.BindPFlag(env.WorkflowRuntimeFilePath, rootCmd.Flags().Lookup(env.WorkflowRuntimeFilePath))
-	rootCmd.Flags().StringSliceP(env.FuntionsPath, "f", []string{}, "if local is true, it is used to init Function by file")
+	rootCmd.Flags().StringSliceP(env.FuntionsPath, "f", []string{},
+		"if local flag is true, it is used to init Function by file")
 	viper.BindPFlag(env.FuntionsPath, rootCmd.Flags().Lookup(env.FuntionsPath))
+
 	rootCmd.Flags().BoolP(env.Mock, "m", false, "whether to use mock instance")
 	viper.BindPFlag(env.Mock, rootCmd.Flags().Lookup(env.Mock))
 

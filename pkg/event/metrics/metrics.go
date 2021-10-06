@@ -12,10 +12,14 @@ var (
 
 // metricsHandler is the handler for metrics events.
 type metricsHandler struct {
-	channel chan event.ScheduleEvent
-	// metricsSources is the map of functions,
-	// each function has a map of ScheduleEvent for different Source
-	metricsSources map[string]map[event.Source]event.ScheduleEvent
+	upstream chan event.ScheduleEvent
+	// functionMetrcis is the map of functions and their runtime metrics,
+	// each function records its latest qps and ttl events.
+	functionMetrcis map[string]metricsEvents
+}
+type metricsEvents struct {
+	qps *event.ScheduleEvent
+	ttl *event.ScheduleEvent
 }
 
 var _ event.Handler = &metricsHandler{}
@@ -29,15 +33,14 @@ func Init() {
 // newMetricsHandler returns a new Metrics handler.
 func newMetricsHandler() *metricsHandler {
 	return &metricsHandler{
-		channel:        make(chan event.ScheduleEvent, 100),
-		metricsSources: make(map[string]map[event.Source]event.ScheduleEvent),
+		upstream:        make(chan event.ScheduleEvent, 100),
+		functionMetrcis: make(map[string]metricsEvents),
 	}
 }
 
 // AddEvent provides a way to add a metric event to trigger the metrics handler
-func (handler *metricsHandler) AddEvent(e interface{}) {
-	event := e.(event.ScheduleEvent)
-	handler.channel <- event
+func (handler *metricsHandler) AddEvent(e event.ScheduleEvent) {
+	handler.upstream <- e
 }
 
 // GetSource returns metrics event.
@@ -50,63 +53,90 @@ func (handler *metricsHandler) GetSource() event.Source {
 // and then makes a decision.
 func (handler *metricsHandler) Start() error {
 	go func() {
-		for e := range handler.channel {
+		for e := range handler.upstream {
 			zap.S().Debugw("get event from channel", "event", e)
-			sources, existed := handler.metricsSources[e.FunctionName]
+			metrics, existed := handler.functionMetrcis[e.FunctionName]
 			if !existed {
-				handler.metricsSources[e.FunctionName] = make(map[event.Source]event.ScheduleEvent)
-				sources = handler.metricsSources[e.FunctionName]
+				handler.functionMetrcis[e.FunctionName] = metricsEvents{}
+				metrics = handler.functionMetrcis[e.FunctionName]
 			}
-			sources[e.Source] = e
+			metrics = updateMetrics(metrics, e)
+			handler.functionMetrcis[e.FunctionName] = metrics
 			handler.decide(e.FunctionName)
 		}
 	}()
 	return nil
 }
 
+func updateMetrics(m metricsEvents, e event.ScheduleEvent) metricsEvents {
+	if e.Source == event.QPSSource {
+		m.qps = copyEvent(e)
+	} else if e.Source == event.TTLSource {
+		m.ttl = copyEvent(e)
+	} else {
+		zap.S().Errorw("metrics handler get unknown event", "event", e)
+	}
+	return m
+}
+
+// copyEvent is for making the event obj immutable
+func copyEvent(e event.ScheduleEvent) *event.ScheduleEvent {
+	return &event.ScheduleEvent{
+		FunctionName: e.FunctionName,
+		Target:       e.Target,
+		Trend:        e.Trend,
+		Source:       e.Source,
+	}
+}
+
 // decide considers the qps and ttl events both, and sends a final decision event to ScheduleHandler
 func (handler *metricsHandler) decide(functionName string) {
-	sources := handler.metricsSources[functionName]
-	qps, qpsexisted := sources[event.QPSSource]
-	ttl, ttlexisted := sources[event.TTLSource]
+	metrics := handler.functionMetrcis[functionName]
+	qpsEvent := metrics.qps
+	ttlEvent := metrics.ttl
+
+	if qpsEvent == nil && ttlEvent == nil {
+		zap.S().Errorw("metrics handler get no event", "function", functionName)
+		return
+	}
+
+	if qpsEvent == nil && ttlEvent != nil {
+		zap.S().Infow("ttl handler ttl single final desicion", "desicion", ttlEvent)
+		event.GetHandlerBySource(event.ScheduleSource).AddEvent(event.ScheduleEvent{
+			FunctionName: ttlEvent.FunctionName,
+			Target:       ttlEvent.Target,
+			Trend:        ttlEvent.Trend,
+			Source:       event.MetricsSource,
+		})
+		return
+	}
+
+	if qpsEvent != nil && ttlEvent == nil {
+		zap.S().Infow("metrics handler qps single final desicion", "desicion", qpsEvent)
+		event.GetHandlerBySource(event.ScheduleSource).AddEvent(event.ScheduleEvent{
+			FunctionName: qpsEvent.FunctionName,
+			Target:       qpsEvent.Target,
+			Trend:        qpsEvent.Trend,
+			Source:       event.MetricsSource,
+		})
+		return
+	}
+
 	target := 0
 	trend := event.None
-
-	if !qpsexisted {
-		zap.S().Infow("ttl handler ttl single final desicion", "desicion", ttl)
-		event.GetHandlerBySource(event.ScheduleSource).AddEvent(event.ScheduleEvent{
-			FunctionName: ttl.FunctionName,
-			Target:       ttl.Target,
-			Trend:        ttl.Trend,
-			Source:       event.MetricsSource,
-		})
-		return
-	}
-
-	if !ttlexisted {
-		zap.S().Infow("metrics handler qps single final desicion", "desicion", qps)
-		event.GetHandlerBySource(event.ScheduleSource).AddEvent(event.ScheduleEvent{
-			FunctionName: qps.FunctionName,
-			Target:       qps.Target,
-			Trend:        qps.Trend,
-			Source:       event.MetricsSource,
-		})
-		return
-	}
-
 	// the target of ttl is always Decrease
-	if qps.Trend == event.Increase {
+	if qpsEvent.Trend == event.Increase {
 		// when qps is Increase and ttl is Decrease, take the higher Target
-		if ttl.Target > qps.Target {
-			target = ttl.Target
+		if ttlEvent.Target > qpsEvent.Target {
+			target = ttlEvent.Target
 		} else {
-			target = qps.Target
+			target = qpsEvent.Target
 		}
 		trend = event.Increase
-	} else if qps.Trend == event.Decrease {
+	} else if qpsEvent.Trend == event.Decrease {
 		// when qps is Decrease, always takes ttl Target
 		trend = event.Decrease
-		target = ttl.Target
+		target = ttlEvent.Target
 	}
 	finalDesicion := event.ScheduleEvent{
 		FunctionName: functionName,
