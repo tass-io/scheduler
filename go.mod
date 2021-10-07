@@ -3,6 +3,7 @@ module github.com/tass-io/scheduler
 go 1.14
 
 require (
+	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-gonic/gin v1.7.1
@@ -23,7 +24,7 @@ require (
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/viper v1.7.1
-	github.com/tass-io/tass-operator v0.1.12
+	github.com/tass-io/tass-operator v0.1.13
 	github.com/tidwall/gjson v1.7.5
 	github.com/uber/jaeger-client-go v2.29.1+incompatible
 	github.com/uber/jaeger-lib v2.4.1+incompatible // indirect

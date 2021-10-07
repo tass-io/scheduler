@@ -190,11 +190,11 @@ func GetIfElseWorkflow() *serverlessv1alpha1.Workflow {
 					Outputs:  []string{},
 					Conditions: []*serverlessv1alpha1.Condition{
 						{
-							Name:        "root",
-							Type:        serverlessv1alpha1.Int,
-							Operator:    serverlessv1alpha1.Eq,
-							Target:      "$.a",
-							Comparision: "5",
+							Name:       "root",
+							Type:       serverlessv1alpha1.Int,
+							Operator:   serverlessv1alpha1.Eq,
+							Target:     "$.a",
+							Comparison: "5",
 							Destination: serverlessv1alpha1.Destination{
 								IsTrue: serverlessv1alpha1.Next{
 									Flows: []string{"left"},

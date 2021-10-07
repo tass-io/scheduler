@@ -243,11 +243,11 @@ func TestManager(t *testing.T) {
 									Outputs:  []string{"condition_end"},
 									Conditions: []*serverlessv1alpha1.Condition{
 										{
-											Name:        "root",
-											Type:        "string",
-											Operator:    "eq",
-											Target:      "tass",
-											Comparision: "tass",
+											Name:       "root",
+											Type:       "string",
+											Operator:   "eq",
+											Target:     "tass",
+											Comparison: "tass",
 											Destination: serverlessv1alpha1.Destination{
 												IsTrue: serverlessv1alpha1.Next{
 													Flows: []string{"condition_flow"},
@@ -331,11 +331,11 @@ func TestManager(t *testing.T) {
 									Outputs:  []string{"condition_end"},
 									Conditions: []*serverlessv1alpha1.Condition{
 										{
-											Name:        "root",
-											Type:        "string",
-											Operator:    "eq",
-											Target:      "tass",
-											Comparision: "tass",
+											Name:       "root",
+											Type:       "string",
+											Operator:   "eq",
+											Target:     "tass",
+											Comparison: "tass",
 											Destination: serverlessv1alpha1.Destination{
 												IsTrue: serverlessv1alpha1.Next{
 													Conditions: []string{"condition_nested"},
@@ -345,11 +345,11 @@ func TestManager(t *testing.T) {
 											},
 										},
 										{
-											Name:        "condition_nested",
-											Type:        "string",
-											Operator:    "eq",
-											Target:      "tass",
-											Comparision: "tass",
+											Name:       "condition_nested",
+											Type:       "string",
+											Operator:   "eq",
+											Target:     "tass",
+											Comparison: "tass",
 											Destination: serverlessv1alpha1.Destination{
 												IsTrue: serverlessv1alpha1.Next{
 													Flows:      []string{"condition_nested"},

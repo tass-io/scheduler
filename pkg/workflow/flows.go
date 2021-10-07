@@ -310,10 +310,10 @@ func (m *Manager) executeCondition(sp *span.Span, condition *serverlessv1alpha1.
 //   type: int
 //   operator: eq
 //   target: $.a
-//   comparision: "5"
+//   comparison: "5"
 // 	 destination: ...
 //
-// we can see that the type is `int`, the comparision is converted to 5 as int,
+// we can see that the type is `int`, the comparison is converted to 5 as int,
 // the target is converted to an "int" by reading the upstream response.
 // Then it starts the "compare" and returns the result.
 func executeConditionLogic(condition *serverlessv1alpha1.Condition, functionResult map[string]interface{}) bool {
@@ -334,7 +334,7 @@ func executeConditionLogic(condition *serverlessv1alpha1.Condition, functionResu
 
 	// get the real values
 	common.GetValue(functionResult, condition.Target, leftValue)
-	common.GetValue(functionResult, string(condition.Comparision), rightValue)
+	common.GetValue(functionResult, string(condition.Comparison), rightValue)
 
 	zap.S().Debugw("condition logic get value", "left", leftValue, "right", rightValue)
 	return compare(leftValue, rightValue, condition.Operator)
