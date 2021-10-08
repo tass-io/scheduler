@@ -7,6 +7,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	fnschedule "github.com/tass-io/scheduler/pkg/schedule"
 	"github.com/tass-io/scheduler/pkg/span"
+	"github.com/tass-io/scheduler/pkg/utils/locker"
 	"go.uber.org/zap"
 )
 
@@ -28,13 +29,17 @@ func Register() {
 
 // coldstartMiddleware is responsible for sending a creating event for instance,
 // if there is at least one request function process instance, coldstartMiddleware is skipped
-type coldstartMiddleware struct{}
+type coldstartMiddleware struct {
+	fnMutex *locker.MapLocker
+}
 
 var _ middleware.Handler = &coldstartMiddleware{}
 
 // newColdstartMiddleware returns a coldstart middleware instance
 func newColdstartMiddleware() *coldstartMiddleware {
-	return &coldstartMiddleware{}
+	return &coldstartMiddleware{
+		fnMutex: locker.NewMapLocker(),
+	}
 }
 
 // Handle receives a request and does cold start middleware logic.
@@ -52,6 +57,7 @@ func (cs *coldstartMiddleware) Handle(
 
 	zap.S().Infow("status at coldstart middleware", "function", functionName, "number", instanceNum)
 
+	cs.fnMutex.Lock(functionName)
 	// no running instances or the instanceSet not exists
 	if instanceNum == 0 {
 		fnschedule.GetScheduler().NewInstanceSetIfNotExist(functionName)
@@ -71,6 +77,7 @@ func (cs *coldstartMiddleware) Handle(
 		// TODO: Cold Start error handling
 		fnschedule.GetScheduler().ColdStartDone(functionName)
 	}
+	cs.fnMutex.Unlock(functionName)
 
 	return nil, middleware.Next, nil
 }
