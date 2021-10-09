@@ -110,6 +110,9 @@ func basicFlags() {
 	rootCmd.Flags().BoolP(env.Mock, "m", false, "whether to use mock instance")
 	viper.BindPFlag(env.Mock, rootCmd.Flags().Lookup(env.Mock))
 
+	rootCmd.Flags().BoolP(env.Prestart, "p", false, "enable/disable the prestart mode")
+	viper.BindPFlag(env.Prestart, rootCmd.Flags().Lookup(env.Prestart))
+
 	rootCmd.Flags().BoolP(env.StaticMiddleware, "i", false, "whether to use StaticMiddleware")
 	viper.BindPFlag(env.StaticMiddleware, rootCmd.Flags().Lookup(env.StaticMiddleware))
 	rootCmd.Flags().BoolP(env.QPSMiddleware, "q", false, "whether to use QPSMiddleware")

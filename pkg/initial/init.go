@@ -53,6 +53,7 @@ func codePrepareAndExec(code string, functionName string, environment string) {
 }
 
 // codePrepare decodes & unzips the code and places the code to the desired location
+// codePrepare is an expensive operation, because it needs to get code from remote storage center
 func codePrepare(code string) {
 	pid := os.Getpid()
 	directoryPath := fmt.Sprintf(env.TassFileRoot+"%d", pid)

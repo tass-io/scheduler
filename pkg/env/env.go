@@ -1,5 +1,6 @@
 package env
 
+// FIXME: unify the naming rule of env vars
 const (
 	LSDSWait                = "LSDSWait"
 	RemoteCallPolicy        = "remoteCallpolicy"
@@ -16,11 +17,12 @@ const (
 	RedisPassword           = "RedisPassword"
 	DefaultDb               = "DefaultDb"
 	TassFileRoot            = "/tass/"
-	Mock                    = "Mock"
+	Mock                    = "mock"
 	StaticMiddleware        = "StaticMiddleware"
 	QPSMiddleware           = "QPSMiddleware"
-	InstanceScorePolicy     = "InstanceScorePolicy"
-	CreatePolicy            = "CreatePolicy"
+	InstanceScorePolicy     = "instanceScorePolicy"
+	CreatePolicy            = "createPolicy"
 	TTL                     = "TTL"
 	TraceAgentHostPort      = "TraceAgentHostPort"
+	Prestart                = "prestart"
 )

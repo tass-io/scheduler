@@ -114,7 +114,6 @@ func newPipe() (*os.File, *os.File, error) {
 
 // Start inits and starts producer/consumer, and starts the real work process
 func (i *processInstance) Start() (err error) {
-	zap.S().Debugw("process start")
 	i.lock.Lock()
 	defer i.lock.Unlock()
 	i.status = Init
@@ -153,9 +152,7 @@ func (i *processInstance) startListen() {
 // the request (param1) is the producer read pipe,
 // the response (param2) is the consumer write pipe.
 // todo customize the command
-func (i *processInstance) startProcess(
-	request *os.File, response *os.File, functionName string) (err error) {
-
+func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
 	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName,
 		viper.GetString(env.RedisIP), viper.GetString(env.RedisPort),
 		viper.GetString(env.RedisPassword), i.environment)
@@ -176,8 +173,8 @@ func (i *processInstance) startProcess(
 	}
 
 	cmd.ExtraFiles = []*os.File{request, response}
+	// NOTE: Start starts the specified command but does not wait for it to complete.
 	err = cmd.Start()
-	// todo how to check whether a process is init over
 	i.cmd = cmd
 	go i.handleCmdExit()
 	return

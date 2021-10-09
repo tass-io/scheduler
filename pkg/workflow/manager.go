@@ -7,6 +7,7 @@ import (
 
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/middleware"
+	"github.com/tass-io/scheduler/pkg/prestart"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
 	"github.com/tass-io/scheduler/pkg/span"
@@ -15,17 +16,17 @@ import (
 	"go.uber.org/zap"
 )
 
-// InitManager inits a workflow manager,
-// unlike lsds and other things, Manager should not lazy start
-func InitManager() {
-	manager = NewManager()
-}
-
 var (
 	manager             *Manager
 	_                   = &sync.Once{}
 	ErrWorkflowNotFound = errors.New("workflow not found")
 )
+
+// InitManager inits a workflow manager,
+// unlike lsds and other things, Manager should not lazy start
+func InitManager() {
+	manager = NewManager()
+}
 
 // Manager is a workflow manager, it owns a runner and middlewares
 type Manager struct {
@@ -124,6 +125,7 @@ func (m *Manager) handleWorkflow(sp *span.Span, parameters map[string]interface{
 		}
 	}
 	sp.Start("")
+	m.doPrestart(workflowName)
 	// flow level span here
 	return m.executeSpec(sp, parameters, workflow) // Start and Finish not symmetric
 }
@@ -136,4 +138,10 @@ func (m *Manager) GetRunner() runner.Runner {
 // Invoke invokes the workflow and does the difined workflow logic
 func (m *Manager) Invoke(sp *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
 	return m.handleWorkflow(sp, parameters)
+}
+
+// doPrestart creates a prestart manager to control function prestart logic
+func (m *Manager) doPrestart(workflowName string) {
+	ps := prestart.GetPrestarter(workflowName)
+	ps.Trigger(m.middleware)
 }
