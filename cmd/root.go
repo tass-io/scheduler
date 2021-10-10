@@ -6,11 +6,11 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/tass-io/scheduler/pkg/collector"
 	eventinit "github.com/tass-io/scheduler/pkg/event/init"
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
 	middlewareinit "github.com/tass-io/scheduler/pkg/middleware/init"
-
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
 	"github.com/tass-io/scheduler/pkg/trace"
 	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
@@ -50,6 +50,9 @@ var (
 			workflow.InitManager()
 			// start the manager based on the startup parameters
 			workflow.GetManager().Start()
+			// init collector, which is responsible for collecting function metrics
+			collector.Init()
+			collector.GetCollector().Start()
 
 			r := gin.Default()
 			schttp.RegisterRoute(r)
@@ -112,6 +115,8 @@ func basicFlags() {
 
 	rootCmd.Flags().BoolP(env.Prestart, "p", false, "enable/disable the prestart mode")
 	viper.BindPFlag(env.Prestart, rootCmd.Flags().Lookup(env.Prestart))
+	rootCmd.Flags().BoolP(env.Collector, "c", false, "enable/disable the collector mode")
+	viper.BindPFlag(env.Collector, rootCmd.Flags().Lookup(env.Collector))
 
 	rootCmd.Flags().BoolP(env.StaticMiddleware, "i", false, "whether to use StaticMiddleware")
 	viper.BindPFlag(env.StaticMiddleware, rootCmd.Flags().Lookup(env.StaticMiddleware))

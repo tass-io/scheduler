@@ -2,8 +2,10 @@ package fnscheduler
 
 import (
 	"sync"
+	"time"
 
 	"github.com/spf13/viper"
+	"github.com/tass-io/scheduler/pkg/collector"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
@@ -85,9 +87,7 @@ func (fs *FunctionScheduler) canCreateInstance() bool {
 
 // Run chooses a target instance to run
 // now with middleware and events, fs run can be simplified
-func (fs *FunctionScheduler) Run(
-	span *span.Span, parameters map[string]interface{}) (result map[string]interface{}, err error) {
-
+func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interface{}) (map[string]interface{}, error) {
 	fs.Lock()
 	functionName := span.GetFunctionName()
 	target, existed := fs.instances[functionName]
@@ -101,7 +101,10 @@ func (fs *FunctionScheduler) Run(
 	// take care of the lock order, the set lock is before fs unlock
 	fs.instances[functionName] = target
 	fs.Unlock()
-	return target.Invoke(parameters)
+	start := time.Now()
+	result, err := target.Invoke(parameters)
+	collector.GetCollector().Record(functionName, collector.RecordExec, time.Since(start))
+	return result, err
 }
 
 // ChooseTargetInstance chooses a target instance which has the lowest score

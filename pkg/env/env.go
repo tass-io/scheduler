@@ -25,4 +25,5 @@ const (
 	TTL                     = "TTL"
 	TraceAgentHostPort      = "TraceAgentHostPort"
 	Prestart                = "prestart"
+	Collector               = "collector"
 )

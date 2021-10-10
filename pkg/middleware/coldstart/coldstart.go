@@ -1,6 +1,9 @@
 package coldstart
 
 import (
+	"time"
+
+	"github.com/tass-io/scheduler/pkg/collector"
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/event/schedule"
 	"github.com/tass-io/scheduler/pkg/middleware"
@@ -8,6 +11,7 @@ import (
 	fnschedule "github.com/tass-io/scheduler/pkg/schedule"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/utils/locker"
+
 	"go.uber.org/zap"
 )
 
@@ -57,9 +61,16 @@ func (cs *coldstartMiddleware) Handle(
 
 	zap.S().Infow("status at coldstart middleware", "function", functionName, "number", instanceNum)
 
-	cs.fnMutex.Lock(functionName)
 	// no running instances or the instanceSet not exists
 	if instanceNum == 0 {
+		cs.fnMutex.Lock(functionName)
+		defer cs.fnMutex.Unlock(functionName)
+		// double check to prevent toctou
+		instanceNum = helper.GetMasterRunner().FunctionStats(functionName)
+		if instanceNum != 0 {
+			return nil, middleware.Next, nil
+		}
+		start := time.Now()
 		fnschedule.GetScheduler().NewInstanceSetIfNotExist(functionName)
 
 		// create an event, the scheduler tries to create an instance locally,
@@ -76,8 +87,8 @@ func (cs *coldstartMiddleware) Handle(
 		// TODO: Now use notification directly, a policy is preferred here
 		// TODO: Cold Start error handling
 		fnschedule.GetScheduler().ColdStartDone(functionName)
+		collector.GetCollector().Record(functionName, collector.RecordColdStart, time.Since(start))
 	}
-	cs.fnMutex.Unlock(functionName)
 
 	return nil, middleware.Next, nil
 }

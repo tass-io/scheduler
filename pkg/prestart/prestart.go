@@ -16,23 +16,29 @@ var (
 )
 
 const (
-	updatePredictMdlFreq = time.Second * 10
-	prestartDisable      = "prestart mode is not enabled, if you want to turn on prestart mode, set start flag -p or --prestart."
+	updateMdlFreq   = time.Second * 10
+	prestartDisable = "prestart mode is disabled, if you want to turn on prestart mode, set start flag -p or --prestart."
 )
+
+type Prestarter interface {
+	Trigger(execMiddlewareFunc execMiddlewareFunc)
+}
+
+type execMiddlewareFunc func(*span.Span, map[string]interface{}) (map[string]interface{}, middleware.Decision, error)
 
 type manager struct {
 	wf string // name of workflow
 	pm []predictItem
 }
 
+var _ Prestarter = &manager{}
+
 type predictItem struct {
 	name  string
 	sleep time.Duration
 }
 
-type execMiddlewareFunc func(*span.Span, map[string]interface{}) (map[string]interface{}, middleware.Decision, error)
-
-func GetPrestarter(workflowName string) *manager {
+func GetPrestarter(workflowName string) Prestarter {
 	if mgr == nil {
 		newPrestarter(workflowName)
 	}
@@ -40,12 +46,13 @@ func GetPrestarter(workflowName string) *manager {
 }
 
 func newPrestarter(workflowName string) {
+	// FIXME: mock data
 	mgr = &manager{wf: workflowName, pm: []predictItem{
 		{name: "function1", sleep: 0},
 		{name: "function2", sleep: 0},
 		{name: "function3", sleep: 0},
 	}}
-	go mgr.updatePredictionModel(updatePredictMdlFreq)
+	go mgr.updatePredictionModel(updateMdlFreq)
 }
 
 // Trigger indicates a workflow request is called,
@@ -65,7 +72,7 @@ func (m *manager) updatePredictionModel(d time.Duration) {
 	defer ticker.Stop()
 	for {
 		<-ticker.C
-		// TODO: get prediction model from remote
+		// TODO: get prediction model from real prediction model service
 		m.pm = []predictItem{
 			{name: "function1", sleep: 0},
 			{name: "function2", sleep: 0},
