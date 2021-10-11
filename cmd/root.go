@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/tass-io/scheduler/pkg/collector"
 	eventinit "github.com/tass-io/scheduler/pkg/event/init"
 	schttp "github.com/tass-io/scheduler/pkg/http"
 	"github.com/tass-io/scheduler/pkg/initial"
@@ -50,9 +49,6 @@ var (
 			workflow.InitManager()
 			// start the manager based on the startup parameters
 			workflow.GetManager().Start()
-			// init collector, which is responsible for collecting function metrics
-			collector.Init()
-			collector.GetCollector().Start()
 
 			r := gin.Default()
 			schttp.RegisterRoute(r)

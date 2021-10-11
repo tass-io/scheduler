@@ -90,6 +90,7 @@ func (fs *FunctionScheduler) canCreateInstance() bool {
 func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interface{}) (map[string]interface{}, error) {
 	fs.Lock()
 	functionName := span.GetFunctionName()
+	flowName := span.GetFlowName()
 	target, existed := fs.instances[functionName]
 	if !existed {
 		// when the Function comes to this method, it has gone through the middleware
@@ -103,7 +104,7 @@ func (fs *FunctionScheduler) Run(span *span.Span, parameters map[string]interfac
 	fs.Unlock()
 	start := time.Now()
 	result, err := target.Invoke(parameters)
-	collector.GetCollector().Record(functionName, collector.RecordExec, time.Since(start))
+	collector.GetCollector().Record(flowName, functionName, collector.RecordExec, time.Since(start))
 	return result, err
 }
 

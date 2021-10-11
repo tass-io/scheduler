@@ -1,6 +1,7 @@
 package prestart
 
 import (
+	"context"
 	"time"
 
 	"github.com/tass-io/scheduler/pkg/env"
@@ -27,31 +28,54 @@ type Prestarter interface {
 type execMiddlewareFunc func(*span.Span, map[string]interface{}) (map[string]interface{}, middleware.Decision, error)
 
 type manager struct {
-	wf string // name of workflow
-	pm []predictItem
+	ctx    context.Context
+	cancel context.CancelFunc // cancel the context when the workflow is changed.
+	wf     string             // name of workflow
+	pm     []predictItem
 }
 
 var _ Prestarter = &manager{}
 
 type predictItem struct {
-	name  string
+	flow  string
+	fn    string
 	sleep time.Duration
 }
 
-func GetPrestarter(workflowName string) Prestarter {
+// Init initializes a new Prestart singleton instance,
+// if workflow changes, it will generate a new instance.
+func Init(workflowName string) {
 	if mgr == nil {
 		newPrestarter(workflowName)
+		return
 	}
+	if mgr.wf != workflowName {
+		zap.S().Info("workflow changes, generate a new workflow prestarter")
+		newPrestarter(workflowName)
+	}
+}
+
+func GetPrestarter() Prestarter {
 	return mgr
 }
 
 func newPrestarter(workflowName string) {
-	// FIXME: mock data
-	mgr = &manager{wf: workflowName, pm: []predictItem{
-		{name: "function1", sleep: 0},
-		{name: "function2", sleep: 0},
-		{name: "function3", sleep: 0},
-	}}
+	// if workflow changes, cancel the old mgr goroutines
+	if mgr != nil {
+		mgr.cancel()
+	}
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	mgr = &manager{
+		ctx:    ctx,
+		cancel: cancel,
+		wf:     workflowName,
+		// FIXME: mock data
+		pm: []predictItem{
+			{flow: "start", fn: "function1", sleep: 0},
+			{flow: "next", fn: "function2", sleep: 0},
+			{flow: "end", fn: "function3", sleep: 0},
+		}}
 	go mgr.updatePredictionModel(updateMdlFreq)
 }
 
@@ -71,12 +95,16 @@ func (m *manager) updatePredictionModel(d time.Duration) {
 	ticker := time.NewTicker(d)
 	defer ticker.Stop()
 	for {
-		<-ticker.C
-		// TODO: get prediction model from real prediction model service
-		m.pm = []predictItem{
-			{name: "function1", sleep: 0},
-			{name: "function2", sleep: 0},
-			{name: "function3", sleep: 0},
+		select {
+		case <-m.ctx.Done():
+			return
+		case <-ticker.C:
+			// TODO: get prediction model from real prediction model service
+			m.pm = []predictItem{
+				{flow: "start", fn: "function1", sleep: 0},
+				{flow: "next", fn: "function2", sleep: 0},
+				{flow: "end", fn: "function3", sleep: 0},
+			}
 		}
 	}
 }
@@ -85,14 +113,14 @@ func (m *manager) updatePredictionModel(d time.Duration) {
 func (m *manager) dryRun(execMiddlewareFunc execMiddlewareFunc) {
 	for _, item := range m.pm {
 		go func(i predictItem) {
-			zap.S().Info("prestarting", zap.String("function", i.name))
+			zap.S().Info("prestarting", zap.String("function", i.fn))
 			time.Sleep(i.sleep)
-			sp := constructSpan(m.wf, i.name)
+			sp := constructSpan(m.wf, i.flow, i.fn)
 			execMiddlewareFunc(sp, nil)
 		}(item)
 	}
 }
 
-func constructSpan(wf, fn string) *span.Span {
-	return span.NewSpan(wf, "", fn)
+func constructSpan(wf, flow, fn string) *span.Span {
+	return span.NewSpan(wf, flow, fn)
 }
