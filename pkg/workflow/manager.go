@@ -8,6 +8,7 @@ import (
 	"github.com/tass-io/scheduler/pkg/collector"
 	"github.com/tass-io/scheduler/pkg/event"
 	"github.com/tass-io/scheduler/pkg/middleware"
+	"github.com/tass-io/scheduler/pkg/predictmodel"
 	"github.com/tass-io/scheduler/pkg/prestart"
 	"github.com/tass-io/scheduler/pkg/runner"
 	"github.com/tass-io/scheduler/pkg/runner/helper"
@@ -126,7 +127,10 @@ func (m *Manager) handleWorkflow(sp *span.Span, parameters map[string]interface{
 		}
 	}
 	sp.Start("")
-	m.preparePrescheduleSuite(workflowName)
+	err = m.preparePrescheduleSuite(workflowName)
+	if err != nil {
+		return nil, err
+	}
 	// flow level span here
 	return m.executeSpec(sp, parameters, workflow) // Start and Finish not symmetric
 }
@@ -145,9 +149,14 @@ func (m *Manager) Invoke(sp *span.Span, parameters map[string]interface{}) (resu
 // 1. a prestartar to create a process instance based on the pridiction model;
 // 2. a collector to collect the process instance lifecycle cost data and upload the record;
 // 3. a prediction model manager to load the workflow prediction model
-func (m *Manager) preparePrescheduleSuite(workflowName string) {
+func (m *Manager) preparePrescheduleSuite(workflowName string) error {
 	prestart.Init(workflowName)
 	prestart.GetPrestarter().Trigger(m.middleware)
 	collector.Init(workflowName)
-
+	err := predictmodel.Init(workflowName)
+	if err != nil {
+		zap.S().Error("prepare workflow preschedule suite failed", err, "workflow", workflowName)
+		return err
+	}
+	return nil
 }

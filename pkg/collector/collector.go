@@ -3,10 +3,13 @@ package collector
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
+	"github.com/tass-io/scheduler/pkg/predictmodel"
+	"github.com/tass-io/scheduler/pkg/predictmodel/store"
 	"go.uber.org/zap"
 )
 
@@ -16,9 +19,10 @@ var collector *Collector
 type Collector struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
+	mu      sync.Locker
 	wf      string
 	ch      chan *record
-	metrcis map[string]metric
+	records map[string]*store.Object
 }
 
 // RecordType is the type of a record, which indicates the different phases of a function.
@@ -29,11 +33,6 @@ const (
 	RecordColdStart RecordType = "coldstart"
 	RecordExec      RecordType = "exec"
 )
-
-type metric struct {
-	coldstart []time.Duration
-	exec      []time.Duration
-}
 
 type record struct {
 	flow string
@@ -47,12 +46,14 @@ type record struct {
 func Init(workflow string) {
 	if collector == nil {
 		newCollector(workflow)
+		collector.Start()
 		return
 	}
 	if collector.wf != workflow {
 		zap.S().Info("workflow changes, generate a new workflow collector")
 		collector.cancel()
 		newCollector(workflow)
+		collector.Start()
 	}
 }
 
@@ -62,9 +63,10 @@ func newCollector(workflow string) {
 	collector = &Collector{
 		ctx:     ctx,
 		cancel:  cancel,
+		mu:      &sync.Mutex{},
 		wf:      workflow,
 		ch:      make(chan *record, 100),
-		metrcis: make(map[string]metric),
+		records: map[string]*store.Object{},
 	}
 }
 
@@ -74,7 +76,6 @@ func GetCollector() *Collector {
 }
 
 // Record records one specific phase time cost of a function.
-// TODO: we may need add Flow name s a parameter.
 func (c *Collector) Record(flow, fn string, t RecordType, d time.Duration) {
 	if viper.GetBool(env.Collector) {
 		c.ch <- &record{
@@ -99,43 +100,62 @@ func (c *Collector) startCollector() {
 		case <-c.ctx.Done():
 			return
 		case r := <-c.ch:
-			key := fmt.Sprintf("%v/%v", r.flow, r.fn)
-			m := c.metrcis[key]
+			var obj *store.Object
+			obj, ok := c.records[r.flow]
+			if !ok {
+				obj = &store.Object{
+					Fn: r.fn,
+				}
+				c.records[r.flow] = obj
+			}
 			switch r.t {
 			case RecordColdStart:
-				m.coldstart = append(m.coldstart, time.Duration(r.d))
+				obj.Coldstart = append(obj.Coldstart, time.Duration(r.d))
 			case RecordExec:
-				m.exec = append(m.exec, time.Duration(r.d))
+				obj.Exec = append(obj.Exec, time.Duration(r.d))
 			default:
 				panic("unknown record type")
 			}
-			c.metrcis[key] = m
 		}
 	}
 }
 
 // publish sends thr current metrics to the prediction model
 func (c *Collector) publish() {
+	ticker := time.NewTicker(time.Second * 10)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-c.ctx.Done():
 			return
-		default:
+		case <-ticker.C:
 			c.printMockdata()
-			time.Sleep(time.Second * 10)
+			records := c.fetchAndClearRecords()
+			err := predictmodel.GetPredictModelManager().PatchRecords(records)
+			if err != nil {
+				zap.S().Error("failed to patch records to prediction model manager", err)
+			}
 		}
 	}
+}
+
+func (c *Collector) fetchAndClearRecords() map[string]*store.Object {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	records := c.records
+	c.records = make(map[string]*store.Object)
+	return records
 }
 
 // FIXME: delete this function once business logic is ready.
 func (c *Collector) printMockdata() {
 	fmt.Println("=======================COLLECTOR==========================")
-	for key, m := range c.metrcis {
-		avgColdStart := avg(m.coldstart)
-		avgExec := avg(m.exec)
+	for key, r := range c.records {
+		avgColdStart := avg(r.Coldstart)
+		avgExec := avg(r.Exec)
 		fmt.Printf("function: %v \n", key)
-		fmt.Printf("coldstart: %v \n", m.coldstart)
-		fmt.Printf("exec: %v \n", m.exec)
+		fmt.Printf("coldstart: %v \n", r.Coldstart)
+		fmt.Printf("exec: %v \n", r.Exec)
 		fmt.Println(key, "avg coldstart:", avgColdStart, "avg exec:", avgExec)
 	}
 	fmt.Println("==========================================================")

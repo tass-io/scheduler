@@ -125,7 +125,7 @@ func codeExec(functionName string, environment string) {
 		}
 		zap.S().Debugw("prepare to exec golang binary", "entryPath", entryPath)
 		// todo support cmd params customize
-		if err := syscall.Exec(entryPath, []string{"main", pluginPath}, os.Environ()); err != nil {
+		if err := syscall.Exec(entryPath, []string{" ", pluginPath}, os.Environ()); err != nil {
 			zap.S().Errorw("init exec error", "err", err)
 			os.Exit(4)
 		}
