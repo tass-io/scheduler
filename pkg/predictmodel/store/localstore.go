@@ -72,12 +72,15 @@ func genStsTemplate(wf *v1alpha1.Workflow) *Statistics {
 		Version: 1,
 		Flows:   make(map[string]*Object),
 	}
+	// recording flow parents, key is the flow name, value is the parent flows name
+	flowParents := make(map[string][]string)
 	for i, flow := range wf.Spec.Spec {
 		if i == 0 {
 			sts.Start = flow.Name
 		}
 		sts.Flows[flow.Name] = &Object{
-			Fn: flow.Name,
+			Flow: flow.Name,
+			Fn: flow.Function,
 		}
 		var nexts []string
 		nexts = append(nexts, flow.Outputs...)
@@ -86,6 +89,13 @@ func genStsTemplate(wf *v1alpha1.Workflow) *Statistics {
 			nexts = append(nexts, condition.Destination.IsFalse.Flows...)
 		}
 		sts.Flows[flow.Name].Nexts = nexts
+		// recording parents
+		for _, next := range nexts {
+			flowParents[next] = append(flowParents[next], flow.Name)
+		}
+	}
+	for k, v := range flowParents {
+		sts.Flows[k].Parents = v
 	}
 	return sts
 }

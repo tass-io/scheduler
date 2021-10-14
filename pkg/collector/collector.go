@@ -104,7 +104,8 @@ func (c *Collector) startCollector() {
 			obj, ok := c.records[r.flow]
 			if !ok {
 				obj = &store.Object{
-					Fn: r.fn,
+					Flow: r.flow,
+					Fn:   r.fn,
 				}
 				c.records[r.flow] = obj
 			}

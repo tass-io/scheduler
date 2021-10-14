@@ -16,7 +16,9 @@ type Statistics struct {
 }
 
 type Object struct {
+	Flow      string          `yaml:"flow"`           // flow name
 	Fn        string          `yaml:"fn"`             // function name
+	Parents   []string        `yaml:"parents,flow"`   // parent flow name
 	Coldstart []time.Duration `yaml:"coldstart,flow"` // history of coldstart time
 	Exec      []time.Duration `yaml:"exec,flow"`      // history of execution time
 	Nexts     []string        `yaml:"nexts,flow"`     // downstream flows

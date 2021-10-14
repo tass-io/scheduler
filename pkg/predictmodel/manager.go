@@ -12,10 +12,11 @@ var p *Manager
 // Manager is the prediction model manager, which is responsible for offering prediction model result and
 // updating the statistics.
 type Manager struct {
-	mu    sync.Locker
-	store store.Store // storage for prediction model
-	wf    string      // workflow name
-	sts   *store.Statistics
+	mu     sync.Locker
+	store  store.Store // storage for prediction model
+	wf     string      // workflow name
+	sts    *store.Statistics
+	policy Policy
 }
 
 func Init(workflowName string) error {
