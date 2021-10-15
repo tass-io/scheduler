@@ -14,25 +14,27 @@ import (
 // all flows are the same level
 // all conditions in the "conditions" are the same level
 type Span struct {
-	workflowName string
-	flowName     string
-	functionName string
-	root         opentracing.SpanContext
-	parent       opentracing.SpanContext
-	sp           opentracing.Span
-	startOnce    *sync.Once
-	finishOnce   *sync.Once
+	workflowName     string
+	upstreamFlowName string
+	flowName         string
+	functionName     string
+	root             opentracing.SpanContext
+	parent           opentracing.SpanContext
+	sp               opentracing.Span
+	startOnce        *sync.Once
+	finishOnce       *sync.Once
 }
 
 // NewSpan returns a new span with the input function.
 // Note that you should set root and parent by yourself.
-func NewSpan(workflowName string, flowName string, functioName string) *Span {
+func NewSpan(workflowName, upstreamFlowName, flowName, functioName string) *Span {
 	return &Span{
-		workflowName: workflowName,
-		flowName:     flowName,
-		functionName: functioName,
-		startOnce:    &sync.Once{},
-		finishOnce:   &sync.Once{},
+		workflowName:     workflowName,
+		upstreamFlowName: upstreamFlowName,
+		flowName:         flowName,
+		functionName:     functioName,
+		startOnce:        &sync.Once{},
+		finishOnce:       &sync.Once{},
 	}
 }
 
@@ -77,6 +79,10 @@ func (span *Span) GetWorkflowName() string {
 	return span.workflowName
 }
 
+func (span *Span) GetUpstreamFlowName() string {
+	return span.upstreamFlowName
+}
+
 func (span *Span) GetFlowName() string {
 	return span.flowName
 }
@@ -91,6 +97,10 @@ func (span *Span) GetParent() opentracing.SpanContext {
 
 func (span *Span) SetFunctionName(functionName string) {
 	span.functionName = functionName
+}
+
+func (span *Span) SetUpstreamFlowName(upstreamFlowName string) {
+	span.upstreamFlowName = upstreamFlowName
 }
 
 func (span *Span) SetFlowName(flowName string) {

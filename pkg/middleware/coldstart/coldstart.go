@@ -56,8 +56,9 @@ func (cs *coldstartMiddleware) Handle(
 	lsdsSpan.Start("coldstart")
 	defer lsdsSpan.Finish()
 
-	functionName := sp.GetFunctionName()
+	upstream := sp.GetUpstreamFlowName()
 	flowName := sp.GetFlowName()
+	functionName := sp.GetFunctionName()
 	instanceNum := helper.GetMasterRunner().FunctionStats(functionName)
 
 	zap.S().Infow("status at coldstart middleware", "function", functionName, "number", instanceNum)
@@ -88,7 +89,7 @@ func (cs *coldstartMiddleware) Handle(
 		// TODO: Now use notification directly, a policy is preferred here
 		// TODO: Cold Start error handling
 		fnschedule.GetScheduler().ColdStartDone(functionName)
-		collector.GetCollector().Record(flowName, functionName, collector.RecordColdStart, time.Since(start))
+		collector.GetCollector().Record(upstream,flowName, functionName, collector.RecordColdStart, time.Since(start))
 	}
 
 	return nil, middleware.Next, nil

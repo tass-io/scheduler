@@ -115,12 +115,12 @@ func (m *manager) dryRun(execMiddlewareFunc execMiddlewareFunc) {
 		go func(i predictItem) {
 			zap.S().Info("prestarting", zap.String("function", i.fn))
 			time.Sleep(i.sleep)
-			sp := constructSpan(m.wf, i.flow, i.fn)
+			sp := constructPlainSpan(m.wf, i.flow, i.fn)
 			execMiddlewareFunc(sp, nil)
 		}(item)
 	}
 }
 
-func constructSpan(wf, flow, fn string) *span.Span {
-	return span.NewSpan(wf, flow, fn)
+func constructPlainSpan(wf, flow, fn string) *span.Span {
+	return span.NewSpan(wf, "", flow, fn)
 }

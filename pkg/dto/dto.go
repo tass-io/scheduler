@@ -1,9 +1,10 @@
 package dto
 
 type WorkflowRequest struct {
-	WorkflowName string                 `json:"workflowName"`
-	FlowName     string                 `json:"flowName"`
-	Parameters   map[string]interface{} `json:"parameters"`
+	WorkflowName     string                 `json:"workflowName"`
+	UpstreamFlowName string                 `json:"upstreamFlowName"`
+	FlowName         string                 `json:"flowName"`
+	Parameters       map[string]interface{} `json:"parameters"`
 }
 
 type WorkflowResponse struct {

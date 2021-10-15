@@ -128,7 +128,7 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				sp: span.NewSpan("simple", "", ""),
+				sp: span.NewSpan("simple", "", "", ""),
 				parameters: map[string]interface{}{
 					"a": "b",
 				},
@@ -196,7 +196,7 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				sp: span.NewSpan("simple", "", ""),
+				sp: span.NewSpan("simple", "", "", ""),
 				parameters: map[string]interface{}{
 					"a": "b",
 				},
@@ -281,7 +281,7 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				sp:         span.NewSpan("condition", "", ""),
+				sp:         span.NewSpan("condition", "", "", ""),
 				parameters: map[string]interface{}{"a": "b"},
 				expect: map[string]interface{}{
 					"condition_mid": map[string]interface{}{
@@ -391,7 +391,7 @@ func TestManager(t *testing.T) {
 					}
 					*objects = append(*objects, workflow)
 				},
-				sp:         span.NewSpan("condition", "", ""),
+				sp:         span.NewSpan("condition", "", "", ""),
 				parameters: map[string]interface{}{"a": "b"},
 				expect: map[string]interface{}{
 					"condition_mid": map[string]interface{}{

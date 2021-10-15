@@ -21,14 +21,14 @@ type Manager struct {
 
 func Init(workflowName string) error {
 	if p == nil {
-		err := newPredictionModel(workflowName)
+		err := newPredictionModelManager(workflowName)
 		if err != nil {
 			return err
 		}
 	}
 	if p.wf != workflowName {
 		zap.S().Info("workflow changes, generate a new workflow prediction manager", "old", p.wf, "new", workflowName)
-		err := newPredictionModel(workflowName)
+		err := newPredictionModelManager(workflowName)
 		if err != nil {
 			return err
 		}
@@ -36,11 +36,13 @@ func Init(workflowName string) error {
 	return nil
 }
 
-func newPredictionModel(workflowName string) error {
+func newPredictionModelManager(workflowName string) error {
 	p = &Manager{
-		wf:    workflowName,
-		mu:    &sync.Mutex{},
-		store: store.NewLocalstore(),
+		wf:     workflowName,
+		mu:     &sync.Mutex{},
+		store:  store.NewLocalstore(),
+		policy: NewMarkovPolicy(),
+		sts:    nil,
 	}
 	sts, err := p.store.GetStatistics(p.wf)
 	if err != nil {
@@ -76,4 +78,8 @@ func (pm *Manager) updateStatistics(sts *store.Statistics) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 	pm.sts = sts
+}
+
+func (pm *Manager) GetModel() *Model {
+	return pm.policy.GetModel(pm.sts)
 }

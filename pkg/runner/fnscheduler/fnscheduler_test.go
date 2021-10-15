@@ -52,7 +52,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 					ttl: ttl.NewTTLManager("a"),
 				},
 			},
-			span:   span.NewSpan("test", "a", "a"),
+			span:   span.NewSpan("test", "", "a", "a"),
 			expect: nil,
 		},
 		{
@@ -68,7 +68,7 @@ func TestFunctionScheduler_Run(t *testing.T) {
 					ttl: ttl.NewTTLManager("a"),
 				},
 			},
-			span:   span.NewSpan("test", "b", "b"),
+			span:   span.NewSpan("test", "", "b", "b"),
 			expect: errorutils.NewNoInstanceError("b"),
 		},
 	}
@@ -177,7 +177,7 @@ func TestFunctionScheduler_RefreshAndRun(t *testing.T) {
 			So(stats, ShouldResemble, testcase.excepts)
 			time.Sleep(1 * time.Second)
 			for functionName, e := range testcase.runTargets {
-				_, err := fs.Run(span.NewSpan("", functionName, functionName), nil)
+				_, err := fs.Run(span.NewSpan("", "", functionName, functionName), nil)
 				So(err, ShouldResemble, e)
 			}
 			k8sstats := ls.Stats()

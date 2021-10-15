@@ -69,6 +69,7 @@ func (m *Manager) parallelFlowsWithSpan(sp *span.Span, para map[string]interface
 	promises := []*FlowPromise{}
 	for _, next := range nexts {
 		newSp := span.NewSpanFromSpanSibling(sp)
+		newSp.SetUpstreamFlowName(sp.GetFlowName())
 		newSp.SetFlowName(wf.Spec.Spec[next].Name)
 		p := NewFlowPromise(m.executeSpec, newSp.GetFlowName())
 		zap.S().Debugw("call function with parameter", "flow", newSp.GetFlowName(), "parameters", para)
@@ -129,7 +130,7 @@ func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{},
 
 	// execute the function and get results
 	// enter in rootspan if not from promise
-	// FIXME: targetFlowIndex now is useless here
+	// FIXME: targetFlowIndex now is redundant here
 	result, err := m.executeRunFunction(sp, para, wf, targetFlowIndex)
 	if err != nil {
 		zap.S().Errorw("executeRunFunction error", "err", err)
@@ -161,7 +162,7 @@ func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{},
 
 // executeRunFunction runs function without other workflow logic, middlewares are injected here.
 func (m *Manager) executeRunFunction(sp *span.Span, parameters map[string]interface{},
-	wf *serverlessv1alpha1.Workflow, index int) (map[string]interface{}, error) {
+	wf *serverlessv1alpha1.Workflow, _ int) (map[string]interface{}, error) {
 
 	middlewareSpan := span.NewSpanFromTheSameFlowSpanAsParent(sp)
 	middlewareSpan.Start(middlewareSpan.GetFunctionName() + "-middleware")
@@ -242,7 +243,6 @@ func (m *Manager) findNext(sp *span.Span,
 		if err != nil {
 			return nil, err
 		}
-		// change the result I'm sorry for it, the logics is evil
 		nexts := make([]int, 0, len(now.Outputs))
 		for _, name := range now.Outputs {
 			n, err := findFlowByName(wf, name)

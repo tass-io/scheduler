@@ -35,10 +35,11 @@ const (
 )
 
 type record struct {
-	flow string
-	fn   string
-	t    RecordType
-	d    time.Duration
+	upstream string // upstream flow name
+	flow     string // flow name
+	fn       string // function name
+	t        RecordType
+	d        time.Duration
 }
 
 // Init initializes the Collector which is responsible for collecting metrics for different functions.
@@ -76,13 +77,14 @@ func GetCollector() *Collector {
 }
 
 // Record records one specific phase time cost of a function.
-func (c *Collector) Record(flow, fn string, t RecordType, d time.Duration) {
+func (c *Collector) Record(upstream, flow, fn string, t RecordType, d time.Duration) {
 	if viper.GetBool(env.Collector) {
 		c.ch <- &record{
-			flow: flow,
-			fn:   fn,
-			t:    t,
-			d:    d,
+			upstream: upstream,
+			flow:     flow,
+			fn:       fn,
+			t:        t,
+			d:        d,
 		}
 	}
 }
@@ -113,7 +115,24 @@ func (c *Collector) startCollector() {
 			case RecordColdStart:
 				obj.Coldstart = append(obj.Coldstart, time.Duration(r.d))
 			case RecordExec:
-				obj.Exec = append(obj.Exec, time.Duration(r.d))
+				rawPathExist := false
+				for index, path := range obj.Paths {
+					if path.From == r.upstream {
+						path.Exec = append(path.Exec, time.Duration(r.d))
+						path.Count++
+						obj.Paths[index] = path
+						rawPathExist = true
+						break
+					}
+				}
+				if !rawPathExist {
+					obj.Paths = append(obj.Paths, store.Path{
+						From:  r.upstream,
+						Exec:  []time.Duration{time.Duration(r.d)},
+						Count: 1,
+					},
+					)
+				}
 			default:
 				panic("unknown record type")
 			}
@@ -148,16 +167,29 @@ func (c *Collector) fetchAndClearRecords() map[string]*store.Object {
 	return records
 }
 
-// FIXME: delete this function once business logic is ready.
+// NOTE: Test help function for watching runtime status.
 func (c *Collector) printMockdata() {
 	fmt.Println("=======================COLLECTOR==========================")
 	for key, r := range c.records {
 		avgColdStart := avg(r.Coldstart)
-		avgExec := avg(r.Exec)
-		fmt.Printf("function: %v \n", key)
-		fmt.Printf("coldstart: %v \n", r.Coldstart)
-		fmt.Printf("exec: %v \n", r.Exec)
-		fmt.Println(key, "avg coldstart:", avgColdStart, "avg exec:", avgExec)
+		for _, path := range r.Paths {
+			avgExec := avg(path.Exec)
+			fmt.Printf("upstream: %v \n", path.From)
+			fmt.Printf("flow: %v \n", key)
+			fmt.Printf("coldstart: %v \n", r.Coldstart)
+			fmt.Printf("exec: %v \n", path.Exec)
+			fmt.Println(key, "avg exec:", avgExec)
+		}
+		fmt.Println(key, "avg coldstart:", avgColdStart)
+	}
+	fmt.Println("===================Probability Model======================")
+	model := predictmodel.GetPredictModelManager().GetModel()
+	for _, flow := range model.Flows {
+		fmt.Println("flow:", flow.Flow)
+		fmt.Println("fn", flow.Fn)
+		fmt.Println("probability", flow.Probability)
+		fmt.Printf("AvgColdstart: %v \n", flow.AvgColdStart)
+		fmt.Printf("AvgExec: %v \n", flow.AvgExec)
 	}
 	fmt.Println("==========================================================")
 }
