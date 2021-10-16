@@ -146,17 +146,18 @@ func (m *Manager) Invoke(sp *span.Span, parameters map[string]interface{}) (resu
 }
 
 // preparePrescheduleSuite prepares the preschedule suite, including
-// 1. a prestartar to create a process instance based on the pridiction model;
+// 1. a prediction model manager to load the workflow prediction model
 // 2. a collector to collect the process instance lifecycle cost data and upload the record;
-// 3. a prediction model manager to load the workflow prediction model
+// 3. a prestartar to create a process instance based on the pridiction model;
+// Note that the order is important
 func (m *Manager) preparePrescheduleSuite(workflowName string) error {
-	prestart.Init(workflowName)
-	prestart.GetPrestarter().Trigger(m.middleware)
-	collector.Init(workflowName)
 	err := predictmodel.Init(workflowName)
 	if err != nil {
 		zap.S().Error("prepare workflow preschedule suite failed", err, "workflow", workflowName)
 		return err
 	}
+	collector.Init(workflowName)
+	prestart.Init(workflowName)
+	prestart.GetPrestarter().Trigger(m.middleware)
 	return nil
 }

@@ -13,6 +13,10 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	updateModelInterval = time.Second * 10
+)
+
 var collector *Collector
 
 // Collector is responsible for collecting metrics for different functions.
@@ -91,7 +95,7 @@ func (c *Collector) Record(upstream, flow, fn string, t RecordType, d time.Durat
 
 func (c *Collector) Start() {
 	if viper.GetBool(env.Collector) {
-		go c.publish()
+		go c.publish(updateModelInterval)
 		go c.startCollector()
 	}
 }
@@ -141,8 +145,8 @@ func (c *Collector) startCollector() {
 }
 
 // publish sends thr current metrics to the prediction model
-func (c *Collector) publish() {
-	ticker := time.NewTicker(time.Second * 10)
+func (c *Collector) publish(d time.Duration) {
+	ticker := time.NewTicker(d)
 	defer ticker.Stop()
 	for {
 		select {
@@ -181,15 +185,6 @@ func (c *Collector) printMockdata() {
 			fmt.Println(key, "avg exec:", avgExec)
 		}
 		fmt.Println(key, "avg coldstart:", avgColdStart)
-	}
-	fmt.Println("===================Probability Model======================")
-	model := predictmodel.GetPredictModelManager().GetModel()
-	for _, flow := range model.Flows {
-		fmt.Println("flow:", flow.Flow)
-		fmt.Println("fn", flow.Fn)
-		fmt.Println("probability", flow.Probability)
-		fmt.Printf("AvgColdstart: %v \n", flow.AvgColdStart)
-		fmt.Printf("AvgExec: %v \n", flow.AvgExec)
 	}
 	fmt.Println("==========================================================")
 }
