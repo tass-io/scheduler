@@ -189,7 +189,7 @@ func (m *Manager) executeRunFunction(sp *span.Span, parameters map[string]interf
 // it returns the flow name and its function name
 func findStart(wf *serverlessv1alpha1.Workflow) (string, string, error) {
 	for _, flow := range wf.Spec.Spec {
-		if flow.Role == serverlessv1alpha1.Start {
+		if flow.Role == serverlessv1alpha1.Start || flow.Role == serverlessv1alpha1.Orphan{
 			return flow.Name, flow.Function, nil
 		}
 	}
@@ -199,7 +199,7 @@ func findStart(wf *serverlessv1alpha1.Workflow) (string, string, error) {
 // isEnd returns wether a Flow is end,
 // end is a strong rule, ignore Outputs
 func isEnd(flow *serverlessv1alpha1.Flow) bool {
-	return flow.Role == serverlessv1alpha1.End
+	return flow.Role == serverlessv1alpha1.End || flow.Role == serverlessv1alpha1.Orphan
 }
 
 // findFlowByName returns a Flow index by the input name

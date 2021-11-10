@@ -89,7 +89,7 @@ func (cs *coldstartMiddleware) Handle(
 		// TODO: Now use notification directly, a policy is preferred here
 		// TODO: Cold Start error handling
 		fnschedule.GetScheduler().ColdStartDone(functionName)
-		collector.GetCollector().Record(upstream,flowName, functionName, collector.RecordColdStart, time.Since(start))
+		collector.GetCollector().Record(upstream, flowName, functionName, collector.RecordColdStart, time.Since(start))
 	}
 
 	return nil, middleware.Next, nil

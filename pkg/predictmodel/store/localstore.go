@@ -80,7 +80,7 @@ func genStsTemplate(wf *v1alpha1.Workflow) *Statistics {
 		}
 		sts.Flows[flow.Name] = &Object{
 			Flow: flow.Name,
-			Fn: flow.Function,
+			Fn:   flow.Function,
 		}
 		var nexts []string
 		nexts = append(nexts, flow.Outputs...)
