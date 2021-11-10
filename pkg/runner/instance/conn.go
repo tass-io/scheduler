@@ -102,6 +102,7 @@ func (c *Consumer) Start() {
 		zap.S().Debugw("consumer get type", "type", typ)
 		data := make([]byte, 4<<20)
 		reader := bufio.NewReader(c.f)
+		tail := ""
 		processInitDone := false
 		for {
 			n, err := reader.Read(data)
@@ -116,6 +117,7 @@ func (c *Consumer) Start() {
 			}
 
 			rawString := string(data[:n])
+			rawString = tail + rawString
 			responseSlice := strings.Split(rawString, string(splitByte))
 
 			if !processInitDone {
@@ -139,6 +141,9 @@ func (c *Consumer) Start() {
 				err = json.Unmarshal([]byte(item), newP)
 				if err != nil {
 					zap.S().Infow("consumer unmarshal error", "err", err, "item", item)
+					// take care of `{"s":"b"}littledrizzle{"n":`
+					// the item must be the last one
+					tail = item
 					continue
 				}
 				zap.S().Debugw("get resp with in consumer ", "resp", newP)
@@ -176,10 +181,10 @@ func (c *Consumer) Terminate() {
 }
 
 // NewProducer creates a new consumer data structure cantains a channel and an unnamed pipe
-func NewProducer(f *os.File, demo interface{}) *Producer {
+func NewProducer(f *os.File, data interface{}) *Producer {
 	return &Producer{
 		f:                  f,
-		data:               demo,
+		data:               data,
 		requestChannel:     make(chan interface{}, 10),
 		startRoutineExited: false,
 	}

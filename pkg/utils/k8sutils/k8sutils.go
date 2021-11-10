@@ -284,7 +284,8 @@ func InitWorkflowRuntimeInformer() {
 	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowRuntimeResources)
 	workflowRuntimeInformer = cache.NewSharedInformer(
 		listAndWatch,
-		&serverlessv1alpha1.WorkflowRuntime{},
+		// &serverlessv1alpha1.WorkflowRuntime{},
+		&unstructured.Unstructured{},
 		1*time.Second,
 	)
 	// zap.S().Debug("in the lsds start listen")
@@ -296,7 +297,8 @@ func InitWorkflowInformer() {
 	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), WorkflowResource)
 	informer := cache.NewSharedInformer(
 		listAndWatch,
-		&serverlessv1alpha1.Workflow{},
+		// &serverlessv1alpha1.Workflow{},
+		&unstructured.Unstructured{},
 		1*time.Second,
 	)
 	workflowInformer = informer
@@ -308,7 +310,8 @@ func InitFunctionInformer() {
 	listAndWatch := CreateUnstructuredListWatch(context.Background(), GetSelfNamespace(), FunctionResources)
 	informer := cache.NewSharedInformer(
 		listAndWatch,
-		&serverlessv1alpha1.Function{},
+		// &serverlessv1alpha1.Function{},
+		&unstructured.Unstructured{},
 		1*time.Second,
 	)
 	functionInformer = informer

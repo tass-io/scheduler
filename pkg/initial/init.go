@@ -116,7 +116,7 @@ func codeExec(functionName string, environment string) {
 			os.Exit(2)
 		}
 	case "Golang":
-		entryPath := codePath + "/main"
+		entryPath := env.TassFileRoot + "runtime"
 		pluginPath := codePath + "/plugin.so"
 		err := os.Chmod(entryPath, 0777)
 		if err != nil {
