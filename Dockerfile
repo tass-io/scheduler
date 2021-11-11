@@ -2,8 +2,9 @@ FROM golang:latest as builder
 WORKDIR /code
 ADD . /code
 RUN go env -w GO111MODULE=on && go env -w GOPROXY=https://goproxy.cn,direct && go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o app .
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o runtime ./pkg/initial/wrapper/main.go
+# RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o runtime ./pkg/initial/wrapper/main.go
+RUN go build -a -o app .
+RUN go build -a -o runtime ./pkg/initial/wrapper/main.go
 
 FROM centos as prod
 EXPOSE 50001
