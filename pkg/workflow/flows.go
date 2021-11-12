@@ -105,7 +105,6 @@ func (m *Manager) parallelFlows(sp *span.Span, para map[string]interface{},
 func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{},
 	wf *serverlessv1alpha1.Workflow) (map[string]interface{}, error) {
 
-	zap.S().Debugw("executeSpec start", "parameters", parameters)
 	para, err := common.CopyMap(parameters)
 	if err != nil {
 		zap.S().Errorw("copy map error", "err", err, "para", para)
@@ -189,7 +188,7 @@ func (m *Manager) executeRunFunction(sp *span.Span, parameters map[string]interf
 // it returns the flow name and its function name
 func findStart(wf *serverlessv1alpha1.Workflow) (string, string, error) {
 	for _, flow := range wf.Spec.Spec {
-		if flow.Role == serverlessv1alpha1.Start || flow.Role == serverlessv1alpha1.Orphan{
+		if flow.Role == serverlessv1alpha1.Start || flow.Role == serverlessv1alpha1.Orphan {
 			return flow.Name, flow.Function, nil
 		}
 	}

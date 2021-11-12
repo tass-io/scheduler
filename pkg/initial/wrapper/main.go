@@ -101,7 +101,6 @@ func (w *Wrapper) Start() {
 
 	for reqRaw := range reqChan {
 		req := reqRaw.(*instance.FunctionRequest)
-		zap.S().Debugw("get req", "req", req)
 		// do the invocation
 		go func() {
 			w.requestMap.Set(req.ID, "")

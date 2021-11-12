@@ -36,12 +36,15 @@ var (
 	// splitByte is just for functionRequest package delimiter.
 	// For example, `{"a": "b"}littledrizzle{"a": "c"}` maybe in the pipe,
 	// so to split two request, we need a delimiter.
-	splitByte = []byte("littledrizzle")
+	splitByte = []byte("Z")
 
 	// ping is a information to show the producer is ready to send requests,
 	// indicating the process is ready
 	ping = []byte("ping")
 )
+
+const bufSize = uint64(2 << 28)
+const rMask = (bufSize - 1)
 
 // FunctionRequest will be put into the producer and send it to request pipe
 type FunctionRequest struct {
@@ -100,9 +103,10 @@ func (c *Consumer) Start() {
 	go func() {
 		typ := reflect.TypeOf(c.data)
 		zap.S().Debugw("consumer get type", "type", typ)
-		data := make([]byte, 4<<20)
+		data := make([]byte, 4096+1024)
 		reader := bufio.NewReader(c.f)
-		tail := ""
+		tail := make([]byte, bufSize)
+		buffStart, buffEnd := uint64(0), uint64(0)
 		processInitDone := false
 		for {
 			n, err := reader.Read(data)
@@ -116,38 +120,55 @@ func (c *Consumer) Start() {
 				}
 			}
 
-			rawString := string(data[:n])
-			rawString = tail + rawString
-			responseSlice := strings.Split(rawString, string(splitByte))
+			for _, b := range data[:n] {
+				tail[buffEnd&rMask] = b
+				buffEnd++
+				if buffEnd&rMask == buffStart&rMask {
+					zap.S().Panic("Consumer buffer: `tail` all used up")
+				}
+			}
+
+			// tail = append(tail, data[:n]...)
 
 			if !processInitDone {
 				// this is sent when the producer starts at the first time
+				responseSlice := strings.Split(string(tail[buffStart&rMask:buffEnd&rMask]), string(splitByte))
+				zap.S().Info("receive a 'ping' signal", "", responseSlice)
 				if responseSlice[0] == string(ping) {
 					zap.S().Info("receive a 'ping' signal")
 					processInitDone = true
 					c.initDoneChannel <- struct{}{}
-					responseSlice = responseSlice[1:]
+					buffStart += uint64(len(ping)) + uint64(len(splitByte))
 				} else {
 					zap.S().Panic("Should receive ping from pipe but received other info")
 				}
 			}
 
-			for _, item := range responseSlice {
-				if item == "" {
+			for i := buffStart; i < buffEnd; i++ {
+				if tail[i&rMask] != 'Z' {
 					continue
 				}
+				// tail[i] == 'Z'
 				resp := reflect.New(typ.Elem())
 				newP := resp.Interface()
-				err = json.Unmarshal([]byte(item), newP)
-				if err != nil {
-					zap.S().Infow("consumer unmarshal error", "err", err, "item", item)
-					// take care of `{"s":"b"}littledrizzle{"n":`
-					// the item must be the last one
-					tail = item
-					continue
+				if buffStart&rMask < i&rMask {
+					err = json.Unmarshal(tail[buffStart&rMask:i&rMask], newP)
+				} else {
+					tmp := make([]byte, bufSize-buffStart&rMask+i&rMask)
+					for j, b := range tail[buffStart&rMask:] {
+						tmp[j] = b
+					}
+					for j, b := range tail[:i&rMask] {
+						tmp[bufSize-buffStart&rMask+uint64(j)] = b
+					}
+					err = json.Unmarshal(tmp, newP)
 				}
-				zap.S().Debugw("get resp with in consumer ", "resp", newP)
+				if err != nil {
+					zap.S().Errorw("consumer unmarshal error", "err", err)
+				}
+				zap.S().Debugw("get resp with in consumer ")
 				c.responseChannel <- newP
+				buffStart = i + 1
 			}
 		}
 
@@ -204,15 +225,18 @@ func (p *Producer) Start() {
 	go func() {
 		for req := range p.requestChannel {
 			reqByte, err := json.Marshal(&req)
-			zap.S().Debugw("producer get object", "object", string(reqByte))
+			// zap.S().Debugw("producer get object", "object", string(reqByte))
 			if err != nil {
 				zap.S().Errorw("producer marshal error", "err", err)
 			}
 			// add delimiter
-			reqByte = append(reqByte, splitByte...)
 			n, err := p.f.Write(reqByte)
 			if err != nil || n != len(reqByte) {
 				zap.S().Errorw("instance request error", "err", err, "reqByteLen", len(reqByte), "n", n)
+			}
+			n, err = p.f.Write(splitByte)
+			if err != nil || n != 1 {
+				zap.S().Errorw("instance request error", "err", err, "reqByteLen", 1, "n", n)
 			}
 		}
 		zap.S().Debug("producer close")
