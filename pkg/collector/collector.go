@@ -153,7 +153,7 @@ func (c *Collector) publish(d time.Duration) {
 		case <-c.ctx.Done():
 			return
 		case <-ticker.C:
-			c.printMockdata()
+			// c.printMockdata()
 			records := c.fetchAndClearRecords()
 			err := predictmodel.GetPredictModelManager().PatchRecords(records)
 			if err != nil {
@@ -172,7 +172,7 @@ func (c *Collector) fetchAndClearRecords() map[string]*store.Object {
 }
 
 // NOTE: Test help function for watching runtime status.
-func (c *Collector) printMockdata() {
+func (c *Collector) PrintMockdata() {
 	fmt.Println("=======================COLLECTOR==========================")
 	for key, r := range c.records {
 		avgColdStart := avg(r.Coldstart)

@@ -85,7 +85,7 @@ func newPrestarter(workflowName string) {
 		mlp:    make(map[string]*flowRuntime),
 	}
 	mgr.calculateMLP()
-	mgr.printModel()
+	// mgr.printModel()
 	go mgr.updatePredictionModel(updateMdlFreq)
 }
 
@@ -113,7 +113,7 @@ func (m *manager) updatePredictionModel(d time.Duration) {
 			m.model = predictmodel.GetPredictModelManager().GetModel()
 			m.mu.Unlock()
 			m.calculateMLP()
-			m.printModel()
+			// mgr.printModel()
 		}
 	}
 }
@@ -218,7 +218,7 @@ func calculateFlowWaiting(model *predictmodel.Model, mlp map[string]*flowRuntime
 }
 
 // NOTE: Test help function for watching runtime status.
-func (m *manager) printModel() {
+func (m *manager) PrintModel() {
 	fmt.Println("===================Probability Model======================")
 	for _, flow := range m.model.Flows {
 		fmt.Println("flow:", flow.Flow)

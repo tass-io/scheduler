@@ -10,6 +10,7 @@ type WorkflowRequest struct {
 type WorkflowResponse struct {
 	Success bool                   `json:"success"`
 	Message string                 `json:"message"`
+	Time    string                 `json:"time"`
 	Result  map[string]interface{} `json:"result"`
 }
 

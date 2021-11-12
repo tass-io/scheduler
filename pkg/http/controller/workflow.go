@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/opentracing/opentracing-go"
 	"github.com/tass-io/scheduler/pkg/dto"
@@ -14,11 +16,13 @@ import (
 func Invoke(c *gin.Context) {
 	var request dto.WorkflowRequest
 
+	start := time.Now()
 	// 1. mapping into JSON format
 	if err := c.BindJSON(&request); err != nil {
 		zap.S().Errorw("invoke bind json error", "err", err)
 		c.JSON(400, dto.WorkflowResponse{
 			Success: false,
+			Time:    time.Since(start).String(),
 			Message: err.Error(),
 		})
 	}
@@ -52,12 +56,14 @@ func Invoke(c *gin.Context) {
 	if err != nil {
 		c.JSON(500, dto.WorkflowResponse{
 			Success: false,
+			Time:    time.Since(start).String(),
 			Message: err.Error(),
 		})
 		return
 	}
 	c.JSON(200, dto.WorkflowResponse{
 		Success: true,
+		Time:    time.Since(start).String(),
 		Message: "ok",
 		Result:  result,
 	})
