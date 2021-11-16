@@ -187,7 +187,7 @@ func (i *processInstance) startProcessDirect(request *os.File, response *os.File
 	directoryPath := fmt.Sprintf("%s%s", env.TassFileRoot, i.uuid)
 	pluginPath := directoryPath + "/plugin.so"
 	i.codePrepare(directoryPath, pluginPath)
-	cmd := exec.Command(binaryPath, []string{"", pluginPath}...)
+	cmd := exec.Command(binaryPath, pluginPath)
 	// It is different from docker, we do not create mount namespace and network namespace
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC,
