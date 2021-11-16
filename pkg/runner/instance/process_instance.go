@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
 	"github.com/tass-io/scheduler/pkg/runner"
+	"github.com/tass-io/scheduler/pkg/store"
 	"github.com/tass-io/scheduler/pkg/utils/k8sutils"
 	"go.uber.org/zap"
 )
@@ -129,7 +130,7 @@ func (i *processInstance) Start() (err error) {
 	i.producer.Start()
 	i.consumer = NewConsumer(consumerRead, &FunctionResponse{})
 	i.consumer.Start()
-	err = i.startProcess(producerRead, consumerWrite, i.functionName)
+	err = i.startProcessDirect(producerRead, consumerWrite, i.functionName)
 	if err != nil {
 		return
 	}
@@ -147,12 +148,13 @@ func (i *processInstance) startListen() {
 	}()
 }
 
-// startProcess starts function process, prepares log output directory
+// DEPRECATED: now use startProcessDirect to meet the performance needs
+// StartProcess starts function process, prepares log output directory
 // and uses the pipe to build two connections,
 // the request (param1) is the producer read pipe,
 // the response (param2) is the consumer write pipe.
 // todo customize the command
-func (i *processInstance) startProcess(request *os.File, response *os.File, functionName string) (err error) {
+func (i *processInstance) StartProcess(request *os.File, response *os.File, functionName string) (err error) {
 	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName,
 		viper.GetString(env.RedisIP), viper.GetString(env.RedisPort),
 		viper.GetString(env.RedisPassword), i.environment)
@@ -178,6 +180,62 @@ func (i *processInstance) startProcess(request *os.File, response *os.File, func
 	i.cmd = cmd
 	go i.handleCmdExit()
 	return
+}
+
+func (i *processInstance) startProcessDirect(request *os.File, response *os.File, functionName string) (err error) {
+	binaryPath := env.TassFileRoot + "runtime"
+	directoryPath := fmt.Sprintf("%s%s", env.TassFileRoot, i.uuid)
+	pluginPath := directoryPath + "/plugin.so"
+	i.codePrepare(directoryPath, pluginPath)
+	cmd := exec.Command(binaryPath, []string{"", pluginPath}...)
+	// It is different from docker, we do not create mount namespace and network namespace
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC,
+	}
+
+	_ = os.MkdirAll(fmt.Sprintf("%slogs/", env.TassFileRoot), 0777)
+	logFileName := fmt.Sprintf("%slogs/%s.log", env.TassFileRoot, i.uuid)
+	logFile, err := os.Create(logFileName)
+	zap.S().Debugw("init log file", "logFileName", logFileName)
+	if err != nil {
+		zap.S().Errorw("init log file error", "err", err)
+	} else {
+		cmd.Stdout = logFile
+	}
+
+	cmd.ExtraFiles = []*os.File{request, response}
+	// NOTE: Start starts the specified command but does not wait for it to complete.
+	err = cmd.Start()
+	i.cmd = cmd
+	go i.handleCmdExit()
+	return
+}
+
+// codePrepare decodes & unzips the code and places the code to the desired location
+// codePrepare is an expensive operation, because it needs to get code from remote storage center
+func (i *processInstance) codePrepare(directoryPath, pluginPath string) {
+	// 1. get plugin
+	code, err := store.Get(k8sutils.GetSelfNamespace(), i.functionName)
+	if err != nil {
+		zap.S().Panicw("get function content error", "err", err)
+	}
+	// 2. create process related files
+	err = os.MkdirAll(directoryPath, 0777)
+	if err != nil {
+		zap.S().Panicw("code prepare mkdir all error", "err", err)
+	}
+	f, err := os.Create(pluginPath)
+	if err != nil {
+		zap.S().Panicw("code prepare create error", "err", err)
+	}
+	// 3. write plugin to file
+	if _, err := f.Write([]byte(code)); err != nil {
+		zap.S().Panicw("init write error", "err", err)
+	}
+	if err := f.Sync(); err != nil {
+		zap.S().Panicw("init sync error", "err", err)
+	}
+	_ = f.Close()
 }
 
 // handleCmdExit cleans the process when receives a exit code
