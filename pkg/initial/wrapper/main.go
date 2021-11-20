@@ -113,7 +113,18 @@ func (w *Wrapper) Start() {
 
 // invoke invokes the requests and returns the response
 // todo implementation by go plugin
-func (w *Wrapper) invoke(request instance.FunctionRequest) instance.FunctionResponse {
+func (w *Wrapper) invoke(request instance.FunctionRequest) (res instance.FunctionResponse) {
+	defer func() {
+		if err := recover(); err != nil {
+			zap.S().Errorw("function handler panic:", "err", err)
+			res = instance.FunctionResponse{
+				ID: request.ID,
+				Result: map[string]interface{}{
+					"err": fmt.Sprintf("handler panic error: %v", err),
+				},
+			}
+		}
+	}()
 	if w.handler == nil {
 		request.Parameters["motto"] = "Veni Vidi Vici"
 		return instance.FunctionResponse{
@@ -121,7 +132,7 @@ func (w *Wrapper) invoke(request instance.FunctionRequest) instance.FunctionResp
 			Result: request.Parameters,
 		}
 	}
-	resp, err := w.handler(request.Parameters)
+	result, err := w.handler(request.Parameters)
 	if err != nil {
 		return instance.FunctionResponse{
 			ID:     request.ID,
@@ -130,7 +141,7 @@ func (w *Wrapper) invoke(request instance.FunctionRequest) instance.FunctionResp
 	}
 	return instance.FunctionResponse{
 		ID:     request.ID,
-		Result: resp,
+		Result: result,
 	}
 }
 

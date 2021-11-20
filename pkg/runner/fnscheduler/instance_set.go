@@ -55,9 +55,6 @@ func (s *instanceSet) Invoke(parameters map[string]interface{}) (map[string]inte
 					zap.S().Warnw("reset timer failed:", "err", err)
 				}
 				result, err = process.Invoke(parameters)
-				if err != nil {
-					zap.S().Debugw("retry in invoke err", "err", err)
-				}
 				return err
 			},
 			retry.RetryIf(func(err error) bool {

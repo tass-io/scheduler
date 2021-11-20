@@ -1,6 +1,7 @@
 package instance
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,7 +31,7 @@ const (
 )
 
 var (
-	selfExec   = "/proc/self/exe"
+	selfExec = "/proc/self/exe"
 	policies = map[string]func(*processInstance) int{
 		"default": defaultPolicyfunc,
 	}
@@ -242,7 +243,7 @@ func (i *processInstance) codePrepare(directoryPath, pluginPath string) {
 func (i *processInstance) handleCmdExit() {
 	err := i.cmd.Wait()
 	if err != nil {
-		zap.S().Errorw("processInstance cmd exit error", "processInstance", i.uuid, "err", err)
+		zap.S().Errorw("processInstance cmd exit error", "processId", i.uuid, "fn", i.functionName, "err", err)
 		i.cleanUp()
 	}
 
@@ -294,7 +295,11 @@ func (i *processInstance) Invoke(parameters map[string]interface{}) (result map[
 	i.responseMapping[id] = make(chan map[string]interface{})
 	i.producer.GetChannel() <- *req
 	i.lock.Unlock()
+	// result is FunctionResponse.Result
 	result = <-i.responseMapping[id]
+	if errStr, ok := result["err"]; ok {
+		err = errors.New(errStr.(string))
+	}
 	delete(i.responseMapping, id)
 	return
 }
