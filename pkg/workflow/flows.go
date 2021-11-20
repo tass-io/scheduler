@@ -105,13 +105,14 @@ func (m *Manager) parallelFlows(sp *span.Span, para map[string]interface{},
 func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{},
 	wf *serverlessv1alpha1.Workflow) (map[string]interface{}, error) {
 
-	para, err := common.CopyMap(parameters)
-	if err != nil {
-		zap.S().Errorw("copy map error", "err", err, "para", para)
-		return nil, err
-	}
+	// para, err := common.CopyMap(parameters)
+	// if err != nil {
+	// 	zap.S().Errorw("copy map error", "err", err, "para", para)
+	// 	return nil, err
+	// }
 
 	var targetFlowIndex int
+	var err error
 	if sp.GetFunctionName() == "" {
 		targetFlowIndex, err = findFlowByName(wf, sp.GetFlowName())
 		if err != nil {
@@ -130,7 +131,7 @@ func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{},
 	// execute the function and get results
 	// enter in rootspan if not from promise
 	// FIXME: targetFlowIndex now is redundant here
-	result, err := m.executeRunFunction(sp, para, wf, targetFlowIndex)
+	result, err := m.executeRunFunction(sp, parameters, wf, targetFlowIndex)
 	if err != nil {
 		zap.S().Errorw("executeRunFunction error", "err", err)
 		return nil, err

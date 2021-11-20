@@ -111,7 +111,7 @@ func TestProcessInstance(t *testing.T) {
 		So(err, ShouldBeNil)
 		err = complieCmd.Wait()
 		So(err, ShouldBeNil)
-		binary = "./main"
+		selfExec = "./main"
 		for _, testcase := range testcases {
 			if testcase.skipped {
 				continue

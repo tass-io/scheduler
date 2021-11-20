@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	binary   = "/proc/self/exe"
+	selfExec   = "/proc/self/exe"
 	policies = map[string]func(*processInstance) int{
 		"default": defaultPolicyfunc,
 	}
@@ -158,7 +158,7 @@ func (i *processInstance) StartProcess(request *os.File, response *os.File, func
 	initParam := fmt.Sprintf("init -n %s -I %s -P %s -S %s -E %s", functionName,
 		viper.GetString(env.RedisIP), viper.GetString(env.RedisPort),
 		viper.GetString(env.RedisPassword), i.environment)
-	cmd := exec.Command(binary, strings.Split(initParam, " ")...)
+	cmd := exec.Command(selfExec, strings.Split(initParam, " ")...)
 	// It is different from docker, we do not create mount namespace and network namespace
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS | syscall.CLONE_NEWIPC,

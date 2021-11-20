@@ -2,13 +2,13 @@ package instance
 
 import (
 	"bufio"
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"os"
 	"reflect"
-	"strings"
 
-	"github.com/tass-io/scheduler/pkg/utils/common"
+	// "github.com/tass-io/scheduler/pkg/utils/common"
 	"go.uber.org/zap"
 )
 
@@ -33,18 +33,10 @@ import (
 //
 
 var (
-	// splitByte is just for functionRequest package delimiter.
-	// For example, `{"a": "b"}littledrizzle{"a": "c"}` maybe in the pipe,
-	// so to split two request, we need a delimiter.
-	splitByte = []byte("Z")
-
 	// ping is a information to show the producer is ready to send requests,
 	// indicating the process is ready
 	ping = []byte("ping")
 )
-
-const bufSize = uint64(2 << 28)
-const rMask = (bufSize - 1)
 
 // FunctionRequest will be put into the producer and send it to request pipe
 type FunctionRequest struct {
@@ -54,14 +46,14 @@ type FunctionRequest struct {
 
 // NewFunctionRequest returns a new function request with unique id and parameters
 func NewFunctionRequest(id string, parameters map[string]interface{}) *FunctionRequest {
-	transfer, err := common.CopyMap(parameters)
-	if err != nil {
-		zap.S().Errorw("functionRequest marshal error", "err", err)
-		return nil
-	}
+	// transfer, err := common.CopyMap(parameters)
+	// if err != nil {
+	// 	zap.S().Errorw("functionRequest marshal error", "err", err)
+	// 	return nil
+	// }
 	return &FunctionRequest{
 		ID:         id,
-		Parameters: transfer,
+		Parameters: parameters,
 	}
 }
 
@@ -103,13 +95,13 @@ func (c *Consumer) Start() {
 	go func() {
 		typ := reflect.TypeOf(c.data)
 		zap.S().Debugw("consumer get type", "type", typ)
-		data := make([]byte, 4096+1024)
+		var data []byte
 		reader := bufio.NewReader(c.f)
-		tail := make([]byte, bufSize)
-		buffStart, buffEnd := uint64(0), uint64(0)
 		processInitDone := false
 		for {
-			n, err := reader.Read(data)
+			// 1. read the upstream contents length first
+			data = make([]byte, 8) // 8 bytes for int64 length
+			n, err := io.ReadFull(reader, data)
 			if n == 0 {
 				zap.S().Debug("read nothing")
 				if err == nil {
@@ -119,57 +111,32 @@ func (c *Consumer) Start() {
 					break
 				}
 			}
-
-			for _, b := range data[:n] {
-				tail[buffEnd&rMask] = b
-				buffEnd++
-				if buffEnd&rMask == buffStart&rMask {
-					zap.S().Panic("Consumer buffer: `tail` all used up")
-				}
+			// 2. read the upstream contents with the fixed sieze
+			data = make([]byte, bytesToInt64(data))
+			n, err = io.ReadFull(reader, data)
+			if n == 0 || err == io.EOF {
+				zap.S().Panic("consumer should get contents but gets nothing")
 			}
 
-			// tail = append(tail, data[:n]...)
-
+			// 2.1 check wether the process init done
 			if !processInitDone {
-				// this is sent when the producer starts at the first time
-				responseSlice := strings.Split(string(tail[buffStart&rMask:buffEnd&rMask]), string(splitByte))
-				zap.S().Info("receive a 'ping' signal", "", responseSlice)
-				if responseSlice[0] == string(ping) {
-					zap.S().Info("receive a 'ping' signal")
+				if string(data) == string(ping) {
+					zap.S().Debug("receive a 'ping' signal and init done")
 					processInitDone = true
 					c.initDoneChannel <- struct{}{}
-					buffStart += uint64(len(ping)) + uint64(len(splitByte))
+					continue
 				} else {
-					zap.S().Panic("Should receive ping from pipe but received other info")
+					zap.S().Panic("Should receive ping from pipe but received other info", "got", string(data))
 				}
 			}
 
-			for i := buffStart; i < buffEnd; i++ {
-				if tail[i&rMask] != 'Z' {
-					continue
-				}
-				// tail[i] == 'Z'
-				resp := reflect.New(typ.Elem())
-				newP := resp.Interface()
-				if buffStart&rMask < i&rMask {
-					err = json.Unmarshal(tail[buffStart&rMask:i&rMask], newP)
-				} else {
-					tmp := make([]byte, bufSize-buffStart&rMask+i&rMask)
-					for j, b := range tail[buffStart&rMask:] {
-						tmp[j] = b
-					}
-					for j, b := range tail[:i&rMask] {
-						tmp[bufSize-buffStart&rMask+uint64(j)] = b
-					}
-					err = json.Unmarshal(tmp, newP)
-				}
-				if err != nil {
-					zap.S().Errorw("consumer unmarshal error", "err", err)
-				}
-				zap.S().Debugw("get resp with in consumer ")
-				c.responseChannel <- newP
-				buffStart = i + 1
+			// 2.2 normal case: read contents from pipe and unmatshal
+			response := reflect.New(typ.Elem()).Interface() // cannot decalre a interface{} directly
+			err = json.Unmarshal(data, response)
+			if err != nil {
+				zap.S().Panic("consumer unmarshal error", "err", err)
 			}
+			c.responseChannel <- response
 		}
 
 		zap.S().Debug("no more requests")
@@ -213,36 +180,47 @@ func NewProducer(f *os.File, data interface{}) *Producer {
 
 // producer listens the channel and gets a request, writes the data to pipe
 func (p *Producer) Start() {
-	var signal []byte
-	signal = append(signal, ping...)
-	signal = append(signal, splitByte...)
-
-	n, err := p.f.Write(signal)
-	if err != nil || n != len(signal) {
-		zap.S().Panicw("instance producer starts error", "err", err, "reqByteLen", len(signal), "n", n)
+	n, err := p.f.Write(int64ToBytes(int64(4)))
+	if err != nil || n != 8 {
+		zap.S().Panicw("instance producer starts error", "err", err, "reqByteLen", len(ping), "n", n)
+	}
+	n, err = p.f.Write(ping)
+	if err != nil || n != len(ping) {
+		zap.S().Panicw("instance producer starts error", "err", err, "reqByteLen", len(ping), "n", n)
 	}
 
 	go func() {
 		for req := range p.requestChannel {
 			reqByte, err := json.Marshal(&req)
-			// zap.S().Debugw("producer get object", "object", string(reqByte))
 			if err != nil {
 				zap.S().Errorw("producer marshal error", "err", err)
 			}
-			// add delimiter
+			// write length of the request
+			reqByteLen := int64ToBytes(int64(len(reqByte)))
+			n, err = p.f.Write(reqByteLen)
+			if err != nil || n != 8 {
+				zap.S().Errorw("instance request error", "err", err, "reqByteLen", 8, "n", n)
+			}
+			// write the request
 			n, err := p.f.Write(reqByte)
 			if err != nil || n != len(reqByte) {
 				zap.S().Errorw("instance request error", "err", err, "reqByteLen", len(reqByte), "n", n)
-			}
-			n, err = p.f.Write(splitByte)
-			if err != nil || n != 1 {
-				zap.S().Errorw("instance request error", "err", err, "reqByteLen", 1, "n", n)
 			}
 		}
 		zap.S().Debug("producer close")
 		p.startRoutineExited = true
 		p.f.Close()
 	}()
+}
+
+func int64ToBytes(i int64) []byte {
+	var buf = make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(i))
+	return buf
+}
+
+func bytesToInt64(buf []byte) int64 {
+	return int64(binary.BigEndian.Uint64(buf))
 }
 
 // Terminate closes producer request channel
