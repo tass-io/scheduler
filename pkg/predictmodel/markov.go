@@ -1,9 +1,11 @@
 package predictmodel
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/tass-io/scheduler/pkg/predictmodel/store"
+	"go.uber.org/zap"
 )
 
 type markov struct{}
@@ -74,6 +76,12 @@ func setFlowsProbability(s *store.Statistics) {
 		shouldRequeue := false
 		for index, path := range obj.Paths {
 			if path.Count == 0 {
+				continue
+			}
+			// unexpected error case
+			if _, ok := s.Flows[path.From]; !ok {
+				zap.S().Error("generate markov probability model failed",
+					"err", fmt.Sprintf("flow %s's path from %s not found", flowName, path.From))
 				continue
 			}
 			// case 2.1: if upstream flow probility is 0, drop it

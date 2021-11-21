@@ -132,6 +132,7 @@ func (m *Manager) executeSpec(sp *span.Span, parameters map[string]interface{},
 	// enter in rootspan if not from promise
 	// FIXME: targetFlowIndex now is redundant here
 	result, err := m.executeRunFunction(sp, parameters, wf, targetFlowIndex)
+	zap.S().Debugw("executeRunFunction", "result", result)
 	if err != nil {
 		zap.S().Errorw("executeRunFunction error", "err", err)
 		return nil, err
@@ -260,8 +261,7 @@ func (m *Manager) findNext(sp *span.Span,
 
 // executeCondition handles all about a condition.
 func (m *Manager) executeCondition(sp *span.Span, condition *serverlessv1alpha1.Condition,
-	wf *serverlessv1alpha1.Workflow, target int,
-	functionResult map[string]interface{}) (map[string]interface{}, error) {
+	wf *serverlessv1alpha1.Workflow, target int, functionResult map[string]interface{}) (map[string]interface{}, error) {
 
 	branchRes := executeConditionLogic(condition, functionResult)
 	var next *serverlessv1alpha1.Next
@@ -350,10 +350,14 @@ func compare(left interface{}, right interface{}, op serverlessv1alpha1.Operator
 		return result
 	case *string:
 		right := right.(*string)
-		return compareString(*left, *right, op)
+		result := compareString(*left, *right, op)
+		zap.S().Debugw("get compareString result at compare", "result", result)
+		return result
 	case *bool:
 		right := right.(*bool)
-		return compareBool(*left, *right, op)
+		result := compareBool(*left, *right, op)
+		zap.S().Debugw("get compareBool result at compare", "result", result)
+		return result
 	default:
 		zap.S().Panic(op)
 	}

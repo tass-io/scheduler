@@ -267,7 +267,6 @@ func CreateUnstructuredListWatch(ctx context.Context, ns string, resrc schema.Gr
 	return &cache.ListWatch{
 		ListFunc: func(opts metav1.ListOptions) (runtime.Object, error) {
 			result, err := dynamicClient.Resource(resrc).Namespace(ns).List(ctx, opts)
-			zap.S().Debugw("get result at list and watch", "result", result)
 			return result, err
 		},
 		// Setup the watch function
