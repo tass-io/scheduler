@@ -62,8 +62,9 @@ func NewSpanFromTheSameFlowSpanAsParent(sp *Span) *Span {
 // NewSpanFromSpanSibling returns a new Span which is in the same level as the input Span.
 func NewSpanFromSpanSibling(sp *Span) *Span {
 	return &Span{
-		workflowName: sp.workflowName,
-		root:         sp.root,
+		workflowName:     sp.workflowName,
+		upstreamFlowName: sp.flowName,
+		root:             sp.root,
 		// FIXME: Can this be `sp.parent` ?
 		parent:     sp.root,
 		startOnce:  &sync.Once{},

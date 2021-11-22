@@ -34,6 +34,7 @@ func (m *Manager) parallelConditions(
 	for _, next := range nexts {
 		// think about all next is like a new workflow
 		newSp := span.NewSpanFromSpanSibling(sp)
+		newSp.SetFlowName(next)
 		cond := findConditionByName(next, &flow)
 		p := NewCondPromise(m.executeCondition, next)
 		zap.S().Debugw("call condition with parameter", "flow", newSp.GetFlowName(), "parameters", para, "target", target)
@@ -69,7 +70,6 @@ func (m *Manager) parallelFlowsWithSpan(sp *span.Span, para map[string]interface
 	promises := []*FlowPromise{}
 	for _, next := range nexts {
 		newSp := span.NewSpanFromSpanSibling(sp)
-		newSp.SetUpstreamFlowName(sp.GetFlowName())
 		newSp.SetFlowName(wf.Spec.Spec[next].Name)
 		p := NewFlowPromise(m.executeSpec, newSp.GetFlowName())
 		zap.S().Debugw("call function with parameter", "flow", newSp.GetFlowName(), "parameters", para)
