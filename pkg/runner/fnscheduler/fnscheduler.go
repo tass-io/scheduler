@@ -129,16 +129,18 @@ func ChooseTargetInstance(instances []instance.Instance) (target instance.Instan
 func (fs *FunctionScheduler) Stats() runner.InstanceStatus {
 	stats := runner.InstanceStatus{}
 	fs.Lock()
+	defer fs.Unlock()
 	for functionName, s := range fs.instances {
 		stats[functionName] = s.Stats()
 	}
-	fs.Unlock()
 	return stats
 }
 
 // FunctionStats returns the current running instances numbers for the given function (param1)
 // if the instanceSet for the function doesn't exist, it returns 0
 func (fs *FunctionScheduler) FunctionStats(functionName string) int {
+	fs.Lock()
+	defer fs.Unlock()
 	set, ok := fs.instances[functionName]
 	if !ok {
 		return 0

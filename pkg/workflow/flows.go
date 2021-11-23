@@ -22,8 +22,7 @@ var (
 )
 
 // parallelConditions just handles Flow.Outputs and Condition.Flows, they do the same logic
-func (m *Manager) parallelConditions(
-	sp *span.Span, para map[string]interface{}, wf *serverlessv1alpha1.Workflow,
+func (m *Manager) parallelConditions(sp *span.Span, para map[string]interface{}, wf *serverlessv1alpha1.Workflow,
 	target int, nexts []string) (map[string]interface{}, error) {
 
 	if len(nexts) == 0 {
@@ -33,8 +32,9 @@ func (m *Manager) parallelConditions(
 	flow := wf.Spec.Spec[target]
 	for _, next := range nexts {
 		// think about all next is like a new workflow
-		newSp := span.NewSpanFromSpanSibling(sp)
-		newSp.SetFlowName(next)
+		// however, next will finaly do the m.executeCondition
+		// so this newSp should not be the next sp
+		newSp := span.NewSpan(sp.GetFlowName(), sp.GetUpstreamFlowName(), sp.GetFlowName(), sp.GetFunctionName())
 		cond := findConditionByName(next, &flow)
 		p := NewCondPromise(m.executeCondition, next)
 		zap.S().Debugw("call condition with parameter", "flow", newSp.GetFlowName(), "parameters", para, "target", target)

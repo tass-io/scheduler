@@ -121,6 +121,10 @@ func (m *manager) updatePredictionModel(d time.Duration) {
 func (m *manager) calculateMLP() {
 	mlp := make(map[string]*flowRuntime)
 	modelStart := m.model.Flows[m.model.Start]
+	if modelStart.TotalExec == 0 {
+		m.mlp = mlp
+		return
+	}
 	start := &flowRuntime{
 		flow:         modelStart.Flow,
 		fn:           modelStart.Fn,

@@ -20,6 +20,7 @@ import (
 	// init logging config
 	_ "github.com/tass-io/scheduler/pkg/utils/log"
 
+	_ "github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -51,6 +52,7 @@ var (
 			workflow.GetManager().Start()
 
 			r := gin.Default()
+			// pprof.Register(r)
 			schttp.RegisterRoute(r)
 			server := &http.Server{
 				Addr:    ":" + viper.GetString(env.Port),

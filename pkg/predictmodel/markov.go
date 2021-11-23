@@ -63,7 +63,9 @@ func setFlowsProbability(s *store.Statistics) {
 	queue = append(queue, s.Flows[s.Start].Nexts...)
 	for len(queue) > 0 {
 		flowName := queue[0]
-		queue = queue[1:]
+		newQueue := make([]string, 0)
+		newQueue = append(newQueue, queue[1:]...)
+		queue = newQueue
 		obj := s.Flows[flowName]
 		// case 0: redundant calculation, drop it directly
 		if _, ok := unfinished[flowName]; !ok {

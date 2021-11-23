@@ -1,6 +1,7 @@
 package span
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -49,13 +50,14 @@ func NewSpanFromTheSameFlowSpanAsParent(sp *Span) *Span {
 		// panic(sp) // for some test, there are no span
 	}
 	return &Span{
-		workflowName: sp.workflowName,
-		flowName:     sp.flowName,
-		functionName: sp.functionName,
-		root:         sp.root,
-		parent:       parent,
-		startOnce:    &sync.Once{},
-		finishOnce:   &sync.Once{},
+		workflowName:     sp.workflowName,
+		upstreamFlowName: sp.upstreamFlowName,
+		flowName:         sp.flowName,
+		functionName:     sp.functionName,
+		root:             sp.root,
+		parent:           parent,
+		startOnce:        &sync.Once{},
+		finishOnce:       &sync.Once{},
 	}
 }
 
@@ -168,4 +170,9 @@ func (span *Span) InjectRoot(header http.Header) {
 	if err != nil {
 		zap.S().Errorw("err at inject jaeger header", "err", err)
 	}
+}
+
+func (span *Span) String() string {
+	return fmt.Sprintf("span{workflow:%s,upstream:%s,flow:%s,function:%s",
+		span.workflowName, span.upstreamFlowName, span.flowName, span.functionName)
 }

@@ -6,6 +6,7 @@ require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible
 	github.com/gin-contrib/cors v1.3.1
+	github.com/gin-contrib/pprof v1.3.0
 	github.com/gin-gonic/gin v1.7.1
 	github.com/go-playground/validator/v10 v10.5.0 // indirect
 	github.com/go-redis/redis/v8 v8.8.2

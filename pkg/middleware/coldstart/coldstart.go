@@ -74,7 +74,6 @@ func (cs *coldstartMiddleware) Handle(
 		}
 		start := time.Now()
 		fnschedule.GetScheduler().NewInstanceSetIfNotExist(functionName)
-
 		// create an event, the scheduler tries to create an instance locally,
 		// if still fails, it then goes to LSDS
 		event := event.ScheduleEvent{
