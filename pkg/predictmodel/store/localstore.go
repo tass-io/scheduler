@@ -2,6 +2,7 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -13,18 +14,18 @@ import (
 )
 
 const (
-	yamlSuffix = ".yaml"
+	yamlSuffix       = ".yaml"
+	modelDir         = env.TassFileRoot + "model/"
+	dataDir          = env.TassFileRoot + "data/"
+	coldstartDataDir = dataDir + "%s/coldstart/"
+	execDataDir      = dataDir + "%s/exec/"
 )
 
 // localstore stores statistics files in local file system
-type localstore struct {
-	path string
-}
+type localstore struct{}
 
 func NewLocalstore() Store {
-	return &localstore{
-		path: env.TassFileRoot + "model/",
-	}
+	return &localstore{}
 }
 
 var _ Store = &localstore{}
@@ -32,9 +33,9 @@ var _ Store = &localstore{}
 func (s *localstore) GetStatistics(name string) (*Statistics, error) {
 	var sts *Statistics
 	// the stored model file path
-	filename := s.path + name + yamlSuffix
+	filename := modelDir + name + yamlSuffix
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		err := os.MkdirAll(s.path, os.ModePerm)
+		err := os.MkdirAll(modelDir, os.ModePerm)
 		if err != nil {
 			return nil, err
 		}
@@ -64,6 +65,9 @@ func (s *localstore) newStatistics(name string) (*Statistics, error) {
 		return nil, errors.New("workflow not found")
 	}
 	sts := genStsTemplate(wf)
+	if err := s.genStsDependencies(name, sts); err != nil {
+		return nil, err
+	}
 	return sts, nil
 }
 
@@ -100,6 +104,57 @@ func genStsTemplate(wf *v1alpha1.Workflow) *Statistics {
 	return sts
 }
 
+func (s *localstore) genStsDependencies(wfName string, sts *Statistics) error {
+	err := mkdir(fmt.Sprintf(coldstartDataDir, wfName), fmt.Sprintf(execDataDir, wfName))
+	if err != nil {
+		return err
+	}
+	for _, obj := range sts.Flows {
+		// handle workflow start
+		if obj.Flow == sts.Start {
+			mkfileForColdstartAndExec(wfName, sts.Start, "")
+			continue
+		}
+		mkfileForColdstartAndExec(wfName, obj.Flow, obj.Parents...)
+	}
+	return nil
+}
+
+func mkdir(paths ...string) error {
+	for _, path := range paths {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			err := os.MkdirAll(path, os.ModePerm)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func mkfileForColdstartAndExec(wfName, flow string, parents ...string) error {
+	if err := mkfile(fmt.Sprint(coldstartDataDir, wfName), flow); err != nil {
+		return err
+	}
+	for _, parent := range parents {
+		if err := mkfile(fmt.Sprintf(execDataDir, wfName), parent+"=>"+flow); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func mkfile(base, filename string) error {
+	if _, err := os.Stat(base + filename); os.IsNotExist(err) {
+		f, err := os.Create(base + filename)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+	}
+	return nil
+}
+
 func (s *localstore) unmarshalStatistics(filename string) (*Statistics, error) {
 	sts := Statistics{}
 	buf, err := ioutil.ReadFile(filename)
@@ -114,7 +169,7 @@ func (s *localstore) unmarshalStatistics(filename string) (*Statistics, error) {
 }
 
 func (s *localstore) MarshalStatistics(workflowName string, statistics *Statistics) error {
-	filename := s.path + workflowName + yamlSuffix
+	filename := modelDir + workflowName + yamlSuffix
 	return s.marshalStatistics(filename, statistics)
 }
 
@@ -127,6 +182,63 @@ func (s *localstore) marshalStatistics(filename string, sts *Statistics) error {
 	err = ioutil.WriteFile(filename, data, 0)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func (s *localstore) AppendColdstartAndExecHistory(workflowName string, statistics *Statistics) error {
+	err := s.appendColdstart(workflowName, statistics)
+	if err != nil {
+		return err
+	}
+	err = s.appendExec(workflowName, statistics)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *localstore) appendColdstart(wfName string, statistics *Statistics) error {
+	for _, obj := range statistics.Flows {
+		if len(obj.Coldstart) == 0 {
+			continue
+		}
+		f, err := os.OpenFile(fmt.Sprintf(coldstartDataDir, wfName)+obj.Flow, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		var data string
+		for _, val := range obj.Coldstart {
+			data += fmt.Sprintf("%s,", val.String())
+		}
+		if _, err = f.WriteString(data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *localstore) appendExec(wfName string, statistics *Statistics) error {
+	for _, obj := range statistics.Flows {
+		for _, path := range obj.Paths {
+			if len(path.Exec) == 0 {
+				continue
+			}
+			fileName := path.From + "=>" + obj.Flow
+			f, err := os.OpenFile(fmt.Sprintf(execDataDir, wfName)+fileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			var data string
+			for _, val := range path.Exec {
+				data += fmt.Sprintf("%s,", val.String())
+			}
+			if _, err = f.WriteString(data); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

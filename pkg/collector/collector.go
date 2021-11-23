@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	updateModelInterval = time.Second * 10
+	updateModelInterval = time.Second * 30
 )
 
 var collector *Collector

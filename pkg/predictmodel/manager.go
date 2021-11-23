@@ -70,6 +70,7 @@ func (pm *Manager) PatchRecords(records map[string]*store.Object) error {
 	if err != nil {
 		return err
 	}
+	err = pm.store.AppendColdstartAndExecHistory(pm.wf, sts)
 	pm.updateStatistics(sts)
 	return nil
 }

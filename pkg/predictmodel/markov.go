@@ -36,16 +36,17 @@ func copyStatistics(s *store.Statistics) *store.Statistics {
 		nexts := []string{}
 		nexts = append(nexts, obj.Nexts...)
 		flows[key] = &store.Object{
-			Flow:         obj.Flow,
-			Fn:           obj.Fn,
-			Coldstart:    coldstart,
-			Paths:        paths,
-			Parents:      parents,
-			Nexts:        nexts,
-			AvgColdStart: obj.AvgColdStart,
-			AvgExec:      obj.AvgExec,
-			Total:        obj.Total,
-			Probability:  obj.Probability,
+			Flow:           obj.Flow,
+			Fn:             obj.Fn,
+			Coldstart:      coldstart,
+			Paths:          paths,
+			Parents:        parents,
+			Nexts:          nexts,
+			AvgColdStart:   obj.AvgColdStart,
+			AvgExec:        obj.AvgExec,
+			TotalExec:      obj.TotalExec,
+			TotalColdStart: obj.TotalColdStart,
+			Probability:    obj.Probability,
 		}
 	}
 	return &store.Statistics{
@@ -69,7 +70,7 @@ func setFlowsProbability(s *store.Statistics) {
 			continue
 		}
 		// case 1: flow has no request, drop it and its nexts
-		if obj.Total == 0 {
+		if obj.TotalExec == 0 {
 			continue
 		}
 		// case 2: normal case, try calculating the probability
@@ -85,18 +86,18 @@ func setFlowsProbability(s *store.Statistics) {
 				continue
 			}
 			// case 2.1: if upstream flow probility is 0, drop it
-			if s.Flows[path.From].Probability == 0 && s.Flows[path.From].Total == 0 {
+			if s.Flows[path.From].Probability == 0 && s.Flows[path.From].TotalExec == 0 {
 				continue
 			}
 			// case 2.2: if upstream flow don't finish calculation, calculate later and put upstream flow into queue
-			if s.Flows[path.From].Probability == 0 && s.Flows[path.From].Total != 0 {
+			if s.Flows[path.From].Probability == 0 && s.Flows[path.From].TotalExec != 0 {
 				queue = append(queue, path.From)
 				shouldRequeue = true
 				continue
 			}
 			// case 2.3: if upstream flow have finished calculation, calculate the probability
 			// probability = upstream_probability * (path_count / upstream_total)
-			path.Probability = (float64(path.Count) / float64(s.Flows[path.From].Total)) * s.Flows[path.From].Probability
+			path.Probability = (float64(path.Count) / float64(s.Flows[path.From].TotalExec)) * s.Flows[path.From].Probability
 			obj.Paths[index] = path
 		}
 		// requeue the current flow to wait for its upstream flow to finish calculation

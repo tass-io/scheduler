@@ -7,6 +7,7 @@ type Store interface {
 	GetStatistics(workflowName string) (*Statistics, error)
 	// MarshalStatistics stores the workflow model
 	MarshalStatistics(workflowName string, statistics *Statistics) error
+	AppendColdstartAndExecHistory(workflowName string, statistics *Statistics) error
 }
 
 type Statistics struct {
@@ -16,23 +17,24 @@ type Statistics struct {
 }
 
 type Object struct {
-	Flow         string          `yaml:"flow"`           // flow name
-	Fn           string          `yaml:"fn"`             // function name
-	Coldstart    []time.Duration `yaml:"coldstart,flow"` // history of coldstart time
-	Paths        []Path          `yaml:"paths,flow"`     // history of execution time from the specific path
-	Parents      []string        `yaml:"parents,flow"`   // parent flows name
-	Nexts        []string        `yaml:"nexts,flow"`     // downstream flows
-	AvgColdStart time.Duration   `yaml:"avgColdStart"`   // average coldstart time
-	AvgExec      time.Duration   `yaml:"avgExec"`        // average execution time
-	Total        int64           `yaml:"total"`          // total count of all paths
-	Probability  float64         `yaml:"-"`              // probability of the flow
+	Flow           string          `yaml:"flow"`           // flow name
+	Fn             string          `yaml:"fn"`             // function name
+	Paths          []Path          `yaml:"paths,flow"`     // history of execution time from the specific path
+	Parents        []string        `yaml:"parents,flow"`   // parent flows name
+	Nexts          []string        `yaml:"nexts,flow"`     // downstream flows
+	AvgColdStart   time.Duration   `yaml:"avgColdStart"`   // average coldstart time
+	AvgExec        time.Duration   `yaml:"avgExec"`        // average execution time
+	TotalExec      int64           `yaml:"totalExec"`      // total count of all paths of exec
+	TotalColdStart int64           `yaml:"totalColdStart"` // total count of coldstart
+	Probability    float64         `yaml:"-"`              // probability of the flow
+	Coldstart      []time.Duration `yaml:"-"`              // temp field to store recorded coldstart time
 }
 
 type Path struct {
-	From        string          `yaml:"from"`      // upstream flow name
-	Count       int64           `yaml:"count"`     // available count
-	Exec        []time.Duration `yaml:"exec,flow"` // history of execution time
-	Probability float64         `yaml:"-"`         // probability of the flow for this specific execution path
+	From        string          `yaml:"from"`  // upstream flow name
+	Count       int64           `yaml:"count"` // available count
+	Probability float64         `yaml:"-"`     // probability of the flow for this specific execution path
+	Exec        []time.Duration `yaml:"-"`     // temp field to store recorded execution time
 }
 
 func (s *Statistics) Merge(data map[string]*Object) {
@@ -42,15 +44,16 @@ func (s *Statistics) Merge(data map[string]*Object) {
 			continue
 		}
 		// update flow coldstart
-		s.Flows[flowName].Coldstart = append(s.Flows[flowName].Coldstart, obj.Coldstart...)
-		s.Flows[flowName].AvgColdStart = avg(s.Flows[flowName].Coldstart)
+		s.Flows[flowName].Coldstart = obj.Coldstart
+		s.Flows[flowName].AvgColdStart =
+			avg(s.Flows[flowName].AvgColdStart, s.Flows[flowName].TotalColdStart, s.Flows[flowName].Coldstart)
 		// update flow execution time for each path
 		for _, objPath := range obj.Paths {
 			objExistInRaw := false
 			for index, rawPath := range s.Flows[flowName].Paths {
 				if rawPath.From == objPath.From {
+					rawPath.Exec = objPath.Exec
 					rawPath.Count += objPath.Count
-					rawPath.Exec = append(rawPath.Exec, objPath.Exec...)
 					s.Flows[flowName].Paths[index] = rawPath
 					objExistInRaw = true
 					break
@@ -64,24 +67,24 @@ func (s *Statistics) Merge(data map[string]*Object) {
 		for _, path := range s.Flows[flowName].Paths {
 			execSlice = append(execSlice, path.Exec...)
 		}
-		s.Flows[flowName].AvgExec = avg(execSlice)
+		s.Flows[flowName].AvgExec = avg(s.Flows[flowName].AvgExec, s.Flows[flowName].TotalExec, execSlice)
 		// update flow total
 		total := int64(0)
 		for _, path := range s.Flows[flowName].Paths {
 			total += path.Count
 		}
-		s.Flows[flowName].Total = total
+		s.Flows[flowName].TotalExec = total
 	}
 	s.Version++
 }
 
-func avg(sli []time.Duration) time.Duration {
+func avg(oldAvg time.Duration, count int64, sli []time.Duration) time.Duration {
 	if len(sli) == 0 {
-		return 0
+		return oldAvg
 	}
 	var sum time.Duration
 	for _, d := range sli {
 		sum += d
 	}
-	return sum / time.Duration(len(sli))
+	return (sum + oldAvg*time.Duration(count)) / time.Duration(int64(len(sli))+count)
 }
