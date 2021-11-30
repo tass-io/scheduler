@@ -84,7 +84,7 @@ func NewWrapper() *Wrapper {
 	}
 	m := cmap.New()
 	p := instance.NewProducer(producerFile, &instance.FunctionResponse{})
-	c := instance.NewConsumer(requestFile, &instance.FunctionRequest{})
+	c := instance.NewConsumer(requestFile, []byte{})
 	p.Role = 2
 	c.Role = 1
 	wrapper := &Wrapper{
