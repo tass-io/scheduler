@@ -36,7 +36,7 @@ type Wrapper struct {
 
 // handlerFn is the user function signature
 // all user defined functions should be declared as this type
-type handlerFn func(map[string]interface{}) (map[string]interface{}, error)
+type handlerFn func([]byte) []byte
 
 // loadPlugin takes the codePath, loads the plugin code and returns the handler function
 func loadPlugin(codePath string, entrypoint string) (handlerFn, error) {
@@ -66,7 +66,7 @@ func loadPlugin(codePath string, entrypoint string) (handlerFn, error) {
 		return nil, fmt.Errorf("entry point not found: %v", err)
 	}
 
-	return sym.(func(map[string]interface{}) (map[string]interface{}, error)), nil
+	return sym.(func([]byte) []byte), nil
 
 }
 
@@ -83,10 +83,14 @@ func NewWrapper() *Wrapper {
 		zap.S().Warnw("user code puglin load error", "err", err)
 	}
 	m := cmap.New()
+	p := instance.NewProducer(producerFile, &instance.FunctionResponse{})
+	c := instance.NewConsumer(requestFile, &instance.FunctionRequest{})
+	p.Role = 2
+	c.Role = 1
 	wrapper := &Wrapper{
 		requestMap:      m,
-		consumer:        instance.NewConsumer(requestFile, &instance.FunctionRequest{}),
-		producer:        instance.NewProducer(producerFile, &instance.FunctionResponse{}),
+		consumer:        c,
+		producer:        p,
 		handler:         handler,
 		receiveShutdown: false,
 	}
@@ -100,49 +104,29 @@ func (w *Wrapper) Start() {
 	reqChan := w.consumer.GetChannel()
 
 	for reqRaw := range reqChan {
-		req := reqRaw.(*instance.FunctionRequest)
 		// do the invocation
-		go func() {
-			w.requestMap.Set(req.ID, "")
-			result := w.invoke(*req)
-			w.producer.GetChannel() <- result
-			w.requestMap.Remove(req.ID)
-		}()
+		w.requestMap.Set("123456", "")
+		input := reqRaw.([]byte)
+		result := w.invoke(input)
+		w.producer.GetChannel() <- result
+		w.requestMap.Remove("123456")
 	}
 }
 
 // invoke invokes the requests and returns the response
 // todo implementation by go plugin
-func (w *Wrapper) invoke(request instance.FunctionRequest) (res instance.FunctionResponse) {
+func (w *Wrapper) invoke(request []byte) (res []byte) {
 	defer func() {
 		if err := recover(); err != nil {
 			zap.S().Errorw("function handler panic:", "err", err)
-			res = instance.FunctionResponse{
-				ID: request.ID,
-				Result: map[string]interface{}{
-					"err": fmt.Sprintf("handler panic error: %v", err),
-				},
-			}
+			res = []byte{}
 		}
 	}()
 	if w.handler == nil {
-		request.Parameters["motto"] = "Veni Vidi Vici"
-		return instance.FunctionResponse{
-			ID:     request.ID,
-			Result: request.Parameters,
-		}
+		return []byte{}
 	}
-	result, err := w.handler(request.Parameters)
-	if err != nil {
-		return instance.FunctionResponse{
-			ID:     request.ID,
-			Result: map[string]interface{}{"err": err.Error()},
-		}
-	}
-	return instance.FunctionResponse{
-		ID:     request.ID,
-		Result: result,
-	}
+	result := w.handler(request)
+	return result
 }
 
 // Shutdown sets Warpper `receiveShutdown` field as true

@@ -1,9 +1,9 @@
 package controller
 
 import (
+	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/opentracing/opentracing-go"
 	"github.com/tass-io/scheduler/pkg/dto"
 	"github.com/tass-io/scheduler/pkg/span"
@@ -13,23 +13,19 @@ import (
 )
 
 // Invoke is called when a http request is received
-func Invoke(c *gin.Context) {
-	var request dto.WorkflowRequest
-
+func Invoke(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
+	var request dto.WorkflowRequest
+	request.WorkflowName = r.URL.Query().Get("workflow")
+	request.FlowName = r.URL.Query().Get("flow")
+	request.UpstreamFlowName = r.URL.Query().Get("upstream")
+
 	// 1. mapping into JSON format
-	if err := c.BindJSON(&request); err != nil {
-		zap.S().Errorw("invoke bind json error", "err", err)
-		c.JSON(400, dto.WorkflowResponse{
-			Success: false,
-			Time:    time.Since(start).String(),
-			Message: err.Error(),
-		})
-	}
+	request.Parameters = map[string]interface{}{"body": r.Body}
 
 	// 2. record opentracing span
 	var root opentracing.Span
-	spanContext, err := trace.GetSpanContextFromHeaders(request.WorkflowName, c.Request.Header)
+	spanContext, err := trace.GetSpanContextFromHeaders(request.WorkflowName, r.Header)
 	if err != nil {
 		if err == opentracing.ErrSpanContextNotFound {
 			// when the workflow executes the first Flow, it has no span context
@@ -53,18 +49,17 @@ func Invoke(c *gin.Context) {
 
 	// 3. invoke the busniess logic
 	result, err := workflow.GetManager().Invoke(sp, request.Parameters)
+	dto := dto.WorkflowResponse{}
 	if err != nil {
-		c.JSON(500, dto.WorkflowResponse{
-			Success: false,
-			Time:    time.Since(start).String(),
-			Message: err.Error(),
-		})
-		return
+		dto.Success = false
+		dto.Message = err.Error()
+		// 500
+	} else {
+		dto.Success = true
+		dto.Result = result
+		dto.Message = "ok"
+		// 200
 	}
-	c.JSON(200, dto.WorkflowResponse{
-		Success: true,
-		Time:    time.Since(start).String(),
-		Message: "ok",
-		Result:  result,
-	})
+	dto.Time = time.Since(start).String()
+	// write
 }

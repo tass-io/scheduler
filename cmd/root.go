@@ -7,7 +7,7 @@ import (
 	"time"
 
 	eventinit "github.com/tass-io/scheduler/pkg/event/init"
-	schttp "github.com/tass-io/scheduler/pkg/http"
+	"github.com/tass-io/scheduler/pkg/http/controller"
 	"github.com/tass-io/scheduler/pkg/initial"
 	middlewareinit "github.com/tass-io/scheduler/pkg/middleware/init"
 	"github.com/tass-io/scheduler/pkg/runner/fnscheduler"
@@ -21,7 +21,6 @@ import (
 	_ "github.com/tass-io/scheduler/pkg/utils/log"
 
 	_ "github.com/gin-contrib/pprof"
-	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/tass-io/scheduler/pkg/env"
@@ -51,26 +50,20 @@ var (
 			// start the manager based on the startup parameters
 			workflow.GetManager().Start()
 
-			r := gin.Default()
+			// r := gin.Default()
 			// pprof.Register(r)
-			schttp.RegisterRoute(r)
-			server := &http.Server{
-				Addr:    ":" + viper.GetString(env.Port),
-				Handler: r,
-			}
+			// schttp.RegisterRoute(r)
+			// server := &http.Server{
+			// 	Addr:    ":" + viper.GetString(env.Port),
+			// 	Handler: r,
+			// }
+
+			http.HandleFunc("/v1/workflow", controller.Invoke)
 
 			close := make(chan os.Signal, 1)
 			signal.Notify(close, os.Interrupt)
 
-			go func() {
-				<-close
-				zap.S().Info("receive interrupt signal")
-				if err := server.Close(); err != nil {
-					zap.S().Error("Server Close:", err)
-				}
-			}()
-
-			if err := server.ListenAndServe(); err != nil {
+			if err := http.ListenAndServe(":8080", nil); err != nil {
 				if err == http.ErrServerClosed {
 					zap.S().Info("Server closed under request")
 				} else {
