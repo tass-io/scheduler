@@ -47,7 +47,9 @@ var (
 	// mmap is a information to show the producer is sending the next request in a mmap area
 	mmap = []byte("mmap")
 	// TODO: try to fix this
-	ID = ""
+	ID        = ""
+	DataRef   []byte
+	MmapBytes = 0
 )
 
 // FunctionRequest will be put into the producer and send it to request pipe
@@ -119,6 +121,9 @@ func NewConsumer(f *os.File, data interface{}) *Consumer {
 	if consumer.dataRef, err = syscall.Mmap(int(m.Fd()), 0, defaultMemMapSize, syscall.PROT_WRITE|syscall.PROT_READ, syscall.MAP_SHARED); err != nil {
 		zap.S().Panicw(fmt.Sprintln(err))
 	}
+	if DataRef == nil {
+		DataRef = consumer.dataRef
+	}
 	return &consumer
 }
 
@@ -181,7 +186,8 @@ func (c *Consumer) Start() {
 				switch c.Role {
 				case 0:
 					{
-						// scheduler consumer get response data len in mmap from wrapper(runtime)
+						MmapBytes = int(bytesToInt64(data))
+						// scheduler consumer get responsruntimee data len in mmap from wrapper()
 						response = &FunctionResponse{
 							ID:     ID,
 							Result: map[string]interface{}{"mmapBytes": bytesToInt64(data)},
@@ -281,45 +287,43 @@ func (p *Producer) Start() {
 			// FIXME: handle the parallel request condition
 			switch p.Role {
 			case 0:
-				{
-					// The producer is just initialted by scheduler
-					p.Role = 1
-					rn, err := req.(FunctionRequest).Parameters["body"].(io.ReadCloser).Read(p.dataRef)
-					ID = req.(FunctionRequest).ID
-					if err != nil && err != io.EOF {
-						zap.S().Panicw("instance producer reading body error", "err", err, "rn", rn)
-					}
-					zap.S().Infow("instance producer is just creating. read", rn, "bytes")
-					n, err = p.f.Write(int64ToBytes(int64(len(mmap))))
-					if err != nil || n != 8 {
-						zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", len(mmap), "n", n)
-					}
-					n, err = p.f.Write(mmap)
-					if err != nil || n != len(mmap) {
-						zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", len(mmap), "n", n)
-					}
-					n, err = p.f.Write(int64ToBytes(int64(rn)))
-					if err != nil || n != 8 {
-						zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", 8, "n", n)
-					}
-				}
+				fallthrough
 			case 1:
 				{
-					// The producer is called once again by scheduler to transfer intermediate data
-					mmapBytes := int(req.(FunctionRequest).Parameters["mmapBytes"].(int64))
 					ID = req.(FunctionRequest).ID
-					n, err = p.f.Write(int64ToBytes(int64(len(mmap))))
-					if err != nil || n != 8 {
-						zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", len(mmap), "n", n)
+					if body, ok := req.(FunctionRequest).Parameters["body"].([]byte); ok {
+						// The producer is just initialted by scheduler
+						zap.S().Infow("instance getting a new request, get body", "bodyLen", len(body))
+						copy(p.dataRef, body)
+						n, err = p.f.Write(int64ToBytes(int64(len(mmap))))
+						if err != nil || n != 8 {
+							zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", len(mmap), "n", n)
+						}
+						n, err = p.f.Write(mmap)
+						if err != nil || n != len(mmap) {
+							zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", len(mmap), "n", n)
+						}
+						n, err = p.f.Write(int64ToBytes(int64(len(body))))
+						if err != nil || n != 8 {
+							zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", 8, "n", n)
+						}
+					} else {
+						// The producer is called once again by scheduler to transfer intermediate data
+						mmapBytes := int(req.(FunctionRequest).Parameters["mmapBytes"].(int64))
+						n, err = p.f.Write(int64ToBytes(int64(len(mmap))))
+						if err != nil || n != 8 {
+							zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", len(mmap), "n", n)
+						}
+						n, err = p.f.Write(mmap)
+						if err != nil || n != len(mmap) {
+							zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", len(mmap), "n", n)
+						}
+						n, err = p.f.Write(int64ToBytes(int64(mmapBytes)))
+						if err != nil || n != 8 {
+							zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", 8, "n", n)
+						}
 					}
-					n, err = p.f.Write(mmap)
-					if err != nil || n != len(mmap) {
-						zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", len(mmap), "n", n)
-					}
-					n, err = p.f.Write(int64ToBytes(int64(mmapBytes)))
-					if err != nil || n != 8 {
-						zap.S().Errorw("instance producer creating mmap request error", "err", err, "reqByteLen", 8, "n", n)
-					}
+
 				}
 			case 2:
 				{

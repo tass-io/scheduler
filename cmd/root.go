@@ -63,7 +63,7 @@ var (
 			close := make(chan os.Signal, 1)
 			signal.Notify(close, os.Interrupt)
 
-			if err := http.ListenAndServe(":8080", nil); err != nil {
+			if err := http.ListenAndServe(":80", nil); err != nil {
 				if err == http.ErrServerClosed {
 					zap.S().Info("Server closed under request")
 				} else {

@@ -1,11 +1,14 @@
 package controller
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/tass-io/scheduler/pkg/dto"
+	"github.com/tass-io/scheduler/pkg/runner/instance"
 	"github.com/tass-io/scheduler/pkg/span"
 	"github.com/tass-io/scheduler/pkg/trace"
 	"github.com/tass-io/scheduler/pkg/workflow"
@@ -14,14 +17,21 @@ import (
 
 // Invoke is called when a http request is received
 func Invoke(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
 	var request dto.WorkflowRequest
 	request.WorkflowName = r.URL.Query().Get("workflow")
 	request.FlowName = r.URL.Query().Get("flow")
 	request.UpstreamFlowName = r.URL.Query().Get("upstream")
 
+	zap.S().Info("a request is just coming.")
+	out, err := io.ReadAll(r.Body)
+	if err != nil && err != io.EOF {
+		zap.S().Panicw("request reading body error", "err", err)
+	}
+	zap.S().Infow("request body reading done", "readed:", len(out))
+
+	start := time.Now()
 	// 1. mapping into JSON format
-	request.Parameters = map[string]interface{}{"body": r.Body}
+	request.Parameters = map[string]interface{}{"body": out}
 
 	// 2. record opentracing span
 	var root opentracing.Span
@@ -51,15 +61,22 @@ func Invoke(w http.ResponseWriter, r *http.Request) {
 	result, err := workflow.GetManager().Invoke(sp, request.Parameters)
 	dto := dto.WorkflowResponse{}
 	if err != nil {
-		dto.Success = false
-		dto.Message = err.Error()
-		// 500
-	} else {
-		dto.Success = true
-		dto.Result = result
-		dto.Message = "ok"
-		// 200
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
 	}
+	dto.Success = true
+	dto.Result = result
+	dto.Message = "ok"
 	dto.Time = time.Since(start).String()
-	// write
+	h := w.Header()
+	h["tass-success"] = []string{fmt.Sprintf("%v", dto.Success)}
+	h["tass-message"] = []string{fmt.Sprintf("%v", dto.Message)}
+	h["tass-start"] = []string{fmt.Sprintf("%v", start)}
+	wf := func(input []byte) {
+		n, err := w.Write(input)
+		if n != len(input) || err != nil {
+			zap.S().Error(fmt.Sprintf("WTF?! n %v err %v", n, err))
+		}
+	}
+	wf([]byte(fmt.Sprintf(`{"resultsLen":%v,"time":"%v"}`, instance.MmapBytes, dto.Time)))
 }
